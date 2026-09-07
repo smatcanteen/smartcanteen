@@ -30,7 +30,7 @@ export const Route = createFileRoute("/first-run")({
 
 function FirstRun() {
   const navigate = useNavigate();
-  const { user, ready } = useAuth();
+  const { user, ready, refresh } = useAuth();
   const { setCapital, saveNow } = useStore();
 
   const [step, setStep] = useState<1 | 2>(1);
