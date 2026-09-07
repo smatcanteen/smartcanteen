@@ -298,21 +298,29 @@ function Accounts() {
                     <button
                       disabled={busyId === t.accountId}
                       onClick={async () => {
+                        if (!accounts.some((a) => a.id === t.accountId)) {
+                          setActionError(
+                            "This row has no login yet — create the operator login first.",
+                          );
+                          return;
+                        }
                         setBusyId(t.accountId);
+                        setActionError("");
                         const res = await resendOtp(t.accountId);
                         setBusyId(null);
-                        if (!res.ok) {
+                        if (!res.ok || !res.otp) {
                           setActionError(res.error ?? "Could not issue a new one-time password.");
                           return;
                         }
-                        setActionError("");
-                        setOtp({ id: t.accountId, code: res.otp ?? "" });
+                        setOtp({ id: t.accountId, code: res.otp });
                       }}
                       className="min-h-11 rounded-full border-2 border-outline-variant px-4 text-sm font-bold text-on-surface-variant disabled:opacity-50"
                     >
-                      <Icon name="sms" className="text-[18px]" /> New one-time password
+                      <Icon name="sms" className="text-[18px]" />{" "}
+                      {busyId === t.accountId ? "Working…" : "New one-time password"}
                     </button>
                   ) : null}
+
                   {user?.role === "admin" ? (
                     <button
                       disabled={busyId === t.accountId}

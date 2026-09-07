@@ -31,7 +31,18 @@ export function normalisePhone(raw: string) {
 /** Login address derived from the phone number — never shown to the operator. */
 export const phoneEmail = (phone: string) => `p${normalisePhone(phone)}@phone.smartcanteen.app`;
 
-const otp = () => String(Math.floor(100000 + Math.random() * 900000));
+/**
+ * One-time password the admin reads out to the operator. Six digits alone are
+ * rejected by Supabase's weak-password check, so mix easy-to-read letters and
+ * digits (no 0/O/1/I) into an 8 character code.
+ */
+const otp = () => {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let out = "";
+  for (let i = 0; i < 8; i += 1) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+};
+
 
 async function hashPin(pin: string, saltHex?: string) {
   const { randomBytes, scryptSync } = await import("node:crypto");
