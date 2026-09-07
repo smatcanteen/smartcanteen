@@ -53,8 +53,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const { user, ready, logout } = useAuth();
   const navigate = useNavigate();
 
+  useSetupGate(ready && !!user);
+
   useEffect(() => {
     if (!ready) return;
+
     if (!user) navigate({ to: "/login" });
     else if (!isAdminRole(user.role)) navigate({ to: homeForRole(user.role) });
     else if (user.otpPending) navigate({ to: "/first-run" });
