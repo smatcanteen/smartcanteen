@@ -51,6 +51,10 @@ export type Account = {
   active: boolean;
   /** True until the person has replaced the one-time password with a PIN. */
   otpPending?: boolean;
+  /** Locked out after four wrong PIN tries. */
+  pinLocked?: boolean;
+  /** They tapped "Forgot PIN" and are waiting for a new one-time password. */
+  pinResetRequested?: boolean;
 };
 
 type ProfileRow = {
@@ -61,6 +65,8 @@ type ProfileRow = {
   school: string;
   active: boolean;
   otp_pending: boolean;
+  pin_locked?: boolean;
+  pin_reset_requested?: boolean;
   created_at: string;
 };
 
@@ -105,6 +111,8 @@ const toAccount = (p: ProfileRow, role: Role): Account => ({
   createdAt: new Date(p.created_at).getTime(),
   active: p.active,
   otpPending: p.otp_pending,
+  pinLocked: !!p.pin_locked,
+  pinResetRequested: !!p.pin_reset_requested,
 });
 
 /** Staff sign in with an email; operators and agents sign in with a phone number. */
