@@ -81,7 +81,7 @@ function Dashboard() {
       </div>
 
       {can(user?.role, "revenue") ? (
-        <Card className="space-y-sm">
+        <Card className="min-w-0 space-y-sm">
           <SectionTitle>Payments collected — last 6 months</SectionTitle>
           <GroupedBars
             rows={payments}
@@ -90,7 +90,7 @@ function Dashboard() {
         </Card>
       ) : null}
 
-      <Card className="space-y-sm">
+      <Card className="min-w-0 space-y-sm">
         <SectionTitle>Activation funnel</SectionTitle>
         <div className="grid grid-cols-3 gap-sm">
           <Step label="Signed up" value={funnel.signed} total={funnel.signed} />
@@ -103,22 +103,22 @@ function Dashboard() {
         </p>
       </Card>
 
-      <div className="grid gap-md md:grid-cols-2">
-        <Card className="space-y-sm">
+      <div className="grid min-w-0 gap-md md:grid-cols-2">
+        <Card className="min-w-0 space-y-sm">
           <SectionTitle>Renewals due in 7 days</SectionTitle>
           {renewals.length === 0 ? (
             <p className="text-sm text-on-surface-variant">Nothing due this week.</p>
           ) : (
             renewals.map((r) => (
-              <div key={r.accountId} className="flex items-center justify-between rounded-md bg-surface-lowest p-3">
-                <span className="truncate text-sm font-bold text-on-surface">{r.canteenName}</span>
-                <span className="text-xs text-on-surface-variant">{fmtDate(r.nextBillingAt)}</span>
+              <div key={r.accountId} className="flex items-center justify-between gap-2 rounded-md bg-surface-lowest p-3">
+                <span className="min-w-0 truncate text-sm font-bold text-on-surface">{r.canteenName}</span>
+                <span className="shrink-0 text-xs text-on-surface-variant">{fmtDate(r.nextBillingAt)}</span>
               </div>
             ))
           )}
         </Card>
 
-        <Card className="space-y-sm">
+        <Card className="min-w-0 space-y-sm">
           <SectionTitle>Recently created accounts</SectionTitle>
           {recent.map((r) => (
             <Link
