@@ -276,6 +276,8 @@ type Ctx = {
   archiveTerm: (newTermName: string, carryCash: number, target: number) => void;
   restoreState: (next: State) => void;
   clearAll: () => void;
+  /** Force an immediate cloud save (used right after first-time setup). */
+  saveNow: () => Promise<void>;
 };
 
 const StoreContext = createContext<Ctx | null>(null);
