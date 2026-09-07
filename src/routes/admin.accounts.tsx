@@ -335,12 +335,37 @@ function Accounts() {
                 </div>
 
                 {otp?.id === t.accountId ? (
-                  <p className="rounded-md bg-surface-high p-3 text-sm font-semibold text-on-surface">
-                    New one-time password for {t.ownerName}:{" "}
-                    <span className="tracking-widest">{otp.code}</span> — send it on WhatsApp. Their old
-                    PIN no longer works.
-                  </p>
+                  (() => {
+                    const acc = accounts.find((a) => a.id === t.accountId);
+                    const msg = `Hello ${t.ownerName}, here is your new SmartCanteen one-time password: ${otp.code}\nPhone number to log in: +${acc?.phone ?? ""}\nOpen: ${loginLink}\nAfter signing in, set a new PIN in Settings.`;
+                    return (
+                      <div className="space-y-2 rounded-md bg-surface-high p-3">
+                        <p className="text-sm font-semibold text-on-surface">
+                          New one-time password for {t.ownerName}:{" "}
+                          <span className="tracking-widest">{otp.code}</span> — their old PIN no longer
+                          works.
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          <a
+                            href={whatsappLink(acc?.phone, msg)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex min-h-11 items-center gap-1 rounded-full bg-primary px-4 text-sm font-bold text-on-primary"
+                          >
+                            <Icon name="chat" className="text-[18px]" /> Send on WhatsApp
+                          </a>
+                          <button
+                            onClick={() => void navigator.clipboard?.writeText(msg)}
+                            className="inline-flex min-h-11 items-center gap-1 rounded-full border-2 border-outline-variant px-4 text-sm font-bold text-on-surface-variant"
+                          >
+                            <Icon name="content_copy" className="text-[18px]" /> Copy message
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()
                 ) : null}
+
                 {actionError ? (
                   <p className="text-sm font-semibold text-tertiary">{actionError}</p>
                 ) : null}
