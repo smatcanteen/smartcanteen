@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { listAccountProgress } from "@/lib/accounts.functions";
 import { Icon } from "@/components/Icon";
 import { Card, Field, PrimaryButton, SectionTitle } from "@/components/ui-kit";
@@ -349,71 +350,6 @@ function Accounts() {
                   ) : null}
                 </div>
 
-                {otp?.id === t.accountId ? (
-                  <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-                    role="dialog"
-                    aria-modal="true"
-                    aria-label="New one-time password"
-                    onClick={() => setOtp(null)}
-                  >
-                    {(() => {
-                      const acc = accounts.find((a) => a.id === t.accountId);
-                      const msg = `Hello ${t.ownerName}, here is your new SmartCanteen one-time password: ${otp.code}\nPhone number to log in: +${acc?.phone ?? ""}\nOpen: ${loginLink}\nAfter signing in, set a new PIN in Settings.`;
-                      return (
-                        <div
-                          className="w-full max-w-md space-y-4 rounded-2xl bg-surface p-5 shadow-2xl"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <h3 className="text-lg font-extrabold text-on-surface">
-                                New one-time password
-                              </h3>
-                              <p className="text-sm text-on-surface-variant">
-                                For {t.ownerName} · +{acc?.phone ?? "no phone on file"} — their old
-                                PIN no longer works.
-                              </p>
-                            </div>
-                            <button
-                              onClick={() => setOtp(null)}
-                              aria-label="Close"
-                              className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-on-surface-variant"
-                            >
-                              <Icon name="close" className="text-[22px]" />
-                            </button>
-                          </div>
-                          <div className="rounded-xl bg-surface-high px-4 py-6 text-center">
-                            <p className="text-4xl font-extrabold tracking-[0.35em] text-on-surface">
-                              {otp.code}
-                            </p>
-                          </div>
-                          <div className="flex flex-col gap-2 sm:flex-row">
-                            <a
-                              href={whatsappLink(acc?.phone ?? undefined, msg) ?? "#"}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-bold text-on-primary"
-                            >
-                              <Icon name="chat" className="text-[18px]" /> Send on WhatsApp
-                            </a>
-                            <button
-                              onClick={() => void navigator.clipboard?.writeText(msg)}
-                              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full border-2 border-outline-variant px-4 text-sm font-bold text-on-surface-variant"
-                            >
-                              <Icon name="content_copy" className="text-[18px]" /> Copy message
-                            </button>
-                          </div>
-                          <p className="text-xs text-on-surface-variant">
-                            Send this to the operator. They sign in with their phone number and this
-                            password, then set a new PIN in Settings.
-                          </p>
-                        </div>
-                      );
-                    })()}
-                  </div>
-                ) : null}
-
                 {actionError ? (
                   <p className="text-sm font-semibold text-tertiary">{actionError}</p>
                 ) : null}
@@ -450,6 +386,115 @@ function Accounts() {
         ))}
         {rows.length === 0 ? <SectionTitle>No accounts match this filter.</SectionTitle> : null}
       </div>
+      {otp ? (
+        <OtpModal
+          code={otp.code}
+          ownerName={
+            s.tenants.find((t) => t.accountId === otp.id)?.ownerName ?? "the operator"
+          }
+          phone={accounts.find((a) => a.id === otp.id)?.phone ?? ""}
+          onClose={() => setOtp(null)}
+        />
+      ) : null}
     </>
+  );
+}
+
+function OtpModal({
+  code,
+  ownerName,
+  phone,
+  onClose,
+}: {
+  code: string;
+  ownerName: string;
+  phone: string;
+  onClose: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const msg = `Hello ${ownerName}, here is your new SmartCanteen one-time password: ${code}\nPhone number to log in: +${phone}\nOpen: ${loginLink}\nAfter signing in, set a new PIN in Settings.`;
+  const wa = whatsappLink(phone || undefined, msg);
+
+  // Rendered at the page root through a portal so no card layout can clip or
+  // squeeze it; lock the page scroll while it is open.
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-4 sm:items-center"
+      role="dialog"
+      aria-modal="true"
+      aria-label="New one-time password"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-sm space-y-4 rounded-3xl bg-surface p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="text-lg font-extrabold text-on-surface">New one-time password</h3>
+            <p className="text-sm text-on-surface-variant">
+              For {ownerName}
+              {phone ? ` · +${phone}` : ""} — their old PIN no longer works.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-on-surface-variant"
+          >
+            <Icon name="close" className="text-[22px]" />
+          </button>
+        </div>
+
+        <div className="rounded-2xl bg-surface-high px-4 py-6 text-center">
+          <p className="break-all text-3xl font-extrabold tracking-[0.25em] text-on-surface">
+            {code}
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          {wa ? (
+            <a
+              href={wa}
+              target="_blank"
+              rel="noreferrer"
+              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-bold text-on-primary"
+            >
+              <Icon name="chat" className="text-[18px]" /> Send on WhatsApp
+            </a>
+          ) : null}
+          <button
+            onClick={() => {
+              void navigator.clipboard?.writeText(msg);
+              setCopied(true);
+              window.setTimeout(() => setCopied(false), 2000);
+            }}
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full border-2 border-outline-variant px-4 text-sm font-bold text-on-surface-variant"
+          >
+            <Icon name={copied ? "check" : "content_copy"} className="text-[18px]" />
+            {copied ? "Copied" : "Copy message"}
+          </button>
+        </div>
+
+        <p className="text-xs text-on-surface-variant">
+          Send this to the operator. They sign in with their phone number and this password, then
+          set a new PIN in Settings.
+        </p>
+      </div>
+    </div>,
+    document.body,
   );
 }
