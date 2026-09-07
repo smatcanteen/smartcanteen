@@ -19,11 +19,20 @@ export const loginLink = "https://smatcanteen.lovable.app/login";
 
 const money = (n: number) => n.toLocaleString("en-UG");
 
+/** Shows a stored number the way people read it: +256 772 000 000. */
+export function prettyPhone(raw?: string) {
+  const d = (raw ?? "").replace(/\D/g, "");
+  if (!d) return "—";
+  const full = d.startsWith("0") ? `256${d.slice(1)}` : d.length === 9 ? `256${d}` : d;
+  if (!full.startsWith("256") || full.length < 12) return `+${full}`;
+  return `+256 ${full.slice(3, 6)} ${full.slice(6, 9)} ${full.slice(9)}`;
+}
+
 /** Fill {name} {phone} {email} {password} {link} {school} in an admin template. */
 export function fillTemplate(template: string, d: InviteDetails) {
   return template
     .replaceAll("{name}", d.name.trim())
-    .replaceAll("{phone}", d.phone ?? "")
+    .replaceAll("{phone}", prettyPhone(d.phone))
     .replaceAll("{email}", (d.email ?? "").trim().toLowerCase())
     .replaceAll("{password}", d.password)
     .replaceAll("{school}", d.school ?? "")
@@ -38,7 +47,7 @@ export function inviteMessage(d: InviteDetails) {
     `Your SmartCanteen account for ${d.school || "your canteen"} is ready.`,
     "",
     `Open: ${loginLink}`,
-    `Phone number to log in: ${d.phone ?? ""}`,
+    `Phone number to log in: ${prettyPhone(d.phone)}`,
     `One-time password: ${d.password}`,
   ];
   if (d.email?.trim()) lines.push(`Email on file: ${d.email.trim().toLowerCase()}`);

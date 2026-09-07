@@ -4,7 +4,7 @@ import { Icon } from "@/components/Icon";
 import { Card, Field, PrimaryButton, SectionTitle, SelectField } from "@/components/ui-kit";
 import { useAuth } from "@/lib/auth";
 import { seedAccountBook } from "@/lib/store";
-import { emailLink, fillTemplate, inviteMessage, loginLink, whatsappLink } from "@/lib/invite";
+import { emailLink, prettyPhone, fillTemplate, inviteMessage, loginLink, whatsappLink } from "@/lib/invite";
 import {
   categoryLabels,
   usePlatform,
@@ -257,7 +257,7 @@ function NewAccount() {
             <p className="label-bold text-on-surface-variant">How this operator signs in</p>
             <p className="mt-1 text-sm text-on-surface">
               They log in with their phone number{" "}
-              <span className="font-bold">{f.phone.trim() || "—"}</span> and a one-time password
+              <span className="font-bold">{prettyPhone(f.phone)}</span> and a one-time password
               SmartCanteen generates when you create the account. You send it to them on WhatsApp on
               the last step. After their first login they set a private PIN in Settings and unlock
               the app with that.
@@ -328,7 +328,7 @@ function NewAccount() {
               </div>
               <div className="flex justify-between gap-2">
                 <dt className="text-on-surface-variant">Phone (their login)</dt>
-                <dd className="truncate font-semibold">{f.phone.trim() || "—"}</dd>
+                <dd className="truncate font-semibold">{prettyPhone(f.phone)}</dd>
               </div>
               <div className="flex justify-between gap-2">
                 <dt className="text-on-surface-variant">Email</dt>
