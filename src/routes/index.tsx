@@ -131,10 +131,12 @@ function Home() {
           <button
             onClick={() => setHide((h) => !h)}
             aria-label={hide ? "Show balance" : "Hide balance"}
+            data-tour="eye"
             className="shrink-0 rounded-full p-2 text-primary hover:bg-surface-high"
           >
             <Icon name={hide ? "visibility" : "visibility_off"} />
           </button>
+
         </div>
 
         {state.savingsGoal > 0 ? (
