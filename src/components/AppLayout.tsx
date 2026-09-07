@@ -5,6 +5,8 @@ import { AccountAvatar, BrandMark, useAccountLogo } from "./Brand";
 import { homeForRole, useAuth } from "@/lib/auth";
 import { usePlatform } from "@/lib/platform";
 import { useStore } from "@/lib/store";
+import { useSetupGate } from "@/lib/setup-gate";
+
 
 
 
