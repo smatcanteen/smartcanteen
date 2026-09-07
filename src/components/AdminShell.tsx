@@ -56,6 +56,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
     if (!ready) return;
     if (!user) navigate({ to: "/login" });
     else if (!isAdminRole(user.role)) navigate({ to: homeForRole(user.role) });
+    else if (user.otpPending) navigate({ to: "/first-run" });
   }, [ready, user, navigate]);
 
   if (!user || !isAdminRole(user.role)) return null;
