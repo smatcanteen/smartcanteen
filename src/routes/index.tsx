@@ -137,14 +137,16 @@ function Home() {
           </button>
         </div>
 
-        <div className="mt-sm">
-          <div className="h-2 w-full overflow-hidden rounded-full bg-surface-high">
-            <div className="h-full rounded-full bg-secondary-container" style={{ width: `${goalPct}%` }} />
+        {state.savingsGoal > 0 ? (
+          <div className="mt-sm">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-surface-high">
+              <div className="h-full rounded-full bg-secondary-container" style={{ width: `${goalPct}%` }} />
+            </div>
+            <p className="mt-1 text-[11px] text-on-surface-variant">
+              Term goal {goalPct}% · target UGX {ugx(state.savingsGoal)} by term end
+            </p>
           </div>
-          <p className="mt-1 text-[11px] text-on-surface-variant">
-            Term goal {goalPct}% · target UGX {ugx(state.savingsGoal)} by term end
-          </p>
-        </div>
+        ) : null}
 
         <div className="mt-sm grid grid-cols-3 gap-2 rounded-lg bg-surface-low p-2 text-center">
           <Kpi label="Started with" value={`UGX ${shortUgx(capital)}`} />
