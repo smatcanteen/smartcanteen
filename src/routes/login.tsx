@@ -320,16 +320,9 @@ function Login() {
                   </div>
                 )}
 
-                {/* PIN unlock on a phone that has never signed in: point to the other tab */}
-                {tab === "pin" && !saved && (
-                  <p className="rounded-md bg-surface-high px-3 py-2 text-sm font-semibold text-on-surface-variant">
-                    First time on this phone? Sign in once with the "Phone/Email + password" tab —
-                    after that you only need your PIN here.
-                  </p>
-                )}
+                {/* Phone number with a fixed country code */}
+                {((tab === "password" && mode === "phone") || (tab === "pin" && !saved)) && (
 
-                {/* Phone number with a fixed country code (password tab only) */}
-                {tab === "password" && mode === "phone" && (
                   <div>
                     <label
                       className="mb-1 block text-sm font-bold text-on-surface-variant"
