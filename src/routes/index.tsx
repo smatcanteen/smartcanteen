@@ -179,7 +179,7 @@ function Home() {
 
   return (
     <AppLayout title="SmartCanteen" hero={hero}>
-      <Tour steps={tourSteps(setTab)} open={tour.open} onClose={tour.finish} />
+      <Tour steps={steps} open={tour.open} onClose={tour.finish} />
       <button
         onClick={tour.restart}
         className="flex min-h-11 w-full items-center justify-center gap-2 rounded-md border-2 border-dashed border-outline-variant text-sm font-bold text-primary"
