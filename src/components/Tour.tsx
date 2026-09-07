@@ -7,7 +7,14 @@ import { Icon } from "./Icon";
  * matters — the same way a new user is walked through a mobile money app.
  */
 
-export type TourStep = { id: string; title: string; body: string };
+export type TourStep = {
+  id: string;
+  title: string;
+  body: string;
+  /** Runs before the step is shown — e.g. switch to the tab holding the button. */
+  before?: () => void;
+};
+
 
 const seenKey = (tourId: string, userId: string) => `smartcanteen.tour.${tourId}.${userId}`;
 
