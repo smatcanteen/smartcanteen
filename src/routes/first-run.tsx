@@ -95,6 +95,7 @@ function FirstRun() {
     }
     try {
       await markFirstRunDone();
+      await refresh();
     } catch {
       /* it will be marked again next time */
     }
