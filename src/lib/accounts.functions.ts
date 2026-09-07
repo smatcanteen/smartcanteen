@@ -161,7 +161,8 @@ export const resetOneTimePassword = createServerFn({ method: "POST" })
         pin_fail_count: 0,
         pin_locked: false,
         pin_reset_requested: false,
-        first_run_done: false,
+        // Keep first_run_done as it was: a reset operator must choose a new
+        // PIN, but must NOT be taken through the new-user term setup again.
       })
       .eq("id", data.id);
     return { ok: true as const, otp: password };
