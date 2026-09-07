@@ -349,7 +349,7 @@ function Accounts() {
                         </p>
                         <div className="flex flex-wrap gap-2">
                           <a
-                            href={whatsappLink(acc?.phone ?? undefined, msg)}
+                            href={whatsappLink(acc?.phone ?? undefined, msg) ?? "#"}
                             target="_blank"
                             rel="noreferrer"
                             className="inline-flex min-h-11 items-center gap-1 rounded-full bg-primary px-4 text-sm font-bold text-on-primary"
