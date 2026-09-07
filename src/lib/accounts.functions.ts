@@ -33,15 +33,16 @@ export const phoneEmail = (phone: string) => `p${normalisePhone(phone)}@phone.sm
 
 /**
  * One-time password the admin reads out to the operator. Supabase's
- * weak-password check rejects short numeric codes, so use eight random digits
- * (no 0/O/1/I confusion) and avoid trivial all-same / sequential values.
+ * weak-password check rejects short or simple codes, so use ten random
+ * letters and digits (no 0/O/1/I confusion).
  */
 const otp = () => {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const digits = "23456789";
   let out = "";
-  do {
-    out = "";
-    for (let i = 0; i < 6; i += 1) out += "0123456789"[Math.floor(Math.random() * 10)];
-  } while (/^(\d)\1{5,}$/.test(out)); // never "222222" etc.
+  for (let i = 0; i < 10; i += 1) out += chars[Math.floor(Math.random() * chars.length)];
+  // guarantee at least two digits so it never reads as a plain word
+  out = digits[Math.floor(Math.random() * digits.length)] + out.slice(1, 9) + digits[Math.floor(Math.random() * digits.length)];
   return out;
 };
 

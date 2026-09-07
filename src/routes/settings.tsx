@@ -149,10 +149,10 @@ function SettingsPage() {
             <Field
               label="New PIN"
               type="password"
-              inputMode="numeric"
-              maxLength={6}
+              inputMode="text"
+              maxLength={32}
               value={pin}
-              onChange={(e) => setPinValue(e.target.value.replace(/\D/g, ""))}
+              onChange={(e) => setPinValue(e.target.value.replace(/[^A-Za-z0-9]/g, "").slice(0, 32))}
             />
             <Field
               label="Auto-lock (min)"

@@ -107,8 +107,8 @@ function Login() {
       setError("Enter your 9-digit phone number after +256.");
       return;
     }
-    if (!/^\d{4,6}$/.test(pin)) {
-      setError("Your PIN is 4 to 6 numbers.");
+    if (!/^[A-Za-z0-9]{4,32}$/.test(pin)) {
+      setError("Your PIN is 4 or more letters or numbers.");
       return;
     }
     setBusy(true);
@@ -342,11 +342,11 @@ function Login() {
                       <input
                         id="pin"
                         type={showPin ? "text" : "password"}
-                        inputMode="numeric"
+                        inputMode="text"
                         autoComplete="one-time-code"
-                        maxLength={6}
+                        maxLength={32}
                         value={pin}
-                        onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        onChange={(e) => setPin(e.target.value.replace(/[^A-Za-z0-9]/g, "").slice(0, 32))}
                         placeholder="••••"
                         className="h-12 min-h-12 w-full rounded-md border-2 border-outline-variant bg-surface-low px-3 pr-12 text-lg font-bold tracking-[0.4em] text-on-surface outline-none focus:border-primary"
                       />

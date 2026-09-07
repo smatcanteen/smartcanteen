@@ -51,7 +51,7 @@ function FirstRun() {
 
   const savePin = async () => {
     setError("");
-    if (!/^\d{4,6}$/.test(pin)) {
+    if (!/^[A-Za-z0-9]{4,32}$/.test(pin)) {
       setError("Choose a PIN of 4 to 6 numbers.");
       return;
     }
@@ -155,16 +155,16 @@ function FirstRun() {
 
               <div>
                 <label className="mb-1 block text-sm font-bold text-on-surface-variant" htmlFor="pin">
-                  New PIN (4 to 6 numbers)
+                  New PIN (4 or more letters or numbers)
                 </label>
                 <div className="relative">
                   <input
                     id="pin"
                     type={show ? "text" : "password"}
-                    inputMode="numeric"
-                    maxLength={6}
+                    inputMode="text"
+                    maxLength={32}
                     value={pin}
-                    onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    onChange={(e) => setPin(e.target.value.replace(/[^A-Za-z0-9]/g, "").slice(0, 32))}
                     className="h-12 min-h-12 w-full rounded-md border-2 border-outline-variant bg-surface-low px-3 pr-12 text-lg font-bold tracking-[0.4em] text-on-surface outline-none focus:border-primary"
                   />
                   <button
@@ -188,10 +188,10 @@ function FirstRun() {
                 <input
                   id="pin2"
                   type={show ? "text" : "password"}
-                  inputMode="numeric"
-                  maxLength={6}
+                  inputMode="text"
+                  maxLength={32}
                   value={again}
-                  onChange={(e) => setAgain(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  onChange={(e) => setAgain(e.target.value.replace(/[^A-Za-z0-9]/g, "").slice(0, 32))}
                   className="h-12 min-h-12 w-full rounded-md border-2 border-outline-variant bg-surface-low px-3 text-lg font-bold tracking-[0.4em] text-on-surface outline-none focus:border-primary"
                 />
               </div>
