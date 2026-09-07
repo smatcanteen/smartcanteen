@@ -432,37 +432,32 @@ function OtpModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-4 sm:items-center"
+      className="fixed inset-0 z-[100] grid place-items-center bg-on-surface/55 p-4"
       role="dialog"
       aria-modal="true"
       aria-label="New one-time password"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-sm space-y-4 rounded-3xl bg-surface p-6 shadow-2xl"
+        className="w-[min(100%,22rem)] rounded-md bg-surface p-5 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h3 className="text-lg font-extrabold text-on-surface">New one-time password</h3>
-            <p className="text-sm text-on-surface-variant">
-              For {ownerName}
-              {phone ? ` · +${phone}` : ""} — their old PIN no longer works.
-            </p>
+            <h3 className="text-lg font-extrabold text-on-surface">One-time password</h3>
+            <p className="mt-1 text-sm text-on-surface-variant">Send this code to {ownerName}.</p>
           </div>
           <button
             onClick={onClose}
             aria-label="Close"
-            className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-on-surface-variant"
+            className="flex size-11 shrink-0 items-center justify-center rounded-full text-on-surface-variant"
           >
             <Icon name="close" className="text-[22px]" />
           </button>
         </div>
 
-        <div className="rounded-2xl bg-surface-high px-4 py-6 text-center">
-          <p className="break-all text-3xl font-extrabold tracking-[0.25em] text-on-surface">
-            {code}
-          </p>
+        <div className="my-5 rounded-md border-2 border-outline-variant bg-surface-lowest px-3 py-4 text-center">
+          <p className="whitespace-nowrap font-mono text-2xl font-extrabold text-on-surface">{code}</p>
         </div>
 
         <div className="space-y-2">
@@ -471,7 +466,7 @@ function OtpModal({
               href={wa}
               target="_blank"
               rel="noreferrer"
-              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-bold text-on-primary"
+              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-bold text-on-primary"
             >
               <Icon name="chat" className="text-[18px]" /> Send on WhatsApp
             </a>
@@ -482,16 +477,15 @@ function OtpModal({
               setCopied(true);
               window.setTimeout(() => setCopied(false), 2000);
             }}
-            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full border-2 border-outline-variant px-4 text-sm font-bold text-on-surface-variant"
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-md border-2 border-outline-variant px-4 text-sm font-bold text-on-surface-variant"
           >
             <Icon name={copied ? "check" : "content_copy"} className="text-[18px]" />
             {copied ? "Copied" : "Copy message"}
           </button>
         </div>
 
-        <p className="text-xs text-on-surface-variant">
-          Send this to the operator. They sign in with their phone number and this password, then
-          set a new PIN in Settings.
+        <p className="mt-4 text-center text-xs text-on-surface-variant">
+          The operator uses this once, then creates a new PIN.
         </p>
       </div>
     </div>,
