@@ -30,13 +30,25 @@ export function prettyPhone(raw?: string) {
 
 /** Fill {name} {phone} {email} {password} {link} {school} in an admin template. */
 export function fillTemplate(template: string, d: InviteDetails) {
-  return template
+  const filled = template
     .replaceAll("{name}", d.name.trim())
     .replaceAll("{phone}", prettyPhone(d.phone))
     .replaceAll("{email}", (d.email ?? "").trim().toLowerCase())
     .replaceAll("{password}", d.password)
     .replaceAll("{school}", d.school ?? "")
     .replaceAll("{link}", loginLink);
+
+  // An older saved message may leave out the login details. Never send an
+  // invite without the phone number and the one-time password.
+  const extras: string[] = [];
+  if (!template.includes("{phone}") && d.phone) {
+    extras.push(`Phone number to log in: ${prettyPhone(d.phone)}`);
+  }
+  if (!template.includes("{password}")) {
+    extras.push(`One-time password: ${d.password}`);
+  }
+  if (!template.includes("{link}")) extras.push(`Open: ${loginLink}`);
+  return extras.length ? `${filled.trim()}\n\n${extras.join("\n")}` : filled;
 }
 
 /** Friendly default message used when no template is set. */
