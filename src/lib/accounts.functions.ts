@@ -32,14 +32,16 @@ export function normalisePhone(raw: string) {
 export const phoneEmail = (phone: string) => `p${normalisePhone(phone)}@phone.smartcanteen.app`;
 
 /**
- * One-time password the admin reads out to the operator. Six digits alone are
- * rejected by Supabase's weak-password check, so mix easy-to-read letters and
- * digits (no 0/O/1/I) into an 8 character code.
+ * One-time password the admin reads out to the operator. Supabase's
+ * weak-password check rejects short numeric codes, so use eight random digits
+ * (no 0/O/1/I confusion) and avoid trivial all-same / sequential values.
  */
 const otp = () => {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let out = "";
-  for (let i = 0; i < 8; i += 1) out += chars[Math.floor(Math.random() * chars.length)];
+  do {
+    out = "";
+    for (let i = 0; i < 8; i += 1) out += "23456789"[Math.floor(Math.random() * 7)];
+  } while (/^(\d)\1{7,}$/.test(out)); // never "22222222" etc.
   return out;
 };
 
