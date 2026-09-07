@@ -126,6 +126,23 @@ function Login() {
     }
 
     const res = await loginWithPin(number, pin);
+    if (!res.ok && res.error?.startsWith("No PIN set yet")) {
+      // A newly created or reset account has no saved PIN yet. Let the same
+      // field accept the one-time password so the operator does not need to
+      // discover and switch to the second login tab.
+      let passwordRes = await login(number, pin);
+      if (!passwordRes.ok && pin !== pin.toUpperCase()) {
+        passwordRes = await login(number, pin.toUpperCase());
+      }
+      setBusy(false);
+      if (!passwordRes.ok) {
+        setError("That one-time password is not correct. Check the latest message from your administrator.");
+        return;
+      }
+      rememberPhone(number);
+      await goHome(passwordRes.role ?? "operator");
+      return;
+    }
     setBusy(false);
     if (!res.ok) {
       setLocked(!!res.locked);
