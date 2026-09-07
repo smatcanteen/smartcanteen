@@ -508,11 +508,7 @@ function OtpModal({
             </a>
           ) : null}
           <button
-            onClick={() => {
-              void navigator.clipboard?.writeText(msg);
-              setCopied(true);
-              window.setTimeout(() => setCopied(false), 2000);
-            }}
+            onClick={() => void copyMessage()}
             className="flex min-h-12 w-full items-center justify-center gap-2 rounded-md border-2 border-outline-variant px-4 text-sm font-bold text-on-surface-variant"
           >
             <Icon name={copied ? "check" : "content_copy"} className="text-[18px]" />
