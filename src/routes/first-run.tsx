@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { BrandMark } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
 import { homeForRole, isAdminRole, useAuth } from "@/lib/auth";
-import { markFirstRunDone, setMyPin } from "@/lib/accounts.functions";
+import { markFirstRunDone, myFirstRunState, setMyPin } from "@/lib/accounts.functions";
 import { rememberPin } from "@/lib/pin-cache";
 import { useStore } from "@/lib/store";
 
@@ -42,10 +42,23 @@ function FirstRun() {
   const [goal, setGoal] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  /** True when this account already finished setup before (e.g. PIN reset) — only the PIN step is needed. */
+  const [pinOnly, setPinOnly] = useState(false);
 
   useEffect(() => {
     if (ready && !user) navigate({ to: "/login" });
   }, [ready, user, navigate]);
+
+  useEffect(() => {
+    if (!user) return;
+    void myFirstRunState()
+      .then((st) => {
+        if (st.ok && st.firstRunDone) setPinOnly(true);
+      })
+      .catch(() => {
+        /* worst case they see step 2 again */
+      });
+  }, [user]);
 
   const staff = user ? isAdminRole(user.role) : false;
 
