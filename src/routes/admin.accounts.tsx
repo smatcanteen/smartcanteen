@@ -5,6 +5,8 @@ import { Icon } from "@/components/Icon";
 import { Card, Field, PrimaryButton, SectionTitle } from "@/components/ui-kit";
 import { Pill, can, statusTone } from "@/components/AdminShell";
 import { useAuth } from "@/lib/auth";
+import { loginLink, whatsappLink } from "@/lib/invite";
+
 import {
   categoryLabels,
   checklistDone,
