@@ -2,6 +2,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 import { Icon } from "./Icon";
 import { useAuth, roleLabels, isAdminRole, homeForRole, type Role } from "@/lib/auth";
+import { useSetupGate } from "@/lib/setup-gate";
 import { BrandMark } from "./Brand";
 
 export type AdminPerm =

@@ -18,7 +18,7 @@ export function useSetupGate(active: boolean) {
     void myFirstRunState()
       .then((st) => {
         if (!alive || !st.ok) return;
-        if (st.otpPending || !st.hasPin || !st.firstRunDone) {
+        if (st.otpPending || !st.hasPin) {
           navigate({ to: "/first-run", replace: true });
         }
       })
