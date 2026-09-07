@@ -313,6 +313,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setSyncReady(false);
     setCloudChecked(false);
     const base = baseFor(userId);
+    // Read the device timestamp BEFORE the first local save stamps a new one,
+    // otherwise the cloud copy always looks older and gets overwritten.
+    const localAt = Number(localStorage.getItem(`${storeKeyFor(userId)}.updatedAt`) ?? 0);
     let local: State = base;
     try {
       const raw = localStorage.getItem(storeKeyFor(userId));
@@ -334,7 +337,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         .eq("user_id", userId)
         .maybeSingle();
       if (!alive) return;
-      const localAt = Number(localStorage.getItem(`${storeKeyFor(userId)}.updatedAt`) ?? 0);
       if (!error && data?.data) {
         const cloudAt = new Date(data.updated_at).getTime();
         if (cloudAt > localAt) {
