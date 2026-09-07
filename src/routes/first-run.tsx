@@ -67,6 +67,13 @@ function FirstRun() {
       return;
     }
     if (user?.phone) await rememberPin(user.phone, pin, user.id);
+    // The account no longer waits on a one-time password — refresh so the app
+    // stops sending this person back to the start of setup.
+    try {
+      await refresh();
+    } catch {
+      /* the next page load picks it up */
+    }
     if (staff) {
       await finish(false);
       return;
