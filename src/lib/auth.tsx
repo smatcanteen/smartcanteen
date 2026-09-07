@@ -300,9 +300,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const resendOtp = useCallback<Ctx["resendOtp"]>(async (id) => {
-    const res = await resetOneTimePassword({ data: { id } });
-    return res.ok ? { ok: true, otp: res.otp } : { ok: false, error: res.error };
+    try {
+      const res = await resetOneTimePassword({ data: { id } });
+      return res.ok ? { ok: true, otp: res.otp } : { ok: false, error: res.error };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : "Could not reach the server." };
+    }
   }, []);
+
 
   const refresh = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
