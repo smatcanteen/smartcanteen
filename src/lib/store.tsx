@@ -276,6 +276,10 @@ type Ctx = {
   archiveTerm: (newTermName: string, carryCash: number, target: number) => void;
   restoreState: (next: State) => void;
   clearAll: () => void;
+  /** Force an immediate cloud save (used right after first-time setup). */
+  saveNow: () => Promise<void>;
+  /** True once the cloud copy has been checked (or the device is offline). */
+  cloudChecked: boolean;
 };
 
 const StoreContext = createContext<Ctx | null>(null);
@@ -296,6 +300,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [syncReady, setSyncReady] = useState(false);
   /** Set when a write failed (offline); the next change retries everything. */
   const pendingRef = useRef(false);
+  /** Flipped once we know what the cloud holds (or that we cannot reach it). */
+  const [cloudChecked, setCloudChecked] = useState(false);
 
   // Load (or create) the cash book that belongs to the signed-in account.
   // Local storage answers instantly (so the app works offline), then the
@@ -305,7 +311,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     let alive = true;
     setHydrated(false);
     setSyncReady(false);
+    setCloudChecked(false);
     const base = baseFor(userId);
+    // Read the device timestamp BEFORE the first local save stamps a new one,
+    // otherwise the cloud copy always looks older and gets overwritten.
+    const localAt = Number(localStorage.getItem(`${storeKeyFor(userId)}.updatedAt`) ?? 0);
     let local: State = base;
     try {
       const raw = localStorage.getItem(storeKeyFor(userId));
@@ -316,7 +326,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState(local);
     setHydrated(true);
 
-    if (!userId) return;
+    if (!userId) {
+      setCloudChecked(true);
+      return;
+    }
     void (async () => {
       const { data, error } = await supabase
         .from("canteen_books")
@@ -324,7 +337,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         .eq("user_id", userId)
         .maybeSingle();
       if (!alive) return;
-      const localAt = Number(localStorage.getItem(`${storeKeyFor(userId)}.updatedAt`) ?? 0);
       if (!error && data?.data) {
         const cloudAt = new Date(data.updated_at).getTime();
         if (cloudAt > localAt) {
@@ -335,6 +347,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // Offline (error): stay local-only so a stale cloud copy can never
       // resurrect data the operator has already cleared on this device.
       if (alive && !error) setSyncReady(true);
+      if (alive) setCloudChecked(true);
     })();
 
     return () => {
@@ -585,6 +598,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, txs: [], debtors: [], items: [], capital: 0 }));
   }, []);
 
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  const saveNow = useCallback(async () => {
+    if (!userId) return;
+    const now = Date.now();
+    try {
+      localStorage.setItem(`${storeKeyFor(userId)}.updatedAt`, String(now));
+    } catch {
+      /* ignore */
+    }
+    const { error } = await supabase.from("canteen_books").upsert(
+      {
+        user_id: userId,
+        data: stateRef.current as unknown as Json,
+        updated_at: new Date(now).toISOString(),
+      },
+      { onConflict: "user_id" },
+    );
+    pendingRef.current = !!error;
+  }, [userId]);
+
   const value = useMemo<Ctx>(() => {
     const t = { sales: 0, expenses: 0, stock: 0 };
     const day = { sales: 0, expenses: 0, net: 0 };
@@ -628,6 +663,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       archiveTerm,
       restoreState,
       clearAll,
+      saveNow,
+      cloudChecked,
     };
   }, [
     state,
@@ -648,6 +685,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     archiveTerm,
     restoreState,
     clearAll,
+    saveNow,
+    cloudChecked,
   ]);
 
   return (

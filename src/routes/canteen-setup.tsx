@@ -28,7 +28,7 @@ export const Route = createFileRoute("/canteen-setup")({
 });
 
 function CanteenSetup() {
-  const { setCapital } = useStore();
+  const { setCapital, saveNow } = useStore();
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -41,11 +41,17 @@ function CanteenSetup() {
 
   const total = (Number(opening) || 0) + (Number(carry) || 0);
 
-  const finish = () => {
+  const finish = async () => {
     if (!term.trim()) return setError("Give this term a name, e.g. Term 1, 2026.");
     if (total <= 0) return setError("Enter the cash you are starting the term with.");
     setError("");
     setCapital(total, term.trim(), Number(goal) || Math.round(total * 2));
+    await new Promise((r) => setTimeout(r, 60));
+    try {
+      await saveNow();
+    } catch {
+      /* stays on the device and syncs later */
+    }
     navigate({ to: "/" });
   };
 
@@ -116,7 +122,7 @@ function CanteenSetup() {
           </p>
         ) : null}
 
-        <PrimaryButton tone="cta" onClick={finish}>
+        <PrimaryButton tone="cta" onClick={() => void finish()}>
           Start the term <Icon name="arrow_forward" />
         </PrimaryButton>
       </div>

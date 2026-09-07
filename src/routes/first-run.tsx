@@ -31,7 +31,7 @@ export const Route = createFileRoute("/first-run")({
 function FirstRun() {
   const navigate = useNavigate();
   const { user, ready } = useAuth();
-  const { setCapital } = useStore();
+  const { setCapital, saveNow } = useStore();
 
   const [step, setStep] = useState<1 | 2>(1);
   const [pin, setPin] = useState("");
@@ -78,6 +78,13 @@ function FirstRun() {
     setBusy(true);
     if (withBook) {
       setCapital(Number(capital) || 0, termName.trim() || "Term 1", Number(goal) || 0);
+      // Wait for the book to reach the cloud so another phone sees the setup.
+      await new Promise((r) => setTimeout(r, 60));
+      try {
+        await saveNow();
+      } catch {
+        /* stays on the device and syncs later */
+      }
     }
     try {
       await markFirstRunDone();

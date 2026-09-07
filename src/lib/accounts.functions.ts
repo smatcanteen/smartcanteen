@@ -23,6 +23,8 @@ export function normalisePhone(raw: string) {
   if (!d) return "";
   if (d.startsWith("0")) return `256${d.slice(1)}`;
   if (d.startsWith("256")) return d;
+  // Nine local digits typed without the country code (e.g. 772 000 000).
+  if (d.length === 9) return `256${d}`;
   return d;
 }
 

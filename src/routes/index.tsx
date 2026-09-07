@@ -137,14 +137,16 @@ function Home() {
           </button>
         </div>
 
-        <div className="mt-sm">
-          <div className="h-2 w-full overflow-hidden rounded-full bg-surface-high">
-            <div className="h-full rounded-full bg-secondary-container" style={{ width: `${goalPct}%` }} />
+        {state.savingsGoal > 0 ? (
+          <div className="mt-sm">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-surface-high">
+              <div className="h-full rounded-full bg-secondary-container" style={{ width: `${goalPct}%` }} />
+            </div>
+            <p className="mt-1 text-[11px] text-on-surface-variant">
+              Term goal {goalPct}% · target UGX {ugx(state.savingsGoal)} by term end
+            </p>
           </div>
-          <p className="mt-1 text-[11px] text-on-surface-variant">
-            Term goal {goalPct}% · target UGX {ugx(state.savingsGoal)} by term end
-          </p>
-        </div>
+        ) : null}
 
         <div className="mt-sm grid grid-cols-3 gap-2 rounded-lg bg-surface-low p-2 text-center">
           <Kpi label="Started with" value={`UGX ${shortUgx(capital)}`} />
@@ -180,7 +182,7 @@ function Home() {
       >
         <Icon name="tips_and_updates" className="text-[18px]" /> Show me around this app
       </button>
-      <div className="-mx-4 overflow-x-auto px-4 md:mx-0 md:px-0">
+      <div className="-mx-3 overflow-x-auto px-3 sm:-mx-4 sm:px-4 md:mx-0 md:px-0">
         <div role="tablist" aria-label="Shortcuts" data-tour="tabs" className="flex min-w-max gap-1 border-b border-outline-variant/50">
           {tabs.map((t) => (
             <button

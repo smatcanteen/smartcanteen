@@ -177,7 +177,7 @@ const defaultSettings: PlatformSettings = {
   clawbackDays: 60,
   leaderboard: true,
   welcomeTemplate:
-    "Hello {name}, welcome to SmartCanteen! Open {link} and sign in with {email}. Your first job is to set your opening term capital — everything else follows from it.",
+    "Hello {name}, welcome to SmartCanteen! Open {link} and log in with phone {phone} and the one-time password {password}. You will then choose your own private PIN. Your first job is to set your opening term capital — everything else follows from it.",
 };
 
 const seedTenant = (
