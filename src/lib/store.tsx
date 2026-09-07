@@ -652,6 +652,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       archiveTerm,
       restoreState,
       clearAll,
+      saveNow,
     };
   }, [
     state,
@@ -672,6 +673,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     archiveTerm,
     restoreState,
     clearAll,
+    saveNow,
   ]);
 
   return (
