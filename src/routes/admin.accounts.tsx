@@ -274,6 +274,16 @@ function Accounts() {
                       {t.status === "suspended" ? "Restore access" : "Pause account"}
                     </button>
                   ) : null}
+                  {(() => {
+                    const acc = accounts.find((a) => a.id === t.accountId);
+                    if (!acc?.pinLocked && !acc?.pinResetRequested) return null;
+                    return (
+                      <span className="inline-flex min-h-11 items-center gap-1 rounded-full bg-tertiary/15 px-3 text-sm font-bold text-tertiary">
+                        <Icon name="lock_reset" className="text-[18px]" />
+                        {acc.pinLocked ? "Locked out — needs a new PIN" : "Asked for a new PIN"}
+                      </span>
+                    );
+                  })()}
                   {can(user?.role, "suspend") ? (
                     <button
                       disabled={busyId === t.accountId}
