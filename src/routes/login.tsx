@@ -91,7 +91,9 @@ function Login() {
   const goHome = async (role: Role) => {
     try {
       const st = await myFirstRunState();
-      if (st.ok && !st.firstRunDone) {
+      // New accounts get the full setup; reset accounts only owe a new PIN,
+      // which the first-run screen now handles on its own.
+      if (st.ok && (!st.firstRunDone || st.otpPending)) {
         navigate({ to: "/first-run" });
         return;
       }
@@ -105,7 +107,9 @@ function Login() {
     setError("");
     setNotice("");
     if (!phoneReady()) {
-      setError("Enter your 9-digit phone number after +256.");
+      setError(
+        'This phone does not remember you yet. Use the "Phone/Email + password" tab once, then PIN unlock works here.',
+      );
       return;
     }
     if (!/^[A-Za-z0-9]{4,32}$/.test(pin)) {
@@ -211,6 +215,8 @@ function Login() {
     setPin("");
     setError("");
     setNotice("");
+    // PIN unlock needs a remembered number, so send them to the password tab.
+    setTab("password");
   };
 
 
