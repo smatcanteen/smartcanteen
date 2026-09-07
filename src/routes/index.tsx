@@ -182,7 +182,7 @@ function Home() {
       >
         <Icon name="tips_and_updates" className="text-[18px]" /> Show me around this app
       </button>
-      <div className="-mx-4 overflow-x-auto px-4 md:mx-0 md:px-0">
+      <div className="-mx-3 overflow-x-auto px-3 sm:-mx-4 sm:px-4 md:mx-0 md:px-0">
         <div role="tablist" aria-label="Shortcuts" data-tour="tabs" className="flex min-w-max gap-1 border-b border-outline-variant/50">
           {tabs.map((t) => (
             <button
