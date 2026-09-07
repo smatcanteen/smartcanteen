@@ -33,15 +33,16 @@ export const phoneEmail = (phone: string) => `p${normalisePhone(phone)}@phone.sm
 
 /**
  * One-time password the admin reads out to the operator. Supabase's
- * weak-password check rejects short numeric codes, so use eight random digits
- * (no 0/O/1/I confusion) and avoid trivial all-same / sequential values.
+ * weak-password check rejects short or simple codes, so use ten random
+ * letters and digits (no 0/O/1/I confusion).
  */
 const otp = () => {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const digits = "23456789";
   let out = "";
-  do {
-    out = "";
-    for (let i = 0; i < 6; i += 1) out += "0123456789"[Math.floor(Math.random() * 10)];
-  } while (/^(\d)\1{5,}$/.test(out)); // never "222222" etc.
+  for (let i = 0; i < 10; i += 1) out += chars[Math.floor(Math.random() * chars.length)];
+  // guarantee at least two digits so it never reads as a plain word
+  out = digits[Math.floor(Math.random() * digits.length)] + out.slice(1, 9) + digits[Math.floor(Math.random() * digits.length)];
   return out;
 };
 
@@ -171,7 +172,7 @@ export const setMyPin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { pin: string }) => data)
   .handler(async ({ data, context }) => {
-    if (!/^\d{4,6}$/.test(data.pin)) return { ok: false as const, error: "Use a 4 to 6 digit PIN." };
+    if (!/^[A-Za-z0-9]{4,32}$/.test(data.pin)) return { ok: false as const, error: "Use 4 or more letters or numbers." };
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin
       .from("profiles")
@@ -313,7 +314,7 @@ export const signInWithPin = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const phone = normalisePhone(data.phone);
     const fail = { ok: false as const, error: "Phone number or PIN is not correct." };
-    if (phone.length < 9 || !/^\d{4,6}$/.test(data.pin)) return fail;
+    if (phone.length < 9 || !/^[A-Za-z0-9]{4,32}$/.test(data.pin)) return fail;
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: row } = await supabaseAdmin
