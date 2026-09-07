@@ -52,9 +52,13 @@ export function AppLayout({
   const { logo } = useAccountLogo(user?.id);
 
 
+  // A reset account has no PIN in the backend: ask before showing anything.
+  useSetupGate(ready && !!user);
+
   // Operator screens are private: no session means back to the login page.
   useEffect(() => {
     if (!ready) return;
+
     if (!user) navigate({ to: "/login" });
     else if (user.role !== "operator") navigate({ to: homeForRole(user.role) });
     // Brand-new operators must set their own PIN and opening capital first.
