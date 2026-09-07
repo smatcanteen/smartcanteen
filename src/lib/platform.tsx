@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useAuth } from "./auth";
 
 /* ------------------------------------------------------------------ types */
 
@@ -135,8 +136,6 @@ export type PlatformState = {
 /* ------------------------------------------------------------------- seed */
 
 const KEY = "smartcanteen.platform.v1";
-const ANCHOR = Date.UTC(2026, 7, 14, 9, 0, 0);
-const days = (n: number) => ANCHOR - n * 86400000;
 const uid = () => Math.random().toString(36).slice(2, 10);
 
 export const zones = ["Kampala Central", "Wakiso", "Jinja", "Mbarara", "Gulu"];
@@ -180,205 +179,14 @@ const defaultSettings: PlatformSettings = {
     "Hello {name}, welcome to SmartCanteen! Open {link} and log in with phone {phone} and the one-time password {password}. You will then choose your own private PIN. Your first job is to set your opening term capital — everything else follows from it.",
 };
 
-const seedTenant = (
-  accountId: string,
-  canteenName: string,
-  school: string,
-  ownerName: string,
-  phone: string,
-  category: CategoryTemplate,
-  zone: string,
-  agentId: string | null,
-  status: TenantStatus,
-  createdDaysAgo: number,
-  entries: number,
-  checklist: Tenant["checklist"],
-  tags: FollowUpTag[] = [],
-): Tenant => ({
-  accountId,
-  canteenName,
-  school,
-  ownerName,
-  phone,
-  category,
-  zone,
-  agentId,
-  status,
-  createdAt: days(createdDaysAgo),
-  trialEndsAt: status === "trial" ? days(createdDaysAgo - 14) : null,
-  nextBillingAt: days(createdDaysAgo - 120),
-  lastLoginAt: entries > 0 ? days(1) : null,
-  entries,
-  tags,
-  notes: [],
-  checklist,
-  termStart: "2026-05-25",
-  termEnd: "2026-08-28",
-});
-
 const seed: PlatformState = {
-  agents: [
-    {
-      id: "ag-1",
-      accountId: "acc-agent-1",
-      name: "Moses Kigozi",
-      phone: "+256 700 000 020",
-      email: "agent@smartcanteen.app",
-      status: "certified",
-      territory: "Kampala Central",
-      trainedAt: days(95),
-      certified: true,
-    },
-    {
-      id: "ag-2",
-      accountId: "acc-agent-2",
-      name: "Sarah Kembabazi",
-      phone: "+256 700 000 021",
-      email: "sarah.agent@smartcanteen.app",
-      status: "pending",
-      territory: "Wakiso",
-      trainedAt: null,
-      certified: false,
-    },
-  ],
-  tenants: [
-    seedTenant(
-      "acc-op-1",
-      "Kampala Parents Canteen",
-      "Kampala Parents SS",
-      "Talemwa Raymond",
-      "+256 700 000 002",
-      "day",
-      "Kampala Central",
-      "ag-1",
-      "active",
-      120,
-      42,
-      { loggedIn: true, capitalSet: true, firstStock: true, firstSale: true },
-    ),
-    seedTenant(
-      "acc-op-2",
-      "St. Mary's Canteen",
-      "St. Mary's SS",
-      "Grace Nabirye",
-      "+256 700 000 003",
-      "boarding",
-      "Wakiso",
-      "ag-1",
-      "active",
-      90,
-      31,
-      { loggedIn: true, capitalSet: true, firstStock: true, firstSale: true },
-    ),
-    seedTenant(
-      "acc-op-3",
-      "Kololo High Canteen",
-      "Kololo High",
-      "Peter Wanyama",
-      "+256 700 000 004",
-      "boarding",
-      "Kampala Central",
-      "ag-2",
-      "trial",
-      6,
-      0,
-      { loggedIn: true, capitalSet: false, firstStock: false, firstSale: false },
-      ["nudge"],
-    ),
-  ],
-  leads: [
-    {
-      id: "ld-1",
-      school: "Namilyango College",
-      contactName: "Bursar Okot",
-      phone: "+256 772 111 222",
-      stage: "demo",
-      agentId: "ag-1",
-      notes: [{ id: "n1", text: "Demo given to the bursar; wants board approval.", ts: days(4) }],
-      createdAt: days(9),
-    },
-    {
-      id: "ld-2",
-      school: "Seeta High School",
-      contactName: "Madam Night",
-      phone: "+256 772 333 444",
-      stage: "contacted",
-      agentId: "ag-1",
-      notes: [],
-      createdAt: days(3),
-    },
-    {
-      id: "ld-3",
-      school: "Mengo SS",
-      contactName: "Mr. Kato",
-      phone: "+256 772 555 666",
-      stage: "trial",
-      agentId: "ag-2",
-      notes: [],
-      createdAt: days(7),
-    },
-  ],
-  commissions: [
-    {
-      id: "cm-1",
-      agentId: "ag-1",
-      accountId: "acc-op-1",
-      type: "signup",
-      amount: 10000,
-      status: "paid",
-      batchRef: "MM-88213",
-      createdAt: days(118),
-    },
-    {
-      id: "cm-2",
-      agentId: "ag-1",
-      accountId: "acc-op-2",
-      type: "signup",
-      amount: 10000,
-      status: "approved",
-      createdAt: days(88),
-    },
-    {
-      id: "cm-3",
-      agentId: "ag-1",
-      accountId: "acc-op-1",
-      type: "trail",
-      amount: 875,
-      period: "Aug 2026",
-      status: "pending",
-      createdAt: days(10),
-    },
-  ],
-  payouts: [{ id: "po-1", agentId: "ag-1", amount: 10000, status: "paid", ref: "MM-88213", ts: days(80) }],
-  tickets: [
-    {
-      id: "tk-1",
-      accountId: "acc-op-2",
-      accountName: "Grace Nabirye",
-      subject: "Stock not reducing after a sale",
-      status: "open",
-      assignedTo: null,
-      messages: [
-        {
-          id: "m1",
-          from: "operator",
-          text: "When I sell mandazi the stock number stays the same. Please help.",
-          ts: days(2),
-        },
-      ],
-      createdAt: days(2),
-    },
-  ],
-  announcements: [
-    {
-      id: "an-1",
-      title: "Welcome",
-      body: "We are happy you are using SmartCanteen to manage your expenses and cash.",
-      active: true,
-      ts: days(3),
-      segment: {},
-    },
-  ],
+  agents: [],
+  tenants: [],
+  leads: [],
+  commissions: [],
+  payouts: [],
+  tickets: [],
+  announcements: [],
   settings: defaultSettings,
   auditLog: [],
 };
@@ -422,13 +230,24 @@ type Ctx = {
 const PlatformContext = createContext<Ctx | null>(null);
 
 export function PlatformProvider({ children }: { children: ReactNode }) {
+  const { accounts, ready: accountsReady } = useAuth();
   const [s, setS] = useState<PlatformState>(seed);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem(KEY);
-      if (raw) setS({ ...seed, ...(JSON.parse(raw) as PlatformState) });
+      if (raw) {
+        const saved = { ...seed, ...(JSON.parse(raw) as PlatformState) };
+        const isLegacyDemoId = (id: string | null) => !!id && id.startsWith("acc-");
+        setS({
+          ...saved,
+          tenants: saved.tenants.filter((tenant) => !isLegacyDemoId(tenant.accountId)),
+          agents: saved.agents.filter((agent) => !isLegacyDemoId(agent.accountId)),
+          commissions: saved.commissions.filter((commission) => !isLegacyDemoId(commission.accountId)),
+          tickets: saved.tickets.filter((ticket) => !isLegacyDemoId(ticket.accountId)),
+        });
+      }
     } catch {
       /* ignore */
     }
@@ -443,6 +262,42 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       /* ignore */
     }
   }, [s, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated || !accountsReady) return;
+    const operatorIds = new Set(
+      accounts.filter((account) => account.role === "operator").map((account) => account.id),
+    );
+    const agentIds = new Set(
+      accounts.filter((account) => account.role === "agent").map((account) => account.id),
+    );
+    setS((current) => {
+      const tenants = current.tenants.filter((tenant) => operatorIds.has(tenant.accountId));
+      const agents = current.agents.filter(
+        (agent) => !!agent.accountId && agentIds.has(agent.accountId),
+      );
+      const tenantIds = new Set(tenants.map((tenant) => tenant.accountId));
+      const keptAgentIds = new Set(agents.map((agent) => agent.id));
+      const next = {
+        ...current,
+        tenants,
+        agents,
+        commissions: current.commissions.filter(
+          (commission) => tenantIds.has(commission.accountId) && keptAgentIds.has(commission.agentId),
+        ),
+        tickets: current.tickets.filter((ticket) => tenantIds.has(ticket.accountId)),
+      };
+      if (
+        next.tenants.length === current.tenants.length &&
+        next.agents.length === current.agents.length &&
+        next.commissions.length === current.commissions.length &&
+        next.tickets.length === current.tickets.length
+      ) {
+        return current;
+      }
+      return next;
+    });
+  }, [accounts, accountsReady, hydrated]);
 
   const patch = useCallback((fn: (prev: PlatformState) => PlatformState) => setS(fn), []);
 

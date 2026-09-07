@@ -89,8 +89,12 @@ function Accounts() {
   }, []);
 
   const rows = useMemo(
-    () =>
-      s.tenants
+    () => {
+      const existingOperatorIds = new Set(
+        accounts.filter((account) => account.role === "operator").map((account) => account.id),
+      );
+      return s.tenants
+        .filter((tenant) => existingOperatorIds.has(tenant.accountId))
         .map((t) => {
           const p = live[t.accountId];
           return p
@@ -103,8 +107,9 @@ function Accounts() {
           if (filter !== "all" && t.status !== filter) return false;
           if (zone !== "all" && t.zone !== zone) return false;
           return true;
-        }),
-    [s.tenants, live, q, filter, zone],
+        });
+    },
+    [s.tenants, accounts, live, q, filter, zone],
   );
 
   const toggle = (id: string) =>
