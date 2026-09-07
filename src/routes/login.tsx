@@ -60,6 +60,7 @@ function Login() {
 
   const [tab, setTab] = useState<"pin" | "password">("pin");
   const [phone, setPhone] = useState("");
+  const [saved, setSaved] = useState<string | null>(null);
   const [pin, setPin] = useState("");
   const [showPin, setShowPin] = useState(false);
   const [mode, setMode] = useState<"phone" | "email">("phone");
@@ -71,9 +72,19 @@ function Login() {
   const [locked, setLocked] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  // Someone who already signed in on this phone only needs their PIN.
+  useEffect(() => {
+    setSaved(lastPhone());
+  }, []);
+
+  /** The number this sign-in will use: the remembered one, or what is typed. */
+  const activePhone = () => (tab === "pin" && saved ? saved : fullPhone(localDigits(phone)));
+  const phoneReady = () => (tab === "pin" && saved ? true : localDigits(phone).length === 9);
+
   useEffect(() => {
     if (ready && user) navigate({ to: homeForRole(user.role) });
   }, [ready, user, navigate]);
+
 
   /** Send people who have not finished setting up to the guided first-run screen. */
   const goHome = async (role: Role) => {
