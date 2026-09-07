@@ -79,8 +79,10 @@ function Login() {
 
   /** The number this sign-in will use: the remembered one, or what is typed. */
   const activePhone = () => (tab === "pin" && saved ? saved : fullPhone(localDigits(phone)));
-  /** PIN unlock always uses the number this phone already remembers. */
-  const phoneReady = () => (tab === "pin" ? !!saved : localDigits(phone).length === 9);
+  /** PIN unlock uses the remembered number, or one typed in on a new phone. */
+  const phoneReady = () =>
+    (tab === "pin" && !!saved) || localDigits(phone).length === 9;
+
 
   useEffect(() => {
     if (ready && user) navigate({ to: homeForRole(user.role) });
