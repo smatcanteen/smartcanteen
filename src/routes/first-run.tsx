@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { BrandMark } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
 import { homeForRole, isAdminRole, useAuth } from "@/lib/auth";
-import { markFirstRunDone, setMyPin } from "@/lib/accounts.functions";
+import { markFirstRunDone, myFirstRunState, setMyPin } from "@/lib/accounts.functions";
 import { rememberPin } from "@/lib/pin-cache";
 import { useStore } from "@/lib/store";
 
@@ -42,10 +42,23 @@ function FirstRun() {
   const [goal, setGoal] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  /** True when this account already finished setup before (e.g. PIN reset) — only the PIN step is needed. */
+  const [pinOnly, setPinOnly] = useState(false);
 
   useEffect(() => {
     if (ready && !user) navigate({ to: "/login" });
   }, [ready, user, navigate]);
+
+  useEffect(() => {
+    if (!user) return;
+    void myFirstRunState()
+      .then((st) => {
+        if (st.ok && st.firstRunDone) setPinOnly(true);
+      })
+      .catch(() => {
+        /* worst case they see step 2 again */
+      });
+  }, [user]);
 
   const staff = user ? isAdminRole(user.role) : false;
 
@@ -74,7 +87,7 @@ function FirstRun() {
     } catch {
       /* the next page load picks it up */
     }
-    if (staff) {
+    if (staff || pinOnly) {
       await finish(false);
       return;
     }
@@ -135,7 +148,7 @@ function FirstRun() {
       <div className="mx-auto -mt-10 w-full max-w-[560px] px-3 pb-10">
         <div className="rounded-2xl bg-surface-lowest p-4 shadow-raised sm:p-6">
           <div className="mb-4 flex items-center gap-2">
-            {[1, 2].map((n) => (
+            {(pinOnly || staff ? [1] : [1, 2]).map((n) => (
               <span
                 key={n}
                 className={`h-2 flex-1 rounded-full ${
