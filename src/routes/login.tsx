@@ -216,8 +216,6 @@ function Login() {
     setPin("");
     setError("");
     setNotice("");
-    // PIN unlock needs a remembered number, so send them to the password tab.
-    setTab("password");
   };
 
 
