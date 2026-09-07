@@ -270,9 +270,10 @@ function Home() {
       <section>
         <div className="mb-sm flex items-end justify-between px-1">
           <h2 className="label-bold text-on-surface-variant" data-tour="recent">Recent transactions</h2>
-          <Link to="/history" className="text-sm font-bold text-primary hover:underline">
+          <Link to="/history" data-tour="see-all" className="text-sm font-bold text-primary hover:underline">
             See all
           </Link>
+
         </div>
         <div className="card overflow-hidden p-0">
           {recent.map((t) => {
