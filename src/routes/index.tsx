@@ -114,6 +114,8 @@ function Home() {
   const active = tabs[index]!;
 
   const tour = useTour("operator-home", user?.id, true);
+  const steps = React.useMemo(() => tourSteps(setTab), []);
+
 
   const hero = (
     <div className="card p-0" data-tour="balance">
