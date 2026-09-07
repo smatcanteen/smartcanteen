@@ -217,168 +217,13 @@ const seedTenant = (
 });
 
 const seed: PlatformState = {
-  agents: [
-    {
-      id: "ag-1",
-      accountId: "acc-agent-1",
-      name: "Moses Kigozi",
-      phone: "+256 700 000 020",
-      email: "agent@smartcanteen.app",
-      status: "certified",
-      territory: "Kampala Central",
-      trainedAt: days(95),
-      certified: true,
-    },
-    {
-      id: "ag-2",
-      accountId: "acc-agent-2",
-      name: "Sarah Kembabazi",
-      phone: "+256 700 000 021",
-      email: "sarah.agent@smartcanteen.app",
-      status: "pending",
-      territory: "Wakiso",
-      trainedAt: null,
-      certified: false,
-    },
-  ],
-  tenants: [
-    seedTenant(
-      "acc-op-1",
-      "Kampala Parents Canteen",
-      "Kampala Parents SS",
-      "Talemwa Raymond",
-      "+256 700 000 002",
-      "day",
-      "Kampala Central",
-      "ag-1",
-      "active",
-      120,
-      42,
-      { loggedIn: true, capitalSet: true, firstStock: true, firstSale: true },
-    ),
-    seedTenant(
-      "acc-op-2",
-      "St. Mary's Canteen",
-      "St. Mary's SS",
-      "Grace Nabirye",
-      "+256 700 000 003",
-      "boarding",
-      "Wakiso",
-      "ag-1",
-      "active",
-      90,
-      31,
-      { loggedIn: true, capitalSet: true, firstStock: true, firstSale: true },
-    ),
-    seedTenant(
-      "acc-op-3",
-      "Kololo High Canteen",
-      "Kololo High",
-      "Peter Wanyama",
-      "+256 700 000 004",
-      "boarding",
-      "Kampala Central",
-      "ag-2",
-      "trial",
-      6,
-      0,
-      { loggedIn: true, capitalSet: false, firstStock: false, firstSale: false },
-      ["nudge"],
-    ),
-  ],
-  leads: [
-    {
-      id: "ld-1",
-      school: "Namilyango College",
-      contactName: "Bursar Okot",
-      phone: "+256 772 111 222",
-      stage: "demo",
-      agentId: "ag-1",
-      notes: [{ id: "n1", text: "Demo given to the bursar; wants board approval.", ts: days(4) }],
-      createdAt: days(9),
-    },
-    {
-      id: "ld-2",
-      school: "Seeta High School",
-      contactName: "Madam Night",
-      phone: "+256 772 333 444",
-      stage: "contacted",
-      agentId: "ag-1",
-      notes: [],
-      createdAt: days(3),
-    },
-    {
-      id: "ld-3",
-      school: "Mengo SS",
-      contactName: "Mr. Kato",
-      phone: "+256 772 555 666",
-      stage: "trial",
-      agentId: "ag-2",
-      notes: [],
-      createdAt: days(7),
-    },
-  ],
-  commissions: [
-    {
-      id: "cm-1",
-      agentId: "ag-1",
-      accountId: "acc-op-1",
-      type: "signup",
-      amount: 10000,
-      status: "paid",
-      batchRef: "MM-88213",
-      createdAt: days(118),
-    },
-    {
-      id: "cm-2",
-      agentId: "ag-1",
-      accountId: "acc-op-2",
-      type: "signup",
-      amount: 10000,
-      status: "approved",
-      createdAt: days(88),
-    },
-    {
-      id: "cm-3",
-      agentId: "ag-1",
-      accountId: "acc-op-1",
-      type: "trail",
-      amount: 875,
-      period: "Aug 2026",
-      status: "pending",
-      createdAt: days(10),
-    },
-  ],
-  payouts: [{ id: "po-1", agentId: "ag-1", amount: 10000, status: "paid", ref: "MM-88213", ts: days(80) }],
-  tickets: [
-    {
-      id: "tk-1",
-      accountId: "acc-op-2",
-      accountName: "Grace Nabirye",
-      subject: "Stock not reducing after a sale",
-      status: "open",
-      assignedTo: null,
-      messages: [
-        {
-          id: "m1",
-          from: "operator",
-          text: "When I sell mandazi the stock number stays the same. Please help.",
-          ts: days(2),
-        },
-      ],
-      createdAt: days(2),
-    },
-  ],
-  announcements: [
-    {
-      id: "an-1",
-      title: "Welcome",
-      body: "We are happy you are using SmartCanteen to manage your expenses and cash.",
-      active: true,
-      ts: days(3),
-      segment: {},
-    },
-  ],
+  agents: [],
+  tenants: [],
+  leads: [],
+  commissions: [],
+  payouts: [],
+  tickets: [],
+  announcements: [],
   settings: defaultSettings,
   auditLog: [],
 };
@@ -428,7 +273,17 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const raw = localStorage.getItem(KEY);
-      if (raw) setS({ ...seed, ...(JSON.parse(raw) as PlatformState) });
+      if (raw) {
+        const saved = { ...seed, ...(JSON.parse(raw) as PlatformState) };
+        const isLegacyDemoId = (id: string | null) => !!id && id.startsWith("acc-");
+        setS({
+          ...saved,
+          tenants: saved.tenants.filter((tenant) => !isLegacyDemoId(tenant.accountId)),
+          agents: saved.agents.filter((agent) => !isLegacyDemoId(agent.accountId)),
+          commissions: saved.commissions.filter((commission) => !isLegacyDemoId(commission.accountId)),
+          tickets: saved.tickets.filter((ticket) => !isLegacyDemoId(ticket.accountId)),
+        });
+      }
     } catch {
       /* ignore */
     }
