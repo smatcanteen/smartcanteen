@@ -79,8 +79,10 @@ function Login() {
 
   /** The number this sign-in will use: the remembered one, or what is typed. */
   const activePhone = () => (tab === "pin" && saved ? saved : fullPhone(localDigits(phone)));
-  /** PIN unlock always uses the number this phone already remembers. */
-  const phoneReady = () => (tab === "pin" ? !!saved : localDigits(phone).length === 9);
+  /** PIN unlock uses the remembered number, or one typed in on a new phone. */
+  const phoneReady = () =>
+    (tab === "pin" && !!saved) || localDigits(phone).length === 9;
+
 
   useEffect(() => {
     if (ready && user) navigate({ to: homeForRole(user.role) });
@@ -107,11 +109,10 @@ function Login() {
     setError("");
     setNotice("");
     if (!phoneReady()) {
-      setError(
-        'This phone does not remember you yet. Use the "Phone/Email + password" tab once, then PIN unlock works here.',
-      );
+      setError("Enter your 9-digit phone number after +256, then your PIN.");
       return;
     }
+
     if (!/^[A-Za-z0-9]{4,32}$/.test(pin)) {
       setError("Your PIN is 4 or more letters or numbers.");
       return;
@@ -215,8 +216,6 @@ function Login() {
     setPin("");
     setError("");
     setNotice("");
-    // PIN unlock needs a remembered number, so send them to the password tab.
-    setTab("password");
   };
 
 
@@ -319,16 +318,9 @@ function Login() {
                   </div>
                 )}
 
-                {/* PIN unlock on a phone that has never signed in: point to the other tab */}
-                {tab === "pin" && !saved && (
-                  <p className="rounded-md bg-surface-high px-3 py-2 text-sm font-semibold text-on-surface-variant">
-                    First time on this phone? Sign in once with the "Phone/Email + password" tab —
-                    after that you only need your PIN here.
-                  </p>
-                )}
+                {/* Phone number with a fixed country code */}
+                {((tab === "password" && mode === "phone") || (tab === "pin" && !saved)) && (
 
-                {/* Phone number with a fixed country code (password tab only) */}
-                {tab === "password" && mode === "phone" && (
                   <div>
                     <label
                       className="mb-1 block text-sm font-bold text-on-surface-variant"

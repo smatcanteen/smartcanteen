@@ -2,6 +2,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 import { Icon } from "./Icon";
 import { useAuth, roleLabels, isAdminRole, homeForRole, type Role } from "@/lib/auth";
+import { useSetupGate } from "@/lib/setup-gate";
 import { BrandMark } from "./Brand";
 
 export type AdminPerm =
@@ -52,8 +53,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const { user, ready, logout } = useAuth();
   const navigate = useNavigate();
 
+  useSetupGate(ready && !!user);
+
   useEffect(() => {
     if (!ready) return;
+
     if (!user) navigate({ to: "/login" });
     else if (!isAdminRole(user.role)) navigate({ to: homeForRole(user.role) });
     else if (user.otpPending) navigate({ to: "/first-run" });
