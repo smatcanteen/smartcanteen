@@ -155,8 +155,14 @@ function Login() {
       return;
     }
     setBusy(true);
-    const res = await login(identifier, password);
+    const typed = password.trim();
+    let res = await login(identifier, typed);
+    // One-time passwords are issued in capitals; accept them typed in any case.
+    if (!res.ok && typed !== typed.toUpperCase()) {
+      res = await login(identifier, typed.toUpperCase());
+    }
     setBusy(false);
+
     if (!res.ok) {
       setError(res.error ?? "Could not sign you in.");
       return;
