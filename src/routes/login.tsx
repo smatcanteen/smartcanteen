@@ -273,8 +273,24 @@ function Login() {
                   void (tab === "pin" ? submitPin() : submitPassword());
                 }}
               >
+                {/* Already signed in on this phone: just the PIN, no number to retype */}
+                {tab === "pin" && saved && (
+                  <div className="flex items-center justify-between gap-2 rounded-md bg-surface-high px-3 py-2">
+                    <span className="min-w-0 truncate text-sm font-semibold text-on-surface">
+                      Signing in as +{saved}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={useAnotherNumber}
+                      className="shrink-0 text-sm font-bold text-primary"
+                    >
+                      Not you?
+                    </button>
+                  </div>
+                )}
+
                 {/* Phone number with a fixed country code */}
-                {(tab === "pin" || mode === "phone") && (
+                {((tab === "pin" && !saved) || (tab === "password" && mode === "phone")) && (
                   <div>
                     <label
                       className="mb-1 block text-sm font-bold text-on-surface-variant"
@@ -306,6 +322,7 @@ function Login() {
                     </span>
                   </div>
                 )}
+
 
                 {tab === "pin" ? (
                   <div>
