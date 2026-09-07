@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useAuth } from "./auth";
 
 /* ------------------------------------------------------------------ types */
 
@@ -135,8 +136,6 @@ export type PlatformState = {
 /* ------------------------------------------------------------------- seed */
 
 const KEY = "smartcanteen.platform.v1";
-const ANCHOR = Date.UTC(2026, 7, 14, 9, 0, 0);
-const days = (n: number) => ANCHOR - n * 86400000;
 const uid = () => Math.random().toString(36).slice(2, 10);
 
 export const zones = ["Kampala Central", "Wakiso", "Jinja", "Mbarara", "Gulu"];
@@ -179,42 +178,6 @@ const defaultSettings: PlatformSettings = {
   welcomeTemplate:
     "Hello {name}, welcome to SmartCanteen! Open {link} and log in with phone {phone} and the one-time password {password}. You will then choose your own private PIN. Your first job is to set your opening term capital — everything else follows from it.",
 };
-
-const seedTenant = (
-  accountId: string,
-  canteenName: string,
-  school: string,
-  ownerName: string,
-  phone: string,
-  category: CategoryTemplate,
-  zone: string,
-  agentId: string | null,
-  status: TenantStatus,
-  createdDaysAgo: number,
-  entries: number,
-  checklist: Tenant["checklist"],
-  tags: FollowUpTag[] = [],
-): Tenant => ({
-  accountId,
-  canteenName,
-  school,
-  ownerName,
-  phone,
-  category,
-  zone,
-  agentId,
-  status,
-  createdAt: days(createdDaysAgo),
-  trialEndsAt: status === "trial" ? days(createdDaysAgo - 14) : null,
-  nextBillingAt: days(createdDaysAgo - 120),
-  lastLoginAt: entries > 0 ? days(1) : null,
-  entries,
-  tags,
-  notes: [],
-  checklist,
-  termStart: "2026-05-25",
-  termEnd: "2026-08-28",
-});
 
 const seed: PlatformState = {
   agents: [],
@@ -267,6 +230,7 @@ type Ctx = {
 const PlatformContext = createContext<Ctx | null>(null);
 
 export function PlatformProvider({ children }: { children: ReactNode }) {
+  const { accounts, ready: accountsReady } = useAuth();
   const [s, setS] = useState<PlatformState>(seed);
   const [hydrated, setHydrated] = useState(false);
 
@@ -298,6 +262,42 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       /* ignore */
     }
   }, [s, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated || !accountsReady) return;
+    const operatorIds = new Set(
+      accounts.filter((account) => account.role === "operator").map((account) => account.id),
+    );
+    const agentIds = new Set(
+      accounts.filter((account) => account.role === "agent").map((account) => account.id),
+    );
+    setS((current) => {
+      const tenants = current.tenants.filter((tenant) => operatorIds.has(tenant.accountId));
+      const agents = current.agents.filter(
+        (agent) => !!agent.accountId && agentIds.has(agent.accountId),
+      );
+      const tenantIds = new Set(tenants.map((tenant) => tenant.accountId));
+      const keptAgentIds = new Set(agents.map((agent) => agent.id));
+      const next = {
+        ...current,
+        tenants,
+        agents,
+        commissions: current.commissions.filter(
+          (commission) => tenantIds.has(commission.accountId) && keptAgentIds.has(commission.agentId),
+        ),
+        tickets: current.tickets.filter((ticket) => tenantIds.has(ticket.accountId)),
+      };
+      if (
+        next.tenants.length === current.tenants.length &&
+        next.agents.length === current.agents.length &&
+        next.commissions.length === current.commissions.length &&
+        next.tickets.length === current.tickets.length
+      ) {
+        return current;
+      }
+      return next;
+    });
+  }, [accounts, accountsReady, hydrated]);
 
   const patch = useCallback((fn: (prev: PlatformState) => PlatformState) => setS(fn), []);
 
