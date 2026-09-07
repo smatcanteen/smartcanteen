@@ -587,6 +587,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, txs: [], debtors: [], items: [], capital: 0 }));
   }, []);
 
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  const saveNow = useCallback(async () => {
+    if (!userId) return;
+    const now = Date.now();
+    try {
+      localStorage.setItem(`${storeKeyFor(userId)}.updatedAt`, String(now));
+    } catch {
+      /* ignore */
+    }
+    const { error } = await supabase.from("canteen_books").upsert(
+      {
+        user_id: userId,
+        data: stateRef.current as unknown as Json,
+        updated_at: new Date(now).toISOString(),
+      },
+      { onConflict: "user_id" },
+    );
+    pendingRef.current = !!error;
+  }, [userId]);
+
   const value = useMemo<Ctx>(() => {
     const t = { sales: 0, expenses: 0, stock: 0 };
     const day = { sales: 0, expenses: 0, net: 0 };
