@@ -43,7 +43,7 @@ export function AppLayout({
   const path = router.state.location.pathname;
   const navigate = useNavigate();
   const { user, ready, logout } = useAuth();
-  const { state, hydrated } = useStore();
+  const { state, hydrated, cloudChecked } = useStore();
   const { s: platform } = usePlatform();
 
   const banner = platform.announcements.find((a) => a.active);
@@ -57,8 +57,8 @@ export function AppLayout({
     else if (user.role !== "operator") navigate({ to: homeForRole(user.role) });
     // Brand-new operators must set their own PIN and opening capital first.
     else if (user.otpPending) navigate({ to: "/first-run" });
-    else if (hydrated && !state.setupDone) navigate({ to: "/canteen-setup" });
-  }, [ready, user, navigate, hydrated, state.setupDone]);
+    else if (hydrated && cloudChecked && !state.setupDone) navigate({ to: "/canteen-setup" });
+  }, [ready, user, navigate, hydrated, cloudChecked, state.setupDone]);
 
   if (!ready || !hydrated) {
     return (

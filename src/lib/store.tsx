@@ -278,6 +278,8 @@ type Ctx = {
   clearAll: () => void;
   /** Force an immediate cloud save (used right after first-time setup). */
   saveNow: () => Promise<void>;
+  /** True once the cloud copy has been checked (or the device is offline). */
+  cloudChecked: boolean;
 };
 
 const StoreContext = createContext<Ctx | null>(null);
@@ -298,6 +300,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [syncReady, setSyncReady] = useState(false);
   /** Set when a write failed (offline); the next change retries everything. */
   const pendingRef = useRef(false);
+  /** Flipped once we know what the cloud holds (or that we cannot reach it). */
+  const [cloudChecked, setCloudChecked] = useState(false);
 
   // Load (or create) the cash book that belongs to the signed-in account.
   // Local storage answers instantly (so the app works offline), then the
@@ -307,6 +311,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     let alive = true;
     setHydrated(false);
     setSyncReady(false);
+    setCloudChecked(false);
     const base = baseFor(userId);
     let local: State = base;
     try {
@@ -318,7 +323,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState(local);
     setHydrated(true);
 
-    if (!userId) return;
+    if (!userId) {
+      setCloudChecked(true);
+      return;
+    }
     void (async () => {
       const { data, error } = await supabase
         .from("canteen_books")
@@ -337,6 +345,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // Offline (error): stay local-only so a stale cloud copy can never
       // resurrect data the operator has already cleared on this device.
       if (alive && !error) setSyncReady(true);
+      if (alive) setCloudChecked(true);
     })();
 
     return () => {
@@ -653,6 +662,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       restoreState,
       clearAll,
       saveNow,
+      cloudChecked,
     };
   }, [
     state,
@@ -674,6 +684,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     restoreState,
     clearAll,
     saveNow,
+    cloudChecked,
   ]);
 
   return (
