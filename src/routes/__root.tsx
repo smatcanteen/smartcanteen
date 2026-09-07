@@ -140,20 +140,31 @@ const criticalCss = `
     border: 3px solid rgba(255,255,255,.3); border-top-color: #fff;
     animation: sc-spin .8s linear infinite; }
   @keyframes sc-spin { to { transform: rotate(360deg); } }
-  html.app-ready #app-splash { opacity: 0; pointer-events: none; visibility: hidden; }
-`;
-
-const readyScript = `
-  (function(){
-    var d=document, done=false;
-    function ready(){ if(done) return; done=true; d.documentElement.classList.add('app-ready'); }
-    if (d.fonts && d.fonts.ready) { d.fonts.ready.then(ready); }
-    window.addEventListener('load', ready);
-    setTimeout(ready, 2500);
-  })();
+  #app-splash.is-ready { opacity: 0; pointer-events: none; visibility: hidden; }
+  /* Safety net: never trap anyone behind the splash if scripts are slow. */
+  @keyframes sc-splash-out { to { opacity: 0; visibility: hidden; } }
+  #app-splash { animation: sc-splash-out .3s ease 5s forwards; }
 `;
 
 function RootShell({ children }: { children: ReactNode }) {
+  const [ready, setReady] = useState(false);
+
+  // Hide the splash once the web fonts are in, so the first thing people see
+  // is the finished layout rather than a jumbled one.
+  useEffect(() => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      setReady(true);
+    };
+    if (typeof document !== "undefined" && document.fonts?.ready) {
+      void document.fonts.ready.then(finish);
+    }
+    const t = setTimeout(finish, 2500);
+    return () => clearTimeout(t);
+  }, []);
+
   return (
     <html lang="en">
       <head>
@@ -161,12 +172,11 @@ function RootShell({ children }: { children: ReactNode }) {
         <style dangerouslySetInnerHTML={{ __html: criticalCss }} />
       </head>
       <body>
-        <div id="app-splash" aria-hidden="true">
+        <div id="app-splash" className={ready ? "is-ready" : ""} aria-hidden="true">
           <span />
           <p>SmartCanteen</p>
         </div>
         {children}
-        <script dangerouslySetInnerHTML={{ __html: readyScript }} />
         <Scripts />
       </body>
     </html>
