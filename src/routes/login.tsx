@@ -4,7 +4,7 @@ import { Icon } from "@/components/Icon";
 import { BrandMark } from "@/components/Brand";
 import { homeForRole, useAuth, type Role } from "@/lib/auth";
 import { myFirstRunState } from "@/lib/accounts.functions";
-import { checkCachedPin, rememberPin } from "@/lib/pin-cache";
+import { checkCachedPin, forgetPhone, lastPhone, rememberPhone, rememberPin } from "@/lib/pin-cache";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
