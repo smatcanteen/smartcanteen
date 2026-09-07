@@ -172,7 +172,7 @@ export const setMyPin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { pin: string }) => data)
   .handler(async ({ data, context }) => {
-    if (!/^\d{4,6}$/.test(data.pin)) return { ok: false as const, error: "Use a 4 to 6 digit PIN." };
+    if (!/^[A-Za-z0-9]{4,32}$/.test(data.pin)) return { ok: false as const, error: "Use 4 or more letters or numbers." };
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin
       .from("profiles")
@@ -314,7 +314,7 @@ export const signInWithPin = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const phone = normalisePhone(data.phone);
     const fail = { ok: false as const, error: "Phone number or PIN is not correct." };
-    if (phone.length < 9 || !/^\d{4,6}$/.test(data.pin)) return fail;
+    if (phone.length < 9 || !/^[A-Za-z0-9]{4,32}$/.test(data.pin)) return fail;
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: row } = await supabaseAdmin
