@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { listAccountProgress } from "@/lib/accounts.functions";
 import { Icon } from "@/components/Icon";
 import { Card, Field, PrimaryButton, SectionTitle } from "@/components/ui-kit";
@@ -348,71 +349,6 @@ function Accounts() {
                     </button>
                   ) : null}
                 </div>
-
-                {otp?.id === t.accountId ? (
-                  <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-                    role="dialog"
-                    aria-modal="true"
-                    aria-label="New one-time password"
-                    onClick={() => setOtp(null)}
-                  >
-                    {(() => {
-                      const acc = accounts.find((a) => a.id === t.accountId);
-                      const msg = `Hello ${t.ownerName}, here is your new SmartCanteen one-time password: ${otp.code}\nPhone number to log in: +${acc?.phone ?? ""}\nOpen: ${loginLink}\nAfter signing in, set a new PIN in Settings.`;
-                      return (
-                        <div
-                          className="w-full max-w-md space-y-4 rounded-2xl bg-surface p-5 shadow-2xl"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <h3 className="text-lg font-extrabold text-on-surface">
-                                New one-time password
-                              </h3>
-                              <p className="text-sm text-on-surface-variant">
-                                For {t.ownerName} · +{acc?.phone ?? "no phone on file"} — their old
-                                PIN no longer works.
-                              </p>
-                            </div>
-                            <button
-                              onClick={() => setOtp(null)}
-                              aria-label="Close"
-                              className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-on-surface-variant"
-                            >
-                              <Icon name="close" className="text-[22px]" />
-                            </button>
-                          </div>
-                          <div className="rounded-xl bg-surface-high px-4 py-6 text-center">
-                            <p className="text-4xl font-extrabold tracking-[0.35em] text-on-surface">
-                              {otp.code}
-                            </p>
-                          </div>
-                          <div className="flex flex-col gap-2 sm:flex-row">
-                            <a
-                              href={whatsappLink(acc?.phone ?? undefined, msg) ?? "#"}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-bold text-on-primary"
-                            >
-                              <Icon name="chat" className="text-[18px]" /> Send on WhatsApp
-                            </a>
-                            <button
-                              onClick={() => void navigator.clipboard?.writeText(msg)}
-                              className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full border-2 border-outline-variant px-4 text-sm font-bold text-on-surface-variant"
-                            >
-                              <Icon name="content_copy" className="text-[18px]" /> Copy message
-                            </button>
-                          </div>
-                          <p className="text-xs text-on-surface-variant">
-                            Send this to the operator. They sign in with their phone number and this
-                            password, then set a new PIN in Settings.
-                          </p>
-                        </div>
-                      );
-                    })()}
-                  </div>
-                ) : null}
 
                 {actionError ? (
                   <p className="text-sm font-semibold text-tertiary">{actionError}</p>
