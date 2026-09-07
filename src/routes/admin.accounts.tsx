@@ -280,10 +280,13 @@ function Accounts() {
                     return (
                       <span className="inline-flex min-h-11 items-center gap-1 rounded-full bg-tertiary/15 px-3 text-sm font-bold text-tertiary">
                         <Icon name="lock_reset" className="text-[18px]" />
-                        {acc.pinLocked ? "Locked out — needs a new PIN" : "Asked for a new PIN"}
+                        {acc.pinLocked
+                          ? "Locked out — tap New one-time password"
+                          : "Asked for a new PIN — tap New one-time password"}
                       </span>
                     );
                   })()}
+
                   {can(user?.role, "suspend") ? (
                     <button
                       disabled={busyId === t.accountId}
