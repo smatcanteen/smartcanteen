@@ -16,6 +16,7 @@ import { Route as CanteenSetupRouteImport } from './routes/canteen-setup'
 import { Route as CloseOutRouteImport } from './routes/close-out'
 import { Route as DebtorsRouteImport } from './routes/debtors'
 import { Route as ExpenseRouteImport } from './routes/expense'
+import { Route as FirstRunRouteImport } from './routes/first-run'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
@@ -71,6 +72,11 @@ const DebtorsRoute = DebtorsRouteImport.update({
 const ExpenseRoute = ExpenseRouteImport.update({
   id: '/expense',
   path: '/expense',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FirstRunRoute = FirstRunRouteImport.update({
+  id: '/first-run',
+  path: '/first-run',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HistoryRoute = HistoryRouteImport.update({
@@ -187,6 +193,7 @@ export interface FileRoutesByFullPath {
   '/close-out': typeof CloseOutRoute
   '/debtors': typeof DebtorsRoute
   '/expense': typeof ExpenseRoute
+  '/first-run': typeof FirstRunRoute
   '/history': typeof HistoryRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
@@ -216,6 +223,7 @@ export interface FileRoutesByTo {
   '/close-out': typeof CloseOutRoute
   '/debtors': typeof DebtorsRoute
   '/expense': typeof ExpenseRoute
+  '/first-run': typeof FirstRunRoute
   '/history': typeof HistoryRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
@@ -247,6 +255,7 @@ export interface FileRoutesById {
   '/close-out': typeof CloseOutRoute
   '/debtors': typeof DebtorsRoute
   '/expense': typeof ExpenseRoute
+  '/first-run': typeof FirstRunRoute
   '/history': typeof HistoryRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
@@ -279,6 +288,7 @@ export interface FileRouteTypes {
     | '/close-out'
     | '/debtors'
     | '/expense'
+    | '/first-run'
     | '/history'
     | '/login'
     | '/onboarding'
@@ -308,6 +318,7 @@ export interface FileRouteTypes {
     | '/close-out'
     | '/debtors'
     | '/expense'
+    | '/first-run'
     | '/history'
     | '/login'
     | '/onboarding'
@@ -338,6 +349,7 @@ export interface FileRouteTypes {
     | '/close-out'
     | '/debtors'
     | '/expense'
+    | '/first-run'
     | '/history'
     | '/login'
     | '/onboarding'
@@ -369,6 +381,7 @@ export interface RootRouteChildren {
   CloseOutRoute: typeof CloseOutRoute
   DebtorsRoute: typeof DebtorsRoute
   ExpenseRoute: typeof ExpenseRoute
+  FirstRunRoute: typeof FirstRunRoute
   HistoryRoute: typeof HistoryRoute
   LoginRoute: typeof LoginRoute
   OnboardingRoute: typeof OnboardingRoute
@@ -433,6 +446,13 @@ declare module '@tanstack/react-router' {
       path: '/expense'
       fullPath: '/expense'
       preLoaderRoute: typeof ExpenseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/first-run': {
+      id: '/first-run'
+      path: '/first-run'
+      fullPath: '/first-run'
+      preLoaderRoute: typeof FirstRunRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/history': {
@@ -617,6 +637,7 @@ const rootRouteChildren: RootRouteChildren = {
   CloseOutRoute: CloseOutRoute,
   DebtorsRoute: DebtorsRoute,
   ExpenseRoute: ExpenseRoute,
+  FirstRunRoute: FirstRunRoute,
   HistoryRoute: HistoryRoute,
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,

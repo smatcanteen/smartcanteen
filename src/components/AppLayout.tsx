@@ -55,6 +55,8 @@ export function AppLayout({
     if (!ready) return;
     if (!user) navigate({ to: "/login" });
     else if (user.role !== "operator") navigate({ to: homeForRole(user.role) });
+    // Brand-new operators must set their own PIN and opening capital first.
+    else if (user.otpPending) navigate({ to: "/first-run" });
     else if (hydrated && !state.setupDone) navigate({ to: "/canteen-setup" });
   }, [ready, user, navigate, hydrated, state.setupDone]);
 

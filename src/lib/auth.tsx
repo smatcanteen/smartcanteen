@@ -14,8 +14,10 @@ import {
   normalisePhone,
   phoneEmail,
   provisionAccount,
+  requestAccessHelp,
   resetOneTimePassword,
   setAccountActive,
+  signInWithPin,
 } from "./accounts.functions";
 
 export type Role = "admin" | "support" | "finance" | "operator" | "agent";
@@ -49,6 +51,10 @@ export type Account = {
   active: boolean;
   /** True until the person has replaced the one-time password with a PIN. */
   otpPending?: boolean;
+  /** Locked out after four wrong PIN tries. */
+  pinLocked?: boolean;
+  /** They tapped "Forgot PIN" and are waiting for a new one-time password. */
+  pinResetRequested?: boolean;
 };
 
 type ProfileRow = {
@@ -59,6 +65,8 @@ type ProfileRow = {
   school: string;
   active: boolean;
   otp_pending: boolean;
+  pin_locked?: boolean;
+  pin_reset_requested?: boolean;
   created_at: string;
 };
 
@@ -77,6 +85,11 @@ type Ctx = {
   user: Account | null;
   ready: boolean;
   login: (identifier: string, password: string) => Promise<{ ok: boolean; role?: Role; error?: string }>;
+  loginWithPin: (
+    phone: string,
+    pin: string,
+  ) => Promise<{ ok: boolean; role?: Role; error?: string; locked?: boolean }>;
+  requestHelp: (phone: string) => Promise<void>;
   logout: () => Promise<void>;
   createOperator: (input: CreateInput) => Promise<Result>;
   createAccount: (input: CreateInput & { role: Role }) => Promise<Result>;
@@ -98,6 +111,8 @@ const toAccount = (p: ProfileRow, role: Role): Account => ({
   createdAt: new Date(p.created_at).getTime(),
   active: p.active,
   otpPending: p.otp_pending,
+  pinLocked: !!p.pin_locked,
+  pinResetRequested: !!p.pin_reset_requested,
 });
 
 /** Staff sign in with an email; operators and agents sign in with a phone number. */
@@ -182,6 +197,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { ok: true, role };
   }, [loadDirectory]);
 
+  const loginWithPin = useCallback<Ctx["loginWithPin"]>(
+    async (phone, pin) => {
+      const res = await signInWithPin({ data: { phone, pin } });
+      if (!res.ok) {
+        return {
+          ok: false,
+          error: res.error,
+          ...("locked" in res && res.locked ? { locked: true } : {}),
+        };
+      }
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: res.email,
+        token: res.code,
+        type: "email",
+      });
+      if (error || !data.user) return { ok: false, error: "Could not open your session." };
+      const { data: roleRows } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", data.user.id);
+      const role = ((roleRows ?? [])[0]?.role as Role) ?? "operator";
+      await supabase
+        .from("profiles")
+        .update({ last_login_at: new Date().toISOString() })
+        .eq("id", data.user.id);
+      await loadDirectory(data.user.id);
+      return { ok: true, role };
+    },
+    [loadDirectory],
+  );
+
+  const requestHelp = useCallback(async (phone: string) => {
+    try {
+      await requestAccessHelp({ data: { phone } });
+    } catch {
+      /* the admin can also be reached on WhatsApp */
+    }
+  }, []);
+
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -261,6 +315,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       ready,
       login,
+      loginWithPin,
+      requestHelp,
       logout,
       createOperator,
       createAccount,
@@ -269,7 +325,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       resendOtp,
       refresh,
     }),
-    [accounts, user, ready, login, logout, createOperator, createAccount, toggleAccount, removeAccount, resendOtp, refresh],
+    [accounts, user, ready, login, loginWithPin, requestHelp, logout, createOperator, createAccount, toggleAccount, removeAccount, resendOtp, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
