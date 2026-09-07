@@ -14,8 +14,10 @@ import {
   normalisePhone,
   phoneEmail,
   provisionAccount,
+  requestAccessHelp,
   resetOneTimePassword,
   setAccountActive,
+  signInWithPin,
 } from "./accounts.functions";
 
 export type Role = "admin" | "support" | "finance" | "operator" | "agent";
@@ -77,6 +79,11 @@ type Ctx = {
   user: Account | null;
   ready: boolean;
   login: (identifier: string, password: string) => Promise<{ ok: boolean; role?: Role; error?: string }>;
+  loginWithPin: (
+    phone: string,
+    pin: string,
+  ) => Promise<{ ok: boolean; role?: Role; error?: string; locked?: boolean }>;
+  requestHelp: (phone: string) => Promise<void>;
   logout: () => Promise<void>;
   createOperator: (input: CreateInput) => Promise<Result>;
   createAccount: (input: CreateInput & { role: Role }) => Promise<Result>;
@@ -182,6 +189,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { ok: true, role };
   }, [loadDirectory]);
 
+  const loginWithPin = useCallback<Ctx["loginWithPin"]>(
+    async (phone, pin) => {
+      const res = await signInWithPin({ data: { phone, pin } });
+      if (!res.ok) {
+        return {
+          ok: false,
+          error: res.error,
+          ...("locked" in res && res.locked ? { locked: true } : {}),
+        };
+      }
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: res.email,
+        token: res.code,
+        type: "email",
+      });
+      if (error || !data.user) return { ok: false, error: "Could not open your session." };
+      const { data: roleRows } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", data.user.id);
+      const role = ((roleRows ?? [])[0]?.role as Role) ?? "operator";
+      await supabase
+        .from("profiles")
+        .update({ last_login_at: new Date().toISOString() })
+        .eq("id", data.user.id);
+      await loadDirectory(data.user.id);
+      return { ok: true, role };
+    },
+    [loadDirectory],
+  );
+
+  const requestHelp = useCallback(async (phone: string) => {
+    try {
+      await requestAccessHelp({ data: { phone } });
+    } catch {
+      /* the admin can also be reached on WhatsApp */
+    }
+  }, []);
+
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -261,6 +307,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       ready,
       login,
+      loginWithPin,
+      requestHelp,
       logout,
       createOperator,
       createAccount,
@@ -269,7 +317,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       resendOtp,
       refresh,
     }),
-    [accounts, user, ready, login, logout, createOperator, createAccount, toggleAccount, removeAccount, resendOtp, refresh],
+    [accounts, user, ready, login, loginWithPin, requestHelp, logout, createOperator, createAccount, toggleAccount, removeAccount, resendOtp, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
