@@ -415,6 +415,42 @@ function OtpModal({
   const msg = `Hello ${ownerName}, here is your new SmartCanteen one-time password: ${code}\nPhone number to log in: +${phone}\nOpen: ${loginLink}\nAfter signing in, set a new PIN in Settings.`;
   const wa = whatsappLink(phone || undefined, msg);
 
+  const copyMessage = async () => {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(msg);
+      } else {
+        // Fallback for older browsers / non-secure contexts
+        const ta = document.createElement("textarea");
+        ta.value = msg;
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Last resort: select text so the user can manually copy
+      const ta = document.createElement("textarea");
+      ta.value = msg;
+      ta.style.position = "fixed";
+      ta.style.width = "20rem";
+      ta.style.height = "8rem";
+      ta.style.top = "50%";
+      ta.style.left = "50%";
+      ta.style.transform = "translate(-50%,-50%)";
+      ta.style.zIndex = "200";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      window.setTimeout(() => document.body.removeChild(ta), 30000);
+    }
+  };
+
   // Rendered at the page root through a portal so no card layout can clip or
   // squeeze it; lock the page scroll while it is open.
   useEffect(() => {
@@ -472,11 +508,7 @@ function OtpModal({
             </a>
           ) : null}
           <button
-            onClick={() => {
-              void navigator.clipboard?.writeText(msg);
-              setCopied(true);
-              window.setTimeout(() => setCopied(false), 2000);
-            }}
+            onClick={() => void copyMessage()}
             className="flex min-h-12 w-full items-center justify-center gap-2 rounded-md border-2 border-outline-variant px-4 text-sm font-bold text-on-surface-variant"
           >
             <Icon name={copied ? "check" : "content_copy"} className="text-[18px]" />
