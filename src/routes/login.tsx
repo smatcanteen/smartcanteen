@@ -217,7 +217,7 @@ function Login() {
                 {(
                   [
                     ["pin", "Login with PIN"],
-                    ["password", "Phone/Email & password"],
+                    ["password", "Phone/Email + password"],
                   ] as const
                 ).map(([key, label]) => (
                   <button
@@ -230,7 +230,7 @@ function Login() {
                       setError("");
                       setNotice("");
                     }}
-                    className={`min-h-11 min-w-0 truncate rounded-full px-2 text-xs font-bold transition-colors sm:text-sm ${
+                    className={`min-h-11 min-w-0 truncate rounded-full px-1.5 text-[11px] font-bold sm:px-2 transition-colors sm:text-sm ${
                       tab === key
                         ? "bg-primary text-on-primary shadow-raised"
                         : "text-on-surface-variant"
