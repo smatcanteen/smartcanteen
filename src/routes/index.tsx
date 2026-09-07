@@ -162,15 +162,17 @@ function Home() {
       </div>
 
       <div className="grid grid-cols-2 border-t border-outline-variant/50">
-        <Link to="/close-out" className="flex min-h-11 items-center justify-center gap-2 py-3 text-sm font-bold text-primary hover:bg-surface-low">
+        <Link to="/close-out" data-tour="close-day" className="flex min-h-11 items-center justify-center gap-2 py-3 text-sm font-bold text-primary hover:bg-surface-low">
           <Icon name="task_alt" className="text-[20px]" /> Close Day
         </Link>
         <Link
           to="/report"
+          data-tour="statements"
           className="flex min-h-11 items-center justify-center gap-2 border-l border-outline-variant/50 py-3 text-sm font-bold text-primary hover:bg-surface-low"
         >
           <Icon name="swap_vert" className="text-[20px]" /> Statements
         </Link>
+
       </div>
     </div>
   );
@@ -227,11 +229,13 @@ function Home() {
             key={`${t.to}-${i}`}
             to={t.to}
             params={t.params ?? {}}
+            data-tour={`tile-${t.label}`}
             className="card flex aspect-square flex-col items-center justify-center gap-1.5 p-2 text-center transition-transform active:scale-95 hover:bg-surface-low"
           >
             <Icon name={t.icon} className="text-[24px] text-primary sm:text-[26px]" />
             <span className="text-[11px] font-semibold leading-tight text-on-surface sm:text-xs">{t.label}</span>
           </TileLink>
+
         ))}
       </section>
       <p className="-mt-2 text-center text-[11px] text-on-surface-variant md:hidden">
