@@ -7,7 +7,14 @@ import { Icon } from "./Icon";
  * matters — the same way a new user is walked through a mobile money app.
  */
 
-export type TourStep = { id: string; title: string; body: string };
+export type TourStep = {
+  id: string;
+  title: string;
+  body: string;
+  /** Runs before the step is shown — e.g. switch to the tab holding the button. */
+  before?: () => void;
+};
+
 
 const seenKey = (tourId: string, userId: string) => `smartcanteen.tour.${tourId}.${userId}`;
 
@@ -59,6 +66,8 @@ export function Tour({
 
   useLayoutEffect(() => {
     if (!open || !step) return;
+    // Some buttons live on another tab — let the step reveal them first.
+    step.before?.();
     const measure = () => {
       const el = document.querySelector<HTMLElement>(`[data-tour="${step.id}"]`);
       if (!el) return setBox(null);
@@ -68,14 +77,21 @@ export function Tour({
     };
     measure();
     const t = setTimeout(measure, 320);
+    // If a button is simply not on this screen, move on instead of stalling.
+    const skip = setTimeout(() => {
+      if (document.querySelector(`[data-tour="${step.id}"]`)) return;
+      setI((x) => (x >= steps.length - 1 ? x : x + 1));
+    }, 700);
     window.addEventListener("resize", measure);
     window.addEventListener("scroll", measure, true);
     return () => {
       clearTimeout(t);
+      clearTimeout(skip);
       window.removeEventListener("resize", measure);
       window.removeEventListener("scroll", measure, true);
     };
-  }, [open, step, i]);
+  }, [open, step, i, steps.length]);
+
 
   if (!open || !step) return null;
 

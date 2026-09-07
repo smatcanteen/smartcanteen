@@ -7,8 +7,35 @@
  * already stored on the device, and everything they record syncs later.
  */
 const KEY = "smartcanteen.pin.cache";
+const PHONE_KEY = "smartcanteen.last.phone";
 
 type Cached = { phone: string; hash: string; userId: string; savedAt: number };
+
+/** Remembers who last signed in on this phone, so they only type their PIN. */
+export function rememberPhone(phone: string) {
+  try {
+    localStorage.setItem(PHONE_KEY, phone);
+  } catch {
+    /* private browsing */
+  }
+}
+
+export function lastPhone(): string | null {
+  try {
+    return localStorage.getItem(PHONE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function forgetPhone() {
+  try {
+    localStorage.removeItem(PHONE_KEY);
+  } catch {
+    /* nothing to clear */
+  }
+}
+
 
 async function digest(phone: string, pin: string) {
   const data = new TextEncoder().encode(`smartcanteen:${phone}:${pin}`);

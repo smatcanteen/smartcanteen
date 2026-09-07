@@ -114,6 +114,8 @@ function Home() {
   const active = tabs[index]!;
 
   const tour = useTour("operator-home", user?.id, true);
+  const steps = React.useMemo(() => tourSteps(setTab), []);
+
 
   const hero = (
     <div className="card p-0" data-tour="balance">
@@ -131,10 +133,12 @@ function Home() {
           <button
             onClick={() => setHide((h) => !h)}
             aria-label={hide ? "Show balance" : "Hide balance"}
+            data-tour="eye"
             className="shrink-0 rounded-full p-2 text-primary hover:bg-surface-high"
           >
             <Icon name={hide ? "visibility" : "visibility_off"} />
           </button>
+
         </div>
 
         {state.savingsGoal > 0 ? (
@@ -160,22 +164,24 @@ function Home() {
       </div>
 
       <div className="grid grid-cols-2 border-t border-outline-variant/50">
-        <Link to="/close-out" className="flex min-h-11 items-center justify-center gap-2 py-3 text-sm font-bold text-primary hover:bg-surface-low">
+        <Link to="/close-out" data-tour="close-day" className="flex min-h-11 items-center justify-center gap-2 py-3 text-sm font-bold text-primary hover:bg-surface-low">
           <Icon name="task_alt" className="text-[20px]" /> Close Day
         </Link>
         <Link
           to="/report"
+          data-tour="statements"
           className="flex min-h-11 items-center justify-center gap-2 border-l border-outline-variant/50 py-3 text-sm font-bold text-primary hover:bg-surface-low"
         >
           <Icon name="swap_vert" className="text-[20px]" /> Statements
         </Link>
+
       </div>
     </div>
   );
 
   return (
     <AppLayout title="SmartCanteen" hero={hero}>
-      <Tour steps={tourSteps} open={tour.open} onClose={tour.finish} />
+      <Tour steps={steps} open={tour.open} onClose={tour.finish} />
       <button
         onClick={tour.restart}
         className="flex min-h-11 w-full items-center justify-center gap-2 rounded-md border-2 border-dashed border-outline-variant text-sm font-bold text-primary"
@@ -225,11 +231,13 @@ function Home() {
             key={`${t.to}-${i}`}
             to={t.to}
             params={t.params ?? {}}
+            data-tour={`tile-${t.label}`}
             className="card flex aspect-square flex-col items-center justify-center gap-1.5 p-2 text-center transition-transform active:scale-95 hover:bg-surface-low"
           >
             <Icon name={t.icon} className="text-[24px] text-primary sm:text-[26px]" />
             <span className="text-[11px] font-semibold leading-tight text-on-surface sm:text-xs">{t.label}</span>
           </TileLink>
+
         ))}
       </section>
       <p className="-mt-2 text-center text-[11px] text-on-surface-variant md:hidden">
@@ -264,9 +272,10 @@ function Home() {
       <section>
         <div className="mb-sm flex items-end justify-between px-1">
           <h2 className="label-bold text-on-surface-variant" data-tour="recent">Recent transactions</h2>
-          <Link to="/history" className="text-sm font-bold text-primary hover:underline">
+          <Link to="/history" data-tour="see-all" className="text-sm font-bold text-primary hover:underline">
             See all
           </Link>
+
         </div>
         <div className="card overflow-hidden p-0">
           {recent.map((t) => {
@@ -317,28 +326,121 @@ function Home() {
   );
 }
 
-const tourSteps: TourStep[] = [
-  {
-    id: "balance",
-    title: "Your Cash at Hand",
-    body: "This is the money you should be holding right now — opening cash, plus sales, minus stock and expenses. If the cash in your box matches this, your book is correct.",
-  },
-  {
-    id: "tabs",
-    title: "Four simple sections",
-    body: "MONEY IN is for sales and credit paid, MONEY OUT is for buying stock and expenses, MANAGE holds stock, reports and settings. Swipe left or right to move between them.",
-  },
-  {
-    id: "tiles",
-    title: "One tap per action",
-    body: "Each tile opens a short screen with a keypad. Tell the system what happened and it does the arithmetic — you never add up anything yourself.",
-  },
-  {
-    id: "recent",
-    title: "Everything you entered",
-    body: "Your last entries appear here so you can spot a mistake early. Tap See all for the full history, term comparisons and Excel or PDF exports.",
-  },
-];
+/**
+ * Button-by-button walkthrough: what each button does, how to use it and what
+ * the operator gains from it. Steps that live on another section switch to it
+ * first, so every button is actually pointed at.
+ */
+const tourSteps = (setTab: (id: string) => void): TourStep[] => {
+  const on = (id: string) => () => setTab(id);
+  return [
+    {
+      id: "balance",
+      title: "Cash at Hand card",
+      body: "Read this first every morning. It is opening cash, plus sales, minus stock and expenses. Count the money in your box — if it matches this number, your book is correct and nothing is missing.",
+    },
+    {
+      id: "eye",
+      title: "The eye button",
+      body: "Tap the eye to hide the amount when a customer is standing at the counter, and tap it again to show it. Your money stays private in a crowd.",
+    },
+    {
+      id: "close-day",
+      title: "Close Day button",
+      body: "Tap this at the end of the day, count your cash and type what you actually have. It tells you at once whether you are short or over, so a mistake is caught the same day.",
+    },
+    {
+      id: "statements",
+      title: "Statements button",
+      body: "Tap here for your money-in and money-out statement. Use it when the school office or a parent asks for proof — you can send it as Excel or PDF.",
+    },
+    {
+      id: "tabs",
+      title: "The four section buttons",
+      body: "FOR YOU is your daily shortcuts, MONEY IN is anything you receive, MONEY OUT is anything you pay, MANAGE is stock, terms and settings. Tap a name or swipe left and right.",
+      before: on("for-you"),
+    },
+    {
+      id: "tile-Cash Sale",
+      title: "Cash Sale button",
+      body: "Tap it every time a student pays cash. Type the amount and it is added to your cash at hand instantly — no paper book, and your daily total is always ready.",
+      before: on("for-you"),
+    },
+    {
+      id: "tile-Buy Stock",
+      title: "Buy Stock button",
+      body: "Use it when you pay a supplier. Enter the item, the pack size and what you paid — the money leaves your cash at hand and the items appear on your shelf list.",
+      before: on("for-you"),
+    },
+    {
+      id: "tile-Expense",
+      title: "Expense button",
+      body: "For any other money going out: transport, airtime, repairs. Recording it keeps your profit honest instead of leaving unexplained gaps in the cash.",
+      before: on("for-you"),
+    },
+    {
+      id: "tile-Credit Book",
+      title: "Credit Book button",
+      body: "Tap it when someone takes goods without paying. You will always know who owes you, how much and since when, and you record the payment here when they clear it.",
+      before: on("for-you"),
+    },
+    {
+      id: "tile-Reports",
+      title: "Reports button",
+      body: "Your term profit, best sellers and biggest costs in one screen. Use it to decide what to stock more of and where to cut spending.",
+      before: on("for-you"),
+    },
+    {
+      id: "tile-Collect Debt",
+      title: "Collect Debt button",
+      body: "In MONEY IN, tap this when a student clears a debt. The amount joins your cash and their balance drops — no arguments about what is still owed.",
+      before: on("money-in"),
+    },
+    {
+      id: "tile-Add Capital",
+      title: "Add Capital button",
+      body: "Use it when the school or owner puts extra money into the canteen. It is counted as capital, not profit, so your real earnings stay accurate.",
+      before: on("money-in"),
+    },
+    {
+      id: "tile-Transport",
+      title: "The money-out shortcuts",
+      body: "In MONEY OUT each button is a ready-made category — transport, salary, rent, airtime, data. Tap one, type the amount, done, and your reports group the spending for you.",
+      before: on("money-out"),
+    },
+    {
+      id: "tile-Stock List",
+      title: "Stock List button",
+      body: "In MANAGE, this shows everything on your shelf and what it is worth. Check it before buying so you never pay twice for goods you already have.",
+      before: on("manage"),
+    },
+    {
+      id: "tile-Close Term",
+      title: "Close Term button",
+      body: "At the end of a term, tap this to bank the results and carry your cash and stock into the new term. Last term is saved for comparison instead of being lost.",
+      before: on("manage"),
+    },
+    {
+      id: "tile-Help & Feedback",
+      title: "Help & Feedback button",
+      body: "Stuck, or something looks wrong? Tap here to reach the SmartCanteen team directly and get an answer without leaving the app.",
+      before: on("manage"),
+    },
+    {
+      id: "tile-Settings",
+      title: "Settings button",
+      body: "Change your PIN, your canteen details and your backup here. Setting a PIN you remember keeps your money data safe if the phone is left on the counter.",
+      before: on("manage"),
+    },
+    {
+      id: "see-all",
+      title: "See all button",
+      body: "Opens your full history with search, past terms and Excel or PDF export. Use it to check an old day or to prove an entry.",
+      before: on("for-you"),
+    },
+  ];
+};
+
 
 /** Tiles link to both static and dynamic routes, so params are passed loosely. */
 const TileLink = Link as unknown as React.ComponentType<Record<string, unknown>>;

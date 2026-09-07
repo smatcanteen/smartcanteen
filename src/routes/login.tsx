@@ -4,7 +4,7 @@ import { Icon } from "@/components/Icon";
 import { BrandMark } from "@/components/Brand";
 import { homeForRole, useAuth, type Role } from "@/lib/auth";
 import { myFirstRunState } from "@/lib/accounts.functions";
-import { checkCachedPin, rememberPin } from "@/lib/pin-cache";
+import { checkCachedPin, forgetPhone, lastPhone, rememberPhone, rememberPin } from "@/lib/pin-cache";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -60,6 +60,7 @@ function Login() {
 
   const [tab, setTab] = useState<"pin" | "password">("pin");
   const [phone, setPhone] = useState("");
+  const [saved, setSaved] = useState<string | null>(null);
   const [pin, setPin] = useState("");
   const [showPin, setShowPin] = useState(false);
   const [mode, setMode] = useState<"phone" | "email">("phone");
@@ -71,9 +72,19 @@ function Login() {
   const [locked, setLocked] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  // Someone who already signed in on this phone only needs their PIN.
+  useEffect(() => {
+    setSaved(lastPhone());
+  }, []);
+
+  /** The number this sign-in will use: the remembered one, or what is typed. */
+  const activePhone = () => (tab === "pin" && saved ? saved : fullPhone(localDigits(phone)));
+  const phoneReady = () => (tab === "pin" && saved ? true : localDigits(phone).length === 9);
+
   useEffect(() => {
     if (ready && user) navigate({ to: homeForRole(user.role) });
   }, [ready, user, navigate]);
+
 
   /** Send people who have not finished setting up to the guided first-run screen. */
   const goHome = async (role: Role) => {
@@ -92,7 +103,7 @@ function Login() {
   const submitPin = async () => {
     setError("");
     setNotice("");
-    if (localDigits(phone).length < 9) {
+    if (!phoneReady()) {
       setError("Enter your 9-digit phone number after +256.");
       return;
     }
@@ -101,7 +112,7 @@ function Login() {
       return;
     }
     setBusy(true);
-    const number = fullPhone(localDigits(phone));
+    const number = activePhone();
 
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
       const ok = await checkCachedPin(number, pin);
@@ -123,6 +134,7 @@ function Login() {
     }
     setLocked(false);
     await rememberPin(number, pin, "me");
+    rememberPhone(number);
     await goHome(res.role ?? "operator");
   };
 
@@ -149,23 +161,35 @@ function Login() {
       setError(res.error ?? "Could not sign you in.");
       return;
     }
+    if (mode === "phone") rememberPhone(identifier);
     await goHome(res.role ?? "operator");
   };
 
   const askForHelp = async (what: "PIN" | "password") => {
-    const number = fullPhone(localDigits(phone));
-    if (localDigits(phone).length < 9) {
+    if (!phoneReady()) {
       setError(`Type your phone number first, then tap "Forgot ${what}".`);
       return;
     }
     setBusy(true);
-    await requestHelp(number);
+    await requestHelp(activePhone());
     setBusy(false);
     setError("");
     setNotice(
       `We have told the administrator. They will send you a new one-time ${what.toLowerCase()} on WhatsApp.`,
     );
   };
+
+  /** "Not you?" — forget the remembered number and ask for a new one. */
+  const useAnotherNumber = () => {
+    forgetPhone();
+    setSaved(null);
+    setPhone("");
+    setPin("");
+    setError("");
+    setNotice("");
+  };
+
+
 
   return (
     <div className="flex min-h-screen flex-col overflow-x-hidden bg-surface-high">
@@ -249,8 +273,24 @@ function Login() {
                   void (tab === "pin" ? submitPin() : submitPassword());
                 }}
               >
+                {/* Already signed in on this phone: just the PIN, no number to retype */}
+                {tab === "pin" && saved && (
+                  <div className="flex items-center justify-between gap-2 rounded-md bg-surface-high px-3 py-2">
+                    <span className="min-w-0 truncate text-sm font-semibold text-on-surface">
+                      Signing in as +{saved}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={useAnotherNumber}
+                      className="shrink-0 text-sm font-bold text-primary"
+                    >
+                      Not you?
+                    </button>
+                  </div>
+                )}
+
                 {/* Phone number with a fixed country code */}
-                {(tab === "pin" || mode === "phone") && (
+                {((tab === "pin" && !saved) || (tab === "password" && mode === "phone")) && (
                   <div>
                     <label
                       className="mb-1 block text-sm font-bold text-on-surface-variant"
@@ -282,6 +322,7 @@ function Login() {
                     </span>
                   </div>
                 )}
+
 
                 {tab === "pin" ? (
                   <div>
