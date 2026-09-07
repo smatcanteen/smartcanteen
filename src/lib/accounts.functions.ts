@@ -40,8 +40,8 @@ const otp = () => {
   let out = "";
   do {
     out = "";
-    for (let i = 0; i < 8; i += 1) out += "23456789"[Math.floor(Math.random() * 7)];
-  } while (/^(\d)\1{7,}$/.test(out)); // never "22222222" etc.
+    for (let i = 0; i < 6; i += 1) out += "0123456789"[Math.floor(Math.random() * 10)];
+  } while (/^(\d)\1{5,}$/.test(out)); // never "222222" etc.
   return out;
 };
 
