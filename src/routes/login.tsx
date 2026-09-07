@@ -109,11 +109,10 @@ function Login() {
     setError("");
     setNotice("");
     if (!phoneReady()) {
-      setError(
-        'This phone does not remember you yet. Use the "Phone/Email + password" tab once, then PIN unlock works here.',
-      );
+      setError("Enter your 9-digit phone number after +256, then your PIN.");
       return;
     }
+
     if (!/^[A-Za-z0-9]{4,32}$/.test(pin)) {
       setError("Your PIN is 4 or more letters or numbers.");
       return;
