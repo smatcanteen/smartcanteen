@@ -88,7 +88,7 @@ type Ctx = {
   loginWithPin: (
     phone: string,
     pin: string,
-  ) => Promise<{ ok: boolean; role?: Role; error?: string; locked?: boolean }>;
+  ) => Promise<{ ok: boolean; role?: Role; userId?: string; error?: string; locked?: boolean }>;
   requestHelp: (phone: string) => Promise<void>;
   logout: () => Promise<void>;
   createOperator: (input: CreateInput) => Promise<Result>;
@@ -223,7 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .update({ last_login_at: new Date().toISOString() })
         .eq("id", data.user.id);
       await loadDirectory(data.user.id);
-      return { ok: true, role };
+      return { ok: true, role, userId: data.user.id };
     },
     [loadDirectory],
   );
