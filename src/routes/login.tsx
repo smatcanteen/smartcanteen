@@ -156,7 +156,7 @@ function Login() {
       return;
     }
     setLocked(false);
-    await rememberPin(number, pin, "me");
+    await rememberPin(number, pin, res.userId ?? "me");
     rememberPhone(number);
     await goHome(res.role ?? "operator");
   };
