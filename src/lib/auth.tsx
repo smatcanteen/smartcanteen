@@ -223,7 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .update({ last_login_at: new Date().toISOString() })
         .eq("id", data.user.id);
       await loadDirectory(data.user.id);
-      return { ok: true, role };
+      return { ok: true, role, userId: data.user.id };
     },
     [loadDirectory],
   );
