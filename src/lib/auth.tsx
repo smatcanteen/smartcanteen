@@ -88,7 +88,7 @@ type Ctx = {
   loginWithPin: (
     phone: string,
     pin: string,
-  ) => Promise<{ ok: boolean; role?: Role; error?: string; locked?: boolean }>;
+  ) => Promise<{ ok: boolean; role?: Role; userId?: string; error?: string; locked?: boolean }>;
   requestHelp: (phone: string) => Promise<void>;
   logout: () => Promise<void>;
   createOperator: (input: CreateInput) => Promise<Result>;
