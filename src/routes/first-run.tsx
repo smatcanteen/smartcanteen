@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { BrandMark } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
-import { homeForRole, isAdminRole, useAuth } from "@/lib/auth";
+import { homeForRole, useAuth } from "@/lib/auth";
 import { markFirstRunDone, myFirstRunState, setMyPin } from "@/lib/accounts.functions";
 import { rememberPin } from "@/lib/pin-cache";
 import { useStore } from "@/lib/store";
@@ -60,7 +60,9 @@ function FirstRun() {
       });
   }, [user]);
 
-  const staff = user ? isAdminRole(user.role) : false;
+  // Only canteen operators keep a cash book, so only they are asked for opening
+  // capital. Agents and office staff finish setup as soon as their PIN is saved.
+  const staff = user ? user.role !== "operator" : false;
 
   const savePin = async () => {
     setError("");
@@ -139,7 +141,7 @@ function FirstRun() {
               Welcome{user ? `, ${user.name.split(" ")[0]}` : ""}
             </p>
             <p className="truncate text-[11px] font-semibold uppercase tracking-widest text-on-primary/70">
-              Two quick steps and you are ready
+              {staff || pinOnly ? "One quick step and you are ready" : "Two quick steps and you are ready"}
             </p>
           </div>
         </div>
