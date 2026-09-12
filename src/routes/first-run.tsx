@@ -60,7 +60,9 @@ function FirstRun() {
       });
   }, [user]);
 
-  const staff = user ? isAdminRole(user.role) : false;
+  // Only canteen operators keep a cash book, so only they are asked for opening
+  // capital. Agents and office staff finish setup as soon as their PIN is saved.
+  const staff = user ? user.role !== "operator" : false;
 
   const savePin = async () => {
     setError("");
