@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { BrandMark } from "@/components/Brand";
 import { Icon } from "@/components/Icon";
-import { homeForRole, isAdminRole, useAuth } from "@/lib/auth";
+import { homeForRole, useAuth } from "@/lib/auth";
 import { markFirstRunDone, myFirstRunState, setMyPin } from "@/lib/accounts.functions";
 import { rememberPin } from "@/lib/pin-cache";
 import { useStore } from "@/lib/store";
