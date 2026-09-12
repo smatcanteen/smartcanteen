@@ -141,7 +141,7 @@ function FirstRun() {
               Welcome{user ? `, ${user.name.split(" ")[0]}` : ""}
             </p>
             <p className="truncate text-[11px] font-semibold uppercase tracking-widest text-on-primary/70">
-              Two quick steps and you are ready
+              {staff || pinOnly ? "One quick step and you are ready" : "Two quick steps and you are ready"}
             </p>
           </div>
         </div>
