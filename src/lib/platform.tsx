@@ -276,6 +276,57 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       const agents = current.agents.filter(
         (agent) => !!agent.accountId && agentIds.has(agent.accountId),
       );
+
+      // Accounts registered on another device (or before this browser had a
+      // local copy) must still show up in the admin console, so build the
+      // missing rows straight from the backend account directory.
+      const day = 86400000;
+      const iso = (ts: number) => new Date(ts).toISOString().slice(0, 10);
+      const knownTenants = new Set(tenants.map((t) => t.accountId));
+      const knownAgents = new Set(agents.map((a) => a.accountId));
+      let added = 0;
+
+      accounts.forEach((account) => {
+        if (account.role === "operator" && !knownTenants.has(account.id)) {
+          added += 1;
+          tenants.push({
+            accountId: account.id,
+            canteenName: account.school || account.name,
+            school: account.school,
+            ownerName: account.name,
+            phone: account.phone ?? "",
+            category: "day",
+            zone: zones.includes(account.school) ? account.school : zones[0]!,
+            agentId: null,
+            status: "trial",
+            createdAt: account.createdAt,
+            trialEndsAt: account.createdAt + 30 * day,
+            nextBillingAt: account.createdAt + 30 * day,
+            lastLoginAt: null,
+            entries: 0,
+            tags: [],
+            notes: [],
+            checklist: { loggedIn: false, capitalSet: false, firstStock: false, firstSale: false },
+            termStart: iso(account.createdAt),
+            termEnd: iso(account.createdAt + 120 * day),
+          });
+        }
+        if (account.role === "agent" && !knownAgents.has(account.id)) {
+          added += 1;
+          agents.push({
+            id: uid(),
+            accountId: account.id,
+            name: account.name,
+            phone: account.phone ?? "",
+            email: account.email,
+            status: "pending",
+            territory: zones.includes(account.school) ? account.school : zones[0]!,
+            trainedAt: null,
+            certified: false,
+          });
+        }
+      });
+
       const tenantIds = new Set(tenants.map((tenant) => tenant.accountId));
       const keptAgentIds = new Set(agents.map((agent) => agent.id));
       const next = {
@@ -288,6 +339,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         tickets: current.tickets.filter((ticket) => tenantIds.has(ticket.accountId)),
       };
       if (
+        added === 0 &&
         next.tenants.length === current.tenants.length &&
         next.agents.length === current.agents.length &&
         next.commissions.length === current.commissions.length &&
@@ -298,6 +350,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       return next;
     });
   }, [accounts, accountsReady, hydrated]);
+
 
   const patch = useCallback((fn: (prev: PlatformState) => PlatformState) => setS(fn), []);
 
