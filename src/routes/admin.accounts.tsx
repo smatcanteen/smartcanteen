@@ -259,6 +259,106 @@ function Accounts() {
                   Term calendar: {t.termStart} → {t.termEnd}
                 </p>
 
+                <div className="space-y-2 rounded-md border border-outline-variant bg-surface p-sm">
+                  <p className="text-sm font-bold text-on-surface">Subscription &amp; trial</p>
+                  <p className="text-xs text-on-surface-variant">
+                    {t.trialEndsAt ? `Trial ends ${fmtDate(t.trialEndsAt)} · ` : ""}
+                    Next billing {fmtDate(t.nextBillingAt)}
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {[7, 14, 30].map((d) => (
+                      <button
+                        key={d}
+                        onClick={() => {
+                          const base = Math.max(Date.now(), t.trialEndsAt ?? t.nextBillingAt);
+                          const until = base + d * 86400000;
+                          updateTenant(t.accountId, {
+                            status: "trial",
+                            trialEndsAt: until,
+                            nextBillingAt: until,
+                          });
+                          logAction(user?.name ?? "admin", `Extended ${t.canteenName} trial by ${d} days`);
+                        }}
+                        className="min-h-11 rounded-full border-2 border-primary px-3 text-xs font-bold text-primary"
+                      >
+                        Extend trial +{d}d
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => {
+                        const months = s.settings.months || 1;
+                        const from = new Date(Math.max(Date.now(), t.nextBillingAt));
+                        from.setMonth(from.getMonth() + months);
+                        updateTenant(t.accountId, {
+                          status: "active",
+                          trialEndsAt: null,
+                          nextBillingAt: from.getTime(),
+                        });
+                        logAction(
+                          user?.name ?? "admin",
+                          `Renewed ${t.canteenName} for ${months} months`,
+                        );
+                      }}
+                      className="min-h-11 rounded-full bg-primary px-4 text-xs font-bold text-on-primary"
+                    >
+                      Renew {s.settings.months} months
+                    </button>
+                    <button
+                      onClick={() => updateTenant(t.accountId, { status: "past_due" })}
+                      className="min-h-11 rounded-full border-2 border-outline-variant px-3 text-xs font-bold text-on-surface-variant"
+                    >
+                      Mark past due
+                    </button>
+                    <button
+                      onClick={() => updateTenant(t.accountId, { status: "churned" })}
+                      className="min-h-11 rounded-full border-2 border-outline-variant px-3 text-xs font-bold text-on-surface-variant"
+                    >
+                      Mark churned
+                    </button>
+                  </div>
+                  <div className="grid gap-sm sm:grid-cols-3">
+                    <SelectField
+                      label="Plan / category"
+                      value={t.category}
+                      onChange={(e) =>
+                        updateTenant(t.accountId, {
+                          category: e.target.value as keyof typeof categoryLabels,
+                        })
+                      }
+                    >
+                      {(Object.keys(categoryLabels) as (keyof typeof categoryLabels)[]).map((c) => (
+                        <option key={c} value={c}>
+                          {categoryLabels[c]}
+                        </option>
+                      ))}
+                    </SelectField>
+                    <SelectField
+                      label="Zone"
+                      value={t.zone}
+                      onChange={(e) => updateTenant(t.accountId, { zone: e.target.value })}
+                    >
+                      {zones.map((z) => (
+                        <option key={z} value={z}>
+                          {z}
+                        </option>
+                      ))}
+                    </SelectField>
+                    <SelectField
+                      label="Field agent"
+                      value={t.agentId ?? ""}
+                      onChange={(e) => updateTenant(t.accountId, { agentId: e.target.value || null })}
+                    >
+                      <option value="">No agent</option>
+                      {s.agents.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name}
+                        </option>
+                      ))}
+                    </SelectField>
+                  </div>
+                </div>
+
+
                 <div className="flex flex-wrap gap-sm">
                   <button
                     onClick={() => logAction(user?.name ?? "admin", `Viewed ${t.canteenName} as operator (read-only)`)}
