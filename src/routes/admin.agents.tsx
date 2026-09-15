@@ -150,14 +150,32 @@ function Agents() {
         {s.agents.map((a) => {
           const mine = s.tenants.filter((t) => t.agentId === a.id);
           const churn = agentChurnRate(a.id, s.tenants);
-          const earned = s.commissions
-            .filter((c) => c.agentId === a.id && c.status !== "clawback")
+          const mineCommissions = s.commissions.filter((c) => c.agentId === a.id);
+          const earned = mineCommissions
+            .filter((c) => c.status !== "clawback")
             .reduce((x, c) => x + c.amount, 0);
+          const pending = mineCommissions
+            .filter((c) => c.status === "pending")
+            .reduce((x, c) => x + c.amount, 0);
+          const paid = mineCommissions
+            .filter((c) => c.status === "paid")
+            .reduce((x, c) => x + c.amount, 0);
+          const myLeads = s.leads.filter((l) => l.agentId === a.id);
+          const active = mine.filter((t) => t.status === "active").length;
+          const trial = mine.filter((t) => t.status === "trial").length;
+          const activated = mine.filter((t) => t.checklist.firstSale).length;
+          const open = openId === a.id;
           return (
             <Card key={a.id} className="space-y-sm">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="truncate font-bold text-on-surface">{a.name}</p>
+                  <button
+                    onClick={() => setOpenId(open ? null : a.id)}
+                    className="truncate text-left font-bold text-primary underline"
+                    aria-expanded={open}
+                  >
+                    {a.name}
+                  </button>
                   <p className="truncate text-xs text-on-surface-variant">
                     {a.email} · {a.phone} · {a.territory}
                   </p>
@@ -165,6 +183,7 @@ function Agents() {
                     <Pill tone={a.status === "certified" ? "good" : a.status === "pending" ? "warn" : "bad"}>
                       {a.status === "certified" ? "Certified" : a.status === "pending" ? "Pending approval" : "Suspended"}
                     </Pill>
+                    <Pill tone="info">{mine.length} schools onboarded</Pill>
                     {a.trainedAt ? <Pill tone="info">Trained {fmtDate(a.trainedAt)}</Pill> : null}
                     {churn > avgChurn + 0.2 ? <Pill tone="bad">High churn — review quality</Pill> : null}
                   </div>
@@ -172,7 +191,10 @@ function Agents() {
                 <div className="shrink-0 text-right text-xs text-on-surface-variant">
                   <p>{mine.length} accounts onboarded</p>
                   <p>UGX {ugx(earned)} commission</p>
-                  <div className="mt-1 flex gap-2">
+                  <div className="mt-1 flex flex-wrap justify-end gap-2">
+                    <button onClick={() => setOpenId(open ? null : a.id)} className="text-xs font-bold text-primary underline">
+                      {open ? "Hide details" : "View details"}
+                    </button>
                     {!a.certified ? (
                       <button onClick={() => certifyAgent(a.id)} className="text-xs font-bold text-primary underline">
                         Approve &amp; certify
@@ -187,10 +209,92 @@ function Agents() {
                   </div>
                 </div>
               </div>
+
+              {open ? (
+                <div className="space-y-sm rounded-md bg-surface-lowest p-sm">
+                  <div className="grid grid-cols-2 gap-sm sm:grid-cols-4">
+                    <Stat label="Schools onboarded" value={String(mine.length)} />
+                    <Stat label="Paying / active" value={String(active)} />
+                    <Stat label="On free trial" value={String(trial)} />
+                    <Stat label="Actually using it" value={`${activated}/${mine.length}`} />
+                    <Stat label="Leads captured" value={String(myLeads.length)} />
+                    <Stat label="Churn rate" value={`${Math.round(churn * 100)}%`} />
+                    <Stat label="Commission pending" value={`UGX ${ugx(pending)}`} />
+                    <Stat label="Commission paid" value={`UGX ${ugx(paid)}`} />
+                  </div>
+
+                  <div className="grid gap-sm sm:grid-cols-2">
+                    <SelectField
+                      label="Territory / zone"
+                      value={a.territory}
+                      onChange={(e) => updateAgent(a.id, { territory: e.target.value })}
+                    >
+                      {zones.map((z) => (
+                        <option key={z} value={z}>
+                          {z}
+                        </option>
+                      ))}
+                    </SelectField>
+                    <Field
+                      label="Phone"
+                      value={a.phone}
+                      onChange={(e) => updateAgent(a.id, { phone: e.target.value })}
+                    />
+                  </div>
+
+                  <div>
+                    <p className="mb-1 text-sm font-bold text-on-surface">Schools this agent brought in</p>
+                    {mine.length === 0 ? (
+                      <p className="text-xs text-on-surface-variant">
+                        None yet. Attach a school to this agent from the Accounts page.
+                      </p>
+                    ) : (
+                      <ul className="space-y-1">
+                        {mine.map((t) => (
+                          <li key={t.accountId} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-surface px-3 py-2">
+                            <span className="min-w-0">
+                              <span className="block truncate text-sm font-semibold text-on-surface">{t.canteenName}</span>
+                              <span className="block truncate text-xs text-on-surface-variant">
+                                {t.school || "—"} · joined {fmtDate(t.createdAt)}
+                              </span>
+                            </span>
+                            <Pill tone={statusTone(t.status)}>{statusLabels[t.status]}</Pill>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  {myLeads.length ? (
+                    <div>
+                      <p className="mb-1 text-sm font-bold text-on-surface">Leads in progress</p>
+                      <ul className="space-y-1">
+                        {myLeads.slice(0, 8).map((l) => (
+                          <li key={l.id} className="flex items-center justify-between gap-2 text-xs text-on-surface-variant">
+                            <span className="truncate">{l.school} · {l.contactName}</span>
+                            <Pill tone="info">{stageLabels[l.stage]}</Pill>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+
+                  <div className="flex flex-wrap gap-sm">
+                    <button
+                      onClick={() => requestPayout(a.id, pending)}
+                      disabled={pending <= 0}
+                      className="min-h-11 rounded-full bg-primary px-4 text-sm font-bold text-on-primary disabled:opacity-40"
+                    >
+                      Request payout of UGX {ugx(pending)}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </Card>
           );
         })}
       </div>
+
     </>
   );
 }
