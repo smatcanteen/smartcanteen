@@ -2,10 +2,19 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Icon } from "@/components/Icon";
 import { Card, Field, PrimaryButton, SectionTitle, SelectField } from "@/components/ui-kit";
-import { Pill } from "@/components/AdminShell";
+import { Pill, statusTone } from "@/components/AdminShell";
 import { useAuth } from "@/lib/auth";
 import { ugx } from "@/lib/store";
-import { agentChurnRate, fmtDate, usePlatform, zones } from "@/lib/platform";
+import { agentChurnRate, fmtDate, stageLabels, statusLabels, usePlatform, zones } from "@/lib/platform";
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md bg-surface p-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">{label}</p>
+      <p className="mt-0.5 truncate text-base font-bold text-on-surface">{value}</p>
+    </div>
+  );
+}
 
 export const Route = createFileRoute("/admin/agents")({
   head: () => ({
