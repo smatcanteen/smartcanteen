@@ -14,6 +14,12 @@ import type { Json } from "@/integrations/supabase/types";
 
 export type TxType = "sale" | "expense" | "stock" | "capital";
 
+export type TxEdit = {
+  at: number;
+  /** Plain-language note of what changed, e.g. "Amount 24,000 → 20,000". */
+  note: string;
+};
+
 export type Tx = {
   id: string;
   type: TxType;
@@ -22,8 +28,27 @@ export type Tx = {
   category?: string;
   /** Optional item breakdown for itemised sales. */
   lines?: { itemId: string; name: string; qty: number }[];
+  /** Stock purchases remember which shelf item and how many units they added. */
+  itemId?: string;
+  units?: number;
+  sell?: number;
+  /** Every correction made to this entry, newest last. */
+  edits?: TxEdit[];
   ts: number;
 };
+
+/** An item the operator stocks regularly, remembered for next time. */
+export type SavedItem = {
+  id: string;
+  name: string;
+  /** Usual buying price per unit. */
+  buy: number;
+  /** Usual selling price per unit. */
+  sell: number;
+  pack?: string;
+  unitsPerPack?: number;
+};
+
 
 export type StockItem = {
   id: string;
