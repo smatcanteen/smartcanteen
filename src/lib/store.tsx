@@ -111,7 +111,10 @@ export type State = {
   txs: Tx[];
   debtors: Debtor[];
   expenseCategories: ExpenseCategory[];
+  /** The operator's own regular shopping list, private to this account. */
+  savedItems?: SavedItem[];
   terms: TermRecord[];
+
   /** False until the operator has done the canteen setup (term + opening cash). */
   setupDone?: boolean;
 };
