@@ -34,7 +34,8 @@ export const Route = createFileRoute("/admin/agents")({
 });
 
 function Agents() {
-  const { s, addAgent, updateAgent, certifyAgent, updateSettings } = usePlatform();
+  const { s, addAgent, updateAgent, certifyAgent, updateSettings, requestPayout } = usePlatform();
+  const [openId, setOpenId] = useState<string | null>(null);
   const { createAccount } = useAuth();
   const [f, setF] = useState({ name: "", phone: "", email: "", territory: zones[0]! });
   const [msg, setMsg] = useState("");
