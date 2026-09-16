@@ -293,10 +293,28 @@ type Ctx = {
       ts?: number;
     }[],
   ) => void;
+  /** Corrects a saved entry and re-adjusts cash, stock and profit by the difference. */
+  editTx: (
+    id: string,
+    patch: {
+      amount?: number;
+      label?: string;
+      category?: string;
+      ts?: number;
+      units?: number;
+      sell?: number;
+      lines?: { itemId: string; qty: number }[];
+    },
+  ) => void;
+  /** Removes an entry completely, putting back any stock it moved. */
+  deleteTx: (id: string) => void;
+  saveMyItem: (item: Omit<SavedItem, "id">) => void;
+  removeMyItem: (id: string) => void;
   setCapital: (amount: number, termName: string, goal: number) => void;
   settleDebtor: (id: string) => void;
   addDebtor: (d: Omit<Debtor, "id" | "ts" | "paid">) => void;
   undoLast: () => void;
+
   setPin: (pin: string | null, autoLockMin: number) => void;
   addPayment: (amount: number, note: string) => void;
   addExpenseCategory: (label: string, icon: string) => void;
