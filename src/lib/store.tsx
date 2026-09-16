@@ -14,6 +14,12 @@ import type { Json } from "@/integrations/supabase/types";
 
 export type TxType = "sale" | "expense" | "stock" | "capital";
 
+export type TxEdit = {
+  at: number;
+  /** Plain-language note of what changed, e.g. "Amount 24,000 → 20,000". */
+  note: string;
+};
+
 export type Tx = {
   id: string;
   type: TxType;
@@ -22,8 +28,27 @@ export type Tx = {
   category?: string;
   /** Optional item breakdown for itemised sales. */
   lines?: { itemId: string; name: string; qty: number }[];
+  /** Stock purchases remember which shelf item and how many units they added. */
+  itemId?: string;
+  units?: number;
+  sell?: number;
+  /** Every correction made to this entry, newest last. */
+  edits?: TxEdit[];
   ts: number;
 };
+
+/** An item the operator stocks regularly, remembered for next time. */
+export type SavedItem = {
+  id: string;
+  name: string;
+  /** Usual buying price per unit. */
+  buy: number;
+  /** Usual selling price per unit. */
+  sell: number;
+  pack?: string;
+  unitsPerPack?: number;
+};
+
 
 export type StockItem = {
   id: string;
@@ -86,7 +111,10 @@ export type State = {
   txs: Tx[];
   debtors: Debtor[];
   expenseCategories: ExpenseCategory[];
+  /** The operator's own regular shopping list, private to this account. */
+  savedItems?: SavedItem[];
   terms: TermRecord[];
+
   /** False until the operator has done the canteen setup (term + opening cash). */
   setupDone?: boolean;
 };
@@ -191,7 +219,9 @@ export const emptyState = (): State => ({
   capital: 0,
   savingsGoal: 0,
   expenseCategories: defaultExpenseCategories,
+  savedItems: [],
   items: [],
+
   txs: [],
   debtors: [],
   terms: [],
@@ -263,10 +293,28 @@ type Ctx = {
       ts?: number;
     }[],
   ) => void;
+  /** Corrects a saved entry and re-adjusts cash, stock and profit by the difference. */
+  editTx: (
+    id: string,
+    patch: {
+      amount?: number;
+      label?: string;
+      category?: string;
+      ts?: number;
+      units?: number;
+      sell?: number;
+      lines?: { itemId: string; qty: number }[];
+    },
+  ) => void;
+  /** Removes an entry completely, putting back any stock it moved. */
+  deleteTx: (id: string) => void;
+  saveMyItem: (item: Omit<SavedItem, "id">) => void;
+  removeMyItem: (id: string) => void;
   setCapital: (amount: number, termName: string, goal: number) => void;
   settleDebtor: (id: string) => void;
   addDebtor: (d: Omit<Debtor, "id" | "ts" | "paid">) => void;
   undoLast: () => void;
+
   setPin: (pin: string | null, autoLockMin: number) => void;
   addPayment: (amount: number, note: string) => void;
   addExpenseCategory: (label: string, icon: string) => void;
@@ -461,8 +509,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState((s) => {
       const items = s.items.map((i) => ({ ...i }));
       const txs = [...s.txs];
+      const savedItems = [...(s.savedItems ?? [])];
       for (const e of entries) {
         const existing = items.find((i) => i.name.toLowerCase() === e.name.toLowerCase());
+        let itemId: string;
         if (existing) {
           existing.qty += e.qty;
           existing.stock += e.qty;
@@ -470,9 +520,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           existing.sell = e.sell;
           if (e.pack) existing.pack = e.pack;
           if (e.unitsPerPack) existing.unitsPerPack = e.unitsPerPack;
+          itemId = existing.id;
         } else {
+          itemId = uid();
           items.push({
-            id: uid(),
+            id: itemId,
             name: e.name,
             qty: e.qty,
             stock: e.qty,
@@ -487,12 +539,147 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           type: "stock",
           label: `${e.name} restock`,
           amount: e.buy,
+          itemId,
+          units: e.qty,
+          sell: e.sell,
           ts: e.ts ?? Date.now(),
         });
+        // The operator's personal item list builds itself from normal use.
+        const unitBuy = e.qty > 0 ? Math.round(e.buy / e.qty) : 0;
+        const known = savedItems.find((x) => x.name.toLowerCase() === e.name.toLowerCase());
+        if (known) {
+          known.buy = unitBuy || known.buy;
+          known.sell = e.sell || known.sell;
+          if (e.pack) known.pack = e.pack;
+          if (e.unitsPerPack) known.unitsPerPack = e.unitsPerPack;
+        } else {
+          savedItems.push({
+            id: uid(),
+            name: e.name,
+            buy: unitBuy,
+            sell: e.sell,
+            pack: e.pack ?? "Piece",
+            unitsPerPack: e.unitsPerPack ?? 1,
+          });
+        }
       }
-      return { ...s, items, txs };
+      return { ...s, items, txs, savedItems };
     });
   }, []);
+
+  const saveMyItem = useCallback<Ctx["saveMyItem"]>((item) => {
+    setState((s) => {
+      const list = [...(s.savedItems ?? [])];
+      const found = list.find((x) => x.name.toLowerCase() === item.name.trim().toLowerCase());
+      if (found) Object.assign(found, item, { name: found.name });
+      else list.push({ ...item, name: item.name.trim(), id: uid() });
+      return { ...s, savedItems: list };
+    });
+  }, []);
+
+  const removeMyItem = useCallback((id: string) => {
+    setState((s) => ({ ...s, savedItems: (s.savedItems ?? []).filter((x) => x.id !== id) }));
+  }, []);
+
+  const editTx = useCallback<Ctx["editTx"]>((id, patch) => {
+    setState((s) => {
+      const old = s.txs.find((t) => t.id === id);
+      if (!old) return s;
+      const items = s.items.map((i) => ({ ...i }));
+      const notes: string[] = [];
+      const money = (n: number) => new Intl.NumberFormat("en-UG").format(Math.round(n));
+      const next: Tx = { ...old };
+
+      if (patch.label !== undefined && patch.label !== old.label) {
+        notes.push(`Description "${old.label}" → "${patch.label}"`);
+        next.label = patch.label;
+      }
+      if (patch.category !== undefined && patch.category !== old.category) {
+        notes.push(`Category ${old.category ?? "—"} → ${patch.category}`);
+        next.category = patch.category;
+      }
+      if (patch.ts !== undefined && patch.ts !== old.ts) {
+        notes.push(
+          `Date ${new Date(old.ts).toLocaleDateString("en-GB")} → ${new Date(patch.ts).toLocaleDateString("en-GB")}`,
+        );
+        next.ts = patch.ts;
+      }
+
+      if (old.type === "stock" && old.itemId) {
+        const it = items.find((i) => i.id === old.itemId);
+        const oldUnits = old.units ?? 0;
+        const newUnits = patch.units ?? oldUnits;
+        const newBuy = patch.amount ?? old.amount;
+        const newSell = patch.sell ?? old.sell ?? it?.sell ?? 0;
+        if (it) {
+          // Adjust the shelf by the difference only, never by the whole figure.
+          it.qty = Math.max(0, it.qty - oldUnits + newUnits);
+          it.stock = Math.max(0, it.stock - oldUnits + newUnits);
+          it.buy = Math.max(0, it.buy - old.amount + newBuy);
+          it.sell = newSell;
+        }
+        if (newUnits !== oldUnits) notes.push(`Quantity ${oldUnits} → ${newUnits} units`);
+        if (newSell !== (old.sell ?? newSell)) notes.push(`Selling price ${money(old.sell ?? 0)} → ${money(newSell)}`);
+        next.units = newUnits;
+        next.sell = newSell;
+      }
+
+      if (old.type === "sale" && old.lines && patch.lines) {
+        // Put the original units back, then take the corrected ones off.
+        for (const l of old.lines) {
+          const it = items.find((i) => i.id === l.itemId);
+          if (it) it.stock += l.qty;
+        }
+        const lines: NonNullable<Tx["lines"]> = [];
+        let total = 0;
+        for (const l of patch.lines) {
+          const it = items.find((i) => i.id === l.itemId);
+          if (!it || l.qty <= 0) continue;
+          const qty = Math.min(l.qty, it.stock);
+          it.stock -= qty;
+          total += it.sell * qty;
+          lines.push({ itemId: it.id, name: it.name, qty });
+        }
+        next.lines = lines;
+        next.label = lines.map((l) => `${l.name} x${l.qty}`).join(", ") || "Cash sale";
+        patch = { ...patch, amount: total };
+      }
+
+      if (patch.amount !== undefined && patch.amount !== old.amount) {
+        notes.push(`Amount UGX ${money(old.amount)} → UGX ${money(patch.amount)}`);
+        next.amount = patch.amount;
+      }
+
+      if (notes.length === 0) return s;
+      next.edits = [...(old.edits ?? []), { at: Date.now(), note: notes.join(" · ") }];
+      const capital = old.type === "capital" ? next.amount : s.capital;
+      return { ...s, capital, items, txs: s.txs.map((t) => (t.id === id ? next : t)) };
+    });
+  }, []);
+
+  const deleteTx = useCallback((id: string) => {
+    setState((s) => {
+      const old = s.txs.find((t) => t.id === id);
+      if (!old) return s;
+      const items = s.items.map((i) => ({ ...i }));
+      if (old.type === "stock" && old.itemId) {
+        const it = items.find((i) => i.id === old.itemId);
+        if (it) {
+          it.qty = Math.max(0, it.qty - (old.units ?? 0));
+          it.stock = Math.max(0, it.stock - (old.units ?? 0));
+          it.buy = Math.max(0, it.buy - old.amount);
+        }
+      }
+      if (old.type === "sale" && old.lines) {
+        for (const l of old.lines) {
+          const it = items.find((i) => i.id === l.itemId);
+          if (it) it.stock += l.qty;
+        }
+      }
+      return { ...s, items, txs: s.txs.filter((t) => t.id !== id) };
+    });
+  }, []);
+
 
   const setCapital = useCallback((amount: number, termName: string, goal: number) => {
     setState((s) => ({
