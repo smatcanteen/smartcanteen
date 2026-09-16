@@ -220,8 +220,8 @@ export const emptyState = (): State => ({
   savingsGoal: 0,
   expenseCategories: defaultExpenseCategories,
   savedItems: [],
-
   items: [],
+
   txs: [],
   debtors: [],
   terms: [],
