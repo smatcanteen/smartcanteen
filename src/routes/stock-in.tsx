@@ -33,10 +33,41 @@ const packs = [
 
 function StockIn() {
   const { state, addStockItems, cashAtHand } = useStore();
-  const [lines, setLines] = useState<Line[]>([{ ...blank }]);
-  const [when, setWhen] = useState(dateInput(Date.now()));
+  // The trip is auto-saved as it is built, so an interruption loses nothing.
+  const draft = useDraft<{ lines: Line[]; when: string }>("stock-in", {
+    lines: [{ ...blank }],
+    when: dateInput(Date.now()),
+  });
+  const lines = draft.value.lines;
+  const when = draft.value.when;
+  const setLines = (fn: (ls: Line[]) => Line[]) =>
+    draft.setValue((v) => ({ ...v, lines: fn(v.lines) }));
+  const setWhen = (v: string) => draft.setValue((prev) => ({ ...prev, when: v }));
   const [saved, setSaved] = useState(false);
   const [open, setOpen] = useState(0);
+  const myItems = state.savedItems ?? [];
+
+  const pickSaved = (id: string) => {
+    const it = myItems.find((x) => x.id === id);
+    if (!it) return;
+    const line: Line = {
+      name: it.name,
+      qty: "",
+      buy: "",
+      sell: String(it.sell || ""),
+      pack: it.pack ?? "Piece",
+      unitsPerPack: String(it.unitsPerPack ?? 1),
+    };
+    setLines((ls) => {
+      const empty = ls.findIndex((l) => !l.name.trim());
+      if (empty >= 0) {
+        setOpen(empty);
+        return ls.map((l, i) => (i === empty ? line : l));
+      }
+      setOpen(ls.length);
+      return [...ls, line];
+    });
+  };
 
   const parsed = lines.map((l) => {
     const packUnits = Number(l.unitsPerPack) || 1;
