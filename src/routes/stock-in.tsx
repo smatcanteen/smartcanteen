@@ -105,7 +105,9 @@ function StockIn() {
           ts: fromDateInput(when),
         })),
     );
-    setLines([{ ...blank }]);
+    draft.clearDraft();
+    draft.setValue({ lines: [{ ...blank }], when });
+    setOpen(0);
     setSaved(true);
     setTimeout(() => setSaved(false), 4000);
   };
