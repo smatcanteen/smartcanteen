@@ -4,6 +4,7 @@ import { AppLayout, Saved } from "@/components/AppLayout";
 import { Icon } from "@/components/Icon";
 import { Card, Field, MicButton, PrimaryButton, SelectField } from "@/components/ui-kit";
 import { parseStock } from "@/lib/voice";
+import { useDraft } from "@/lib/draft";
 import { dateInput, fromDateInput, ugx, useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/stock-in")({
