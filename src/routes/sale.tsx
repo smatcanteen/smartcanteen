@@ -79,8 +79,8 @@ function Sale() {
     } else {
       addTx({ type: "sale", label: "Cash sale", amount: total, ts });
     }
-    setAmount("");
-    setPicked({});
+    draft.clearDraft();
+    draft.setValue((v) => ({ ...v, amount: "", picked: {}, debtor: { name: "", klass: "" } }));
     setSaved(true);
     setTimeout(() => setSaved(false), 4000);
   };
