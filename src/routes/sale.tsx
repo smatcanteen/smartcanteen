@@ -4,6 +4,7 @@ import { AppLayout, Saved } from "@/components/AppLayout";
 import { Icon } from "@/components/Icon";
 import { Card, Field, Keypad, MicButton, PrimaryButton } from "@/components/ui-kit";
 import { parseAmount } from "@/lib/voice";
+import { useDraft } from "@/lib/draft";
 import { dateInput, fromDateInput, ugx, useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/sale")({
@@ -20,14 +21,36 @@ export const Route = createFileRoute("/sale")({
   component: Sale,
 });
 
+type SaleDraft = {
+  amount: string;
+  itemize: boolean;
+  credit: boolean;
+  when: string;
+  debtor: { name: string; klass: string };
+  picked: Record<string, number>;
+};
+
 function Sale() {
   const { state, addTx, addDebtor, sellItems, undoLast, cashAtHand } = useStore();
-  const [amount, setAmount] = useState("");
-  const [itemize, setItemize] = useState(false);
-  const [credit, setCredit] = useState(false);
-  const [when, setWhen] = useState(dateInput(Date.now()));
-  const [debtor, setDebtor] = useState({ name: "", klass: "" });
-  const [picked, setPicked] = useState<Record<string, number>>({});
+  // Work in progress is kept on the device until the sale is actually saved.
+  const draft = useDraft<SaleDraft>("sale", {
+    amount: "",
+    itemize: false,
+    credit: false,
+    when: dateInput(Date.now()),
+    debtor: { name: "", klass: "" },
+    picked: {},
+  });
+  const { amount, itemize, credit, when, debtor, picked } = draft.value;
+  const patch = (p: Partial<SaleDraft>) => draft.setValue((v) => ({ ...v, ...p }));
+  const setAmount = (fn: string | ((a: string) => string)) =>
+    draft.setValue((v) => ({ ...v, amount: typeof fn === "function" ? fn(v.amount) : fn }));
+  const setItemize = (itemizeNext: boolean) => patch({ itemize: itemizeNext });
+  const setCredit = (c: boolean) => patch({ credit: c });
+  const setWhen = (w: string) => patch({ when: w });
+  const setDebtor = (d: { name: string; klass: string }) => patch({ debtor: d });
+  const setPicked = (fn: (p: Record<string, number>) => Record<string, number>) =>
+    draft.setValue((v) => ({ ...v, picked: fn(v.picked) }));
   const [saved, setSaved] = useState(false);
 
   const itemTotal = Object.entries(picked).reduce((a, [id, q]) => {
