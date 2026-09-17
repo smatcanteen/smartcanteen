@@ -212,25 +212,116 @@ function History() {
 
       <div className="card overflow-hidden p-0">
         {rows.length === 0 && <p className="p-md text-sm text-on-surface-variant">No entries match these filters.</p>}
-        {rows.map((t) => {
-          const income = t.type === "sale" || t.type === "capital";
-          return (
-            <div key={t.id} className="flex items-center justify-between gap-2 border-b border-surface-variant p-sm last:border-0">
-              <div className="min-w-0">
-                <p className="truncate font-semibold text-on-surface">{t.label}</p>
-                <p className="text-xs text-on-surface-variant">
-                  {new Date(t.ts).toLocaleDateString("en-GB")} · {t.category ?? t.type}
-                </p>
-              </div>
-              <span className={`shrink-0 font-bold ${income ? "text-primary" : "text-tertiary"}`}>
-                {income ? "+" : "-"}
-                {ugx(t.amount)}
-              </span>
-            </div>
-          );
-        })}
+        {rows.map((t) => (
+          <EntryRow key={t.id} tx={t} editable={!term} />
+        ))}
       </div>
     </AppLayout>
+  );
+}
+
+/** One cash-book line, with a correction panel for entries in the running term. */
+function EntryRow({ tx, editable }: { tx: Tx; editable: boolean }) {
+  const { state, editTx, deleteTx } = useStore();
+  const [open, setOpen] = useState(false);
+  const [amount, setAmount] = useState(String(tx.amount));
+  const [label, setLabel] = useState(tx.label);
+  const [category, setCategory] = useState(tx.category ?? "");
+  const [when, setWhen] = useState(dateInput(tx.ts));
+  const income = tx.type === "sale" || tx.type === "capital";
+
+  const apply = () => {
+    editTx(tx.id, {
+      amount: Number(amount) || 0,
+      label,
+      ...(tx.type === "expense" ? { category } : {}),
+      ts: new Date(`${when}T12:00:00`).getTime(),
+    });
+    setOpen(false);
+  };
+
+  return (
+    <div className="border-b border-surface-variant last:border-0">
+      <div className="flex items-center justify-between gap-2 p-sm">
+        <div className="min-w-0">
+          <p className="truncate font-semibold text-on-surface">{tx.label}</p>
+          <p className="text-xs text-on-surface-variant">
+            {new Date(tx.ts).toLocaleDateString("en-GB")} · {tx.category ?? tx.type}
+            {tx.edits?.length ? ` · edited ${tx.edits.length}×` : ""}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className={`font-bold ${income ? "text-primary" : "text-tertiary"}`}>
+            {income ? "+" : "-"}
+            {ugx(tx.amount)}
+          </span>
+          {editable && (
+            <button
+              onClick={() => setOpen((o) => !o)}
+              aria-label={`Edit ${tx.label}`}
+              aria-expanded={open}
+              className="flex h-10 w-10 items-center justify-center rounded-full text-primary hover:bg-surface-low"
+            >
+              <Icon name={open ? "close" : "edit"} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {open && (
+        <div className="space-y-sm bg-surface-low p-sm">
+          <div className="grid gap-sm sm:grid-cols-2">
+            <Field label="Description" value={label} onChange={(e) => setLabel(e.target.value)} />
+            <Field
+              label="Amount (UGX)"
+              inputMode="numeric"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value.replace(/\D/g, ""))}
+              hint="Cash at Hand moves by the difference only"
+            />
+            <Field label="Date" type="date" value={when} onChange={(e) => setWhen(e.target.value)} />
+            {tx.type === "expense" && (
+              <SelectField label="Category" value={category} onChange={(e) => setCategory(e.target.value)}>
+                {state.expenseCategories.map((c) => (
+                  <option key={c.id} value={c.label}>
+                    {c.label}
+                  </option>
+                ))}
+              </SelectField>
+            )}
+          </div>
+          {tx.type === "stock" && (
+            <p className="text-xs text-on-surface-variant">
+              Stock entry: {tx.units ?? 0} units. Changing the price re-adjusts expected profit.
+            </p>
+          )}
+          {!!tx.edits?.length && (
+            <div className="rounded-md bg-surface p-sm text-xs text-on-surface-variant">
+              <p className="mb-1 font-bold text-on-surface">Correction history</p>
+              {tx.edits.map((e, i) => (
+                <p key={i}>
+                  {new Date(e.at).toLocaleString("en-GB")} — {e.note}
+                </p>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-sm">
+            <button
+              onClick={apply}
+              className="flex h-11 min-h-11 flex-grow items-center justify-center gap-2 rounded-md bg-primary font-bold text-on-primary"
+            >
+              <Icon name="check" /> Save correction
+            </button>
+            <button
+              onClick={() => deleteTx(tx.id)}
+              className="flex h-11 min-h-11 items-center justify-center gap-2 rounded-md bg-error-container px-4 font-bold text-on-error-container"
+            >
+              <Icon name="delete" /> Delete
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

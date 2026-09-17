@@ -19,7 +19,8 @@ export const Route = createFileRoute("/close-out")({
   component: CloseOut,
 });
 
-const notes = [50000, 20000, 10000, 5000, 2000, 1000, 500];
+// Notes and coins, so the till can be balanced to the last 50 shillings.
+const notes = [50000, 20000, 10000, 5000, 2000, 1000, 500, 200, 100, 50];
 
 function CloseOut() {
   const { state, today, cashAtHand } = useStore();
@@ -68,11 +69,11 @@ function CloseOut() {
 
       <section>
         <SectionTitle>Count physical cash</SectionTitle>
-        <div className="grid gap-sm sm:grid-cols-2">
+        <div className="grid gap-sm grid-cols-2 lg:grid-cols-3">
           {notes.map((n) => (
             <Field
               key={n}
-              label={`UGX ${ugx(n)} notes`}
+              label={`UGX ${ugx(n)} ${n >= 1000 ? "notes" : "coins"}`}
               inputMode="numeric"
               placeholder="0"
               value={counts[n] ?? ""}

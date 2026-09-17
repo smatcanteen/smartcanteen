@@ -4,6 +4,7 @@ import { AppLayout, Saved } from "@/components/AppLayout";
 import { Icon } from "@/components/Icon";
 import { Card, Field, MicButton, PrimaryButton, SelectField } from "@/components/ui-kit";
 import { parseStock } from "@/lib/voice";
+import { useDraft } from "@/lib/draft";
 import { dateInput, fromDateInput, ugx, useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/stock-in")({
@@ -33,10 +34,41 @@ const packs = [
 
 function StockIn() {
   const { state, addStockItems, cashAtHand } = useStore();
-  const [lines, setLines] = useState<Line[]>([{ ...blank }]);
-  const [when, setWhen] = useState(dateInput(Date.now()));
+  // The trip is auto-saved as it is built, so an interruption loses nothing.
+  const draft = useDraft<{ lines: Line[]; when: string }>("stock-in", {
+    lines: [{ ...blank }],
+    when: dateInput(Date.now()),
+  });
+  const lines = draft.value.lines;
+  const when = draft.value.when;
+  const setLines = (fn: (ls: Line[]) => Line[]) =>
+    draft.setValue((v) => ({ ...v, lines: fn(v.lines) }));
+  const setWhen = (v: string) => draft.setValue((prev) => ({ ...prev, when: v }));
   const [saved, setSaved] = useState(false);
   const [open, setOpen] = useState(0);
+  const myItems = state.savedItems ?? [];
+
+  const pickSaved = (id: string) => {
+    const it = myItems.find((x) => x.id === id);
+    if (!it) return;
+    const line: Line = {
+      name: it.name,
+      qty: "",
+      buy: "",
+      sell: String(it.sell || ""),
+      pack: it.pack ?? "Piece",
+      unitsPerPack: String(it.unitsPerPack ?? 1),
+    };
+    setLines((ls) => {
+      const empty = ls.findIndex((l) => !l.name.trim());
+      if (empty >= 0) {
+        setOpen(empty);
+        return ls.map((l, i) => (i === empty ? line : l));
+      }
+      setOpen(ls.length);
+      return [...ls, line];
+    });
+  };
 
   const parsed = lines.map((l) => {
     const packUnits = Number(l.unitsPerPack) || 1;
@@ -73,7 +105,9 @@ function StockIn() {
           ts: fromDateInput(when),
         })),
     );
-    setLines([{ ...blank }]);
+    draft.clearDraft();
+    draft.setValue({ lines: [{ ...blank }], when });
+    setOpen(0);
     setSaved(true);
     setTimeout(() => setSaved(false), 4000);
   };
@@ -89,6 +123,43 @@ function StockIn() {
           <Field label="Date of purchase" type="date" value={when} onChange={(e) => setWhen(e.target.value)} />
         </div>
       </Card>
+
+      {draft.restored && lines.some((l) => l.name.trim()) && (
+        <Card className="flex items-center justify-between gap-sm bg-surface-low">
+          <p className="text-sm text-on-surface-variant">
+            We kept the trip you were entering. Nothing has been saved to your books yet.
+          </p>
+          <button
+            onClick={() => {
+              draft.clearDraft();
+              draft.setValue({ lines: [{ ...blank }], when: dateInput(Date.now()) });
+              setOpen(0);
+            }}
+            className="shrink-0 rounded-md px-3 py-2 text-sm font-bold text-tertiary hover:bg-surface-high"
+          >
+            Start fresh
+          </button>
+        </Card>
+      )}
+
+      {myItems.length > 0 && (
+        <section>
+          <p className="mb-sm px-1 label-bold text-on-surface-variant">My items — tap to add</p>
+          <div className="flex flex-wrap gap-2">
+            {myItems.map((it) => (
+              <button
+                key={it.id}
+                onClick={() => pickSaved(it.id)}
+                className="flex min-h-11 items-center gap-2 rounded-full bg-surface-lowest px-4 text-sm font-bold text-on-surface shadow-card hover:bg-surface-low"
+              >
+                <Icon name="add" />
+                {it.name}
+                <span className="font-normal text-on-surface-variant">UGX {ugx(it.sell)}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       <datalist id="known-items">
         {state.items.map((it) => (
