@@ -4,6 +4,7 @@ import { AppLayout, Saved } from "@/components/AppLayout";
 import { Icon } from "@/components/Icon";
 import { Card, Field, MicButton, PrimaryButton, SectionTitle } from "@/components/ui-kit";
 import { parseExpense } from "@/lib/voice";
+import { useDraft } from "@/lib/draft";
 import { dateInput, fromDateInput, ugx, useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/expense")({
@@ -23,11 +24,20 @@ export const Route = createFileRoute("/expense")({
 function Expense() {
   const { state, addTx, undoLast, cashAtHand } = useStore();
   const cats = state.expenseCategories;
-  const [category, setCategory] = useState(cats[0]?.label ?? "Transport");
-  const [amount, setAmount] = useState("");
-  const [who, setWho] = useState("");
-  const [when, setWhen] = useState(dateInput(Date.now()));
-  const [recurring, setRecurring] = useState(false);
+  // Half-typed expenses survive an interruption until they are saved.
+  const draft = useDraft("expense", {
+    category: cats[0]?.label ?? "Transport",
+    amount: "",
+    who: "",
+    when: dateInput(Date.now()),
+    recurring: false,
+  });
+  const { category, amount, who, when, recurring } = draft.value;
+  const setCategory = (v: string) => draft.setValue((d) => ({ ...d, category: v }));
+  const setAmount = (v: string) => draft.setValue((d) => ({ ...d, amount: v }));
+  const setWho = (v: string) => draft.setValue((d) => ({ ...d, who: v }));
+  const setWhen = (v: string) => draft.setValue((d) => ({ ...d, when: v }));
+  const setRecurring = (v: boolean) => draft.setValue((d) => ({ ...d, recurring: v }));
   const [saved, setSaved] = useState(false);
   const value = Number(amount) || 0;
 
