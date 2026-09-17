@@ -212,23 +212,9 @@ function History() {
 
       <div className="card overflow-hidden p-0">
         {rows.length === 0 && <p className="p-md text-sm text-on-surface-variant">No entries match these filters.</p>}
-        {rows.map((t) => {
-          const income = t.type === "sale" || t.type === "capital";
-          return (
-            <div key={t.id} className="flex items-center justify-between gap-2 border-b border-surface-variant p-sm last:border-0">
-              <div className="min-w-0">
-                <p className="truncate font-semibold text-on-surface">{t.label}</p>
-                <p className="text-xs text-on-surface-variant">
-                  {new Date(t.ts).toLocaleDateString("en-GB")} · {t.category ?? t.type}
-                </p>
-              </div>
-              <span className={`shrink-0 font-bold ${income ? "text-primary" : "text-tertiary"}`}>
-                {income ? "+" : "-"}
-                {ugx(t.amount)}
-              </span>
-            </div>
-          );
-        })}
+        {rows.map((t) => (
+          <EntryRow key={t.id} tx={t} editable={!term} />
+        ))}
       </div>
     </AppLayout>
   );
