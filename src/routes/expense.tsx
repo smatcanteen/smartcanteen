@@ -48,8 +48,8 @@ function Expense() {
         ? `Allowance — ${who.trim()}`
         : category + (recurring ? " (recurring)" : "");
     addTx({ type: "expense", label, category, amount: value, ts: fromDateInput(when) });
-    setAmount("");
-    setWho("");
+    draft.clearDraft();
+    draft.setValue((d) => ({ ...d, amount: "", who: "" }));
     setSaved(true);
     setTimeout(() => setSaved(false), 4000);
   };
