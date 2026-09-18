@@ -67,15 +67,23 @@ export type StockItem = {
   unitsPerPack?: number;
 };
 
+/** One payment made against a student's credit. */
+export type DebtPayment = { id: string; amount: number; ts: number };
+
 export type Debtor = {
   id: string;
   name: string;
   klass: string;
   item: string;
+  /** How many units were given on credit. */
+  qty?: number;
   amount: number;
   paid: boolean;
   ts: number;
+  /** Every part-payment, so the running balance is always traceable. */
+  payments?: DebtPayment[];
 };
+
 
 export type Payment = { id: string; amount: number; note: string; ts: number };
 
@@ -312,7 +320,12 @@ type Ctx = {
   removeMyItem: (id: string) => void;
   setCapital: (amount: number, termName: string, goal: number) => void;
   settleDebtor: (id: string) => void;
-  addDebtor: (d: Omit<Debtor, "id" | "ts" | "paid">) => void;
+  /** Records a part or full payment against a debt, on the date it happened. */
+  payDebtor: (id: string, amount: number, ts?: number) => void;
+  addDebtor: (d: Omit<Debtor, "id" | "ts" | "paid"> & { ts?: number }) => void;
+  /** Corrects the units left on the shelf after a physical count. */
+  setStockCount: (itemId: string, counted: number) => void;
+
   undoLast: () => void;
 
   setPin: (pin: string | null, autoLockMin: number) => void;
@@ -696,24 +709,76 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
-  const settleDebtor = useCallback((id: string) => {
+  /** Adds a payment (part or full) and brings the money into Cash at Hand. */
+  const payDebtor = useCallback((id: string, amount: number, ts?: number) => {
     setState((s) => {
       const d = s.debtors.find((x) => x.id === id);
-      if (!d || d.paid) return s;
+      if (!d) return s;
+      const alreadyPaid = (d.payments ?? []).reduce((a, p) => a + p.amount, 0);
+      const balance = d.amount - alreadyPaid;
+      const pay = Math.min(Math.max(0, Math.round(amount)), balance);
+      if (pay <= 0) return s;
+      const when = ts ?? Date.now();
       return {
         ...s,
-        debtors: s.debtors.map((x) => (x.id === id ? { ...x, paid: true } : x)),
+        debtors: s.debtors.map((x) =>
+          x.id === id
+            ? {
+                ...x,
+                payments: [...(x.payments ?? []), { id: uid(), amount: pay, ts: when }],
+                paid: alreadyPaid + pay >= x.amount,
+              }
+            : x,
+        ),
         txs: [
           ...s.txs,
-          { id: uid(), type: "sale" as TxType, label: `Credit paid — ${d.name}`, amount: d.amount, ts: Date.now() },
+          { id: uid(), type: "sale" as TxType, label: `Credit paid — ${d.name}`, amount: pay, ts: when },
         ],
       };
     });
   }, []);
 
-  const addDebtor = useCallback((d: Omit<Debtor, "id" | "ts" | "paid">) => {
-    setState((s) => ({ ...s, debtors: [...s.debtors, { ...d, id: uid(), paid: false, ts: Date.now() }] }));
+  const settleDebtor = useCallback(
+    (id: string) => {
+      setState((s) => {
+        const d = s.debtors.find((x) => x.id === id);
+        if (!d || d.paid) return s;
+        const balance = d.amount - (d.payments ?? []).reduce((a, p) => a + p.amount, 0);
+        const when = Date.now();
+        return {
+          ...s,
+          debtors: s.debtors.map((x) =>
+            x.id === id
+              ? { ...x, paid: true, payments: [...(x.payments ?? []), { id: uid(), amount: balance, ts: when }] }
+              : x,
+          ),
+          txs: [
+            ...s.txs,
+            { id: uid(), type: "sale" as TxType, label: `Credit paid — ${d.name}`, amount: balance, ts: when },
+          ],
+        };
+      });
+    },
+    [],
+  );
+
+  const addDebtor = useCallback((d: Omit<Debtor, "id" | "ts" | "paid"> & { ts?: number }) => {
+    setState((s) => ({
+      ...s,
+      debtors: [...s.debtors, { ...d, id: uid(), paid: false, payments: [], ts: d.ts ?? Date.now() }],
+    }));
   }, []);
+
+  /** A physical shelf count wins over the running figure. */
+  const setStockCount = useCallback((itemId: string, counted: number) => {
+    setState((s) => ({
+      ...s,
+      items: s.items.map((i) =>
+        i.id === itemId ? { ...i, stock: Math.max(0, Math.min(i.qty, Math.round(counted))) } : i,
+      ),
+    }));
+  }, []);
+
 
   const undoLast = useCallback(() => {
     setState((s) => ({ ...s, txs: s.txs.slice(0, -1) }));
@@ -843,7 +908,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       removeMyItem,
       setCapital,
       settleDebtor,
+      payDebtor,
       addDebtor,
+      setStockCount,
       undoLast,
       setPin,
       addPayment,
@@ -869,7 +936,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     removeMyItem,
     setCapital,
     settleDebtor,
+    payDebtor,
     addDebtor,
+    setStockCount,
     undoLast,
     setPin,
     addPayment,
