@@ -322,7 +322,7 @@ type Ctx = {
   settleDebtor: (id: string) => void;
   /** Records a part or full payment against a debt, on the date it happened. */
   payDebtor: (id: string, amount: number, ts?: number) => void;
-  addDebtor: (d: Omit<Debtor, "id" | "ts" | "paid">) => void;
+  addDebtor: (d: Omit<Debtor, "id" | "ts" | "paid"> & { ts?: number }) => void;
   /** Corrects the units left on the shelf after a physical count. */
   setStockCount: (itemId: string, counted: number) => void;
 
@@ -762,7 +762,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const addDebtor = useCallback((d: Omit<Debtor, "id" | "ts" | "paid">) => {
+  const addDebtor = useCallback((d: Omit<Debtor, "id" | "ts" | "paid"> & { ts?: number }) => {
     setState((s) => ({
       ...s,
       debtors: [...s.debtors, { ...d, id: uid(), paid: false, payments: [], ts: d.ts ?? Date.now() }],
@@ -908,7 +908,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       removeMyItem,
       setCapital,
       settleDebtor,
+      payDebtor,
       addDebtor,
+      setStockCount,
       undoLast,
       setPin,
       addPayment,
@@ -934,7 +936,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     removeMyItem,
     setCapital,
     settleDebtor,
+    payDebtor,
     addDebtor,
+    setStockCount,
     undoLast,
     setPin,
     addPayment,
