@@ -67,15 +67,23 @@ export type StockItem = {
   unitsPerPack?: number;
 };
 
+/** One payment made against a student's credit. */
+export type DebtPayment = { id: string; amount: number; ts: number };
+
 export type Debtor = {
   id: string;
   name: string;
   klass: string;
   item: string;
+  /** How many units were given on credit. */
+  qty?: number;
   amount: number;
   paid: boolean;
   ts: number;
+  /** Every part-payment, so the running balance is always traceable. */
+  payments?: DebtPayment[];
 };
+
 
 export type Payment = { id: string; amount: number; note: string; ts: number };
 
