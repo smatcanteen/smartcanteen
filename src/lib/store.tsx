@@ -320,7 +320,12 @@ type Ctx = {
   removeMyItem: (id: string) => void;
   setCapital: (amount: number, termName: string, goal: number) => void;
   settleDebtor: (id: string) => void;
+  /** Records a part or full payment against a debt, on the date it happened. */
+  payDebtor: (id: string, amount: number, ts?: number) => void;
   addDebtor: (d: Omit<Debtor, "id" | "ts" | "paid">) => void;
+  /** Corrects the units left on the shelf after a physical count. */
+  setStockCount: (itemId: string, counted: number) => void;
+
   undoLast: () => void;
 
   setPin: (pin: string | null, autoLockMin: number) => void;
