@@ -221,7 +221,7 @@ type Ctx = {
   updateAgent: (id: string, patch: Partial<Agent>) => void;
   certifyAgent: (id: string) => void;
   /* leads */
-  addLead: (l: Omit<Lead, "id" | "createdAt" | "notes">) => void;
+  addLead: (l: Omit<Lead, "id" | "createdAt" | "notes">) => Promise<{ ok: boolean; error?: string }>;
   setLeadStage: (id: string, stage: LeadStage) => void;
   addLeadNote: (id: string, text: string) => void;
   /* commissions & payouts */
@@ -574,22 +574,27 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
             a.id === id ? { ...a, certified: true, status: "certified", trainedAt: Date.now() } : a,
           ),
         })),
-      addLead: (l) => {
-        const lead = { ...l, id: uid(), createdAt: Date.now(), notes: [], queued: !navigator.onLine };
+      addLead: async (l) => {
+        const lead = { ...l, id: uid(), createdAt: Date.now(), notes: [], queued: true };
         patch((p) => ({ ...p, leads: [lead, ...p.leads.filter((item) => item.id !== lead.id)] }));
-        void submitAgentLead({
-          data: {
-            id: lead.id,
-            school: lead.school,
-            contactName: lead.contactName,
-            phone: lead.phone,
-            stage: lead.stage,
-            agentId: lead.agentId,
-            createdAt: lead.createdAt,
-          },
-        }).then((result) => {
-          if (result.ok) patch((p) => ({ ...p, leads: p.leads.map((item) => item.id === lead.id ? { ...item, queued: false } : item) }));
-        });
+        try {
+          const result = await submitAgentLead({
+            data: {
+              id: lead.id,
+              school: lead.school,
+              contactName: lead.contactName,
+              phone: lead.phone,
+              stage: lead.stage,
+              agentId: lead.agentId,
+              createdAt: lead.createdAt,
+            },
+          });
+          if (!result.ok) return { ok: false, error: result.error };
+          patch((p) => ({ ...p, leads: p.leads.map((item) => item.id === lead.id ? { ...item, queued: false } : item) }));
+          return { ok: true };
+        } catch {
+          return { ok: false, error: navigator.onLine ? "Could not reach Admin records. Try again." : "Saved on this device. Reconnect and try again." };
+        }
       },
       setLeadStage: (id, stage) =>
         patch((p) => ({ ...p, leads: p.leads.map((l) => (l.id === id ? { ...l, stage, queued: false } : l)) })),
