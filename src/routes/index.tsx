@@ -35,7 +35,7 @@ const tabs: { id: string; label: string; tiles: Tile[] }[] = [
     label: "FOR YOU",
     tiles: [
       { to: "/sale", icon: "point_of_sale", label: "Cash Sale" },
-      { to: "/stock-in", icon: "shopping_cart", label: "Buy Stock" },
+      { to: "/stock", icon: "inventory_2", label: "Stock" },
       { to: "/expense", icon: "receipt_long", label: "Expense" },
       { to: "/debtors", icon: "group", label: "Credit Book" },
       { to: "/close-out", icon: "task_alt", label: "Close Day" },
@@ -56,7 +56,7 @@ const tabs: { id: string; label: string; tiles: Tile[] }[] = [
     id: "money-out",
     label: "MONEY OUT",
     tiles: [
-      { to: "/stock-in", icon: "shopping_cart", label: "Buy Stock" },
+      { to: "/stock", icon: "inventory_2", label: "Stock" },
       { to: "/pay/$category", params: { category: "transport" }, icon: "local_taxi", label: "Transport" },
       { to: "/pay/$category", params: { category: "salary-wages" }, icon: "badge", label: "Salary" },
       { to: "/pay/$category", params: { category: "rent" }, icon: "home_work", label: "Rent" },
