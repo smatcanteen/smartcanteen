@@ -42,7 +42,13 @@ function Announcements() {
   };
 
   return (
-    <div className="grid gap-md md:grid-cols-2">
+    <>
+      <div>
+        <p className="text-xs font-bold uppercase tracking-wider text-primary">Communication</p>
+        <h1 className="text-2xl font-extrabold text-on-surface sm:text-3xl">Announcements</h1>
+        <p className="mt-1 text-sm text-on-surface-variant">Publish a banner to operators, agents, or both.</p>
+      </div>
+      <div className="grid gap-md md:grid-cols-2">
       <Card className="space-y-sm">
         <SectionTitle>New announcement</SectionTitle>
         <p className="text-xs text-on-surface-variant">
@@ -121,6 +127,7 @@ function Announcements() {
           </Card>
         ))}
       </div>
-    </div>
+      </div>
+    </>
   );
 }
