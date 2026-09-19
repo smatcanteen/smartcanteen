@@ -295,6 +295,27 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
                 ? [...local.tenants.filter((tenant) => tenant.accountId !== user.id), ownTenant]
                 : local.tenants,
             }));
+          } else if (user?.role === "agent") {
+            const ownAgent = shared.agents.find((agent) => agent.accountId === user.id);
+            const localOwnLeads = ownAgent
+              ? clean(localState()).leads.filter((lead) => lead.agentId === ownAgent.id)
+              : [];
+            const sharedIds = new Set(shared.leads.map((lead) => lead.id));
+            const unsynced = localOwnLeads.filter((lead) => !sharedIds.has(lead.id));
+            setS({ ...shared, leads: [...unsynced, ...shared.leads] });
+            unsynced.forEach((lead) => {
+              void submitAgentLead({
+                data: {
+                  id: lead.id,
+                  school: lead.school,
+                  contactName: lead.contactName,
+                  phone: lead.phone,
+                  stage: lead.stage,
+                  agentId: lead.agentId,
+                  createdAt: lead.createdAt,
+                },
+              });
+            });
           } else {
             setS(shared);
           }
