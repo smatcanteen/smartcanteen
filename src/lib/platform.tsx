@@ -426,6 +426,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         next.tenants.length === current.tenants.length &&
         next.agents.length === current.agents.length &&
         next.commissions.length === current.commissions.length &&
+        next.leads.length === current.leads.length &&
         next.tickets.length === current.tickets.length
       ) {
         return current;
