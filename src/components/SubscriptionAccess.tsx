@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useAuth } from "@/lib/auth";
 import { effectiveTenantStatus, usePlatform } from "@/lib/platform";
 
@@ -11,10 +11,16 @@ export function SubscriptionAccess({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const router = useRouter();
   const path = router.state.location.pathname;
+  const [now, setNow] = useState(Date.now());
   const tenant = user?.role === "operator" ? s.tenants.find((item) => item.accountId === user.id) : null;
-  const status = tenant ? effectiveTenantStatus(tenant) : null;
+  const status = tenant ? effectiveTenantStatus(tenant, now) : null;
   const readOnly = status === "past_due" || status === "churned";
   const blocked = readOnly && !readOnlyRoutes.has(path);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (hydrated && blocked) navigate({ to: "/subscription", replace: true });
