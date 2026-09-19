@@ -11,7 +11,7 @@ import {
 import { useAuth } from "./auth";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
-import { submitSupportReply, submitSupportTicket } from "./platform.functions";
+import { submitAgentLead, submitSupportReply, submitSupportTicket } from "./platform.functions";
 
 /* ------------------------------------------------------------------ types */
 
@@ -529,8 +529,23 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
             a.id === id ? { ...a, certified: true, status: "certified", trainedAt: Date.now() } : a,
           ),
         })),
-      addLead: (l) =>
-        patch((p) => ({ ...p, leads: [{ ...l, id: uid(), createdAt: Date.now(), notes: [] }, ...p.leads] })),
+      addLead: (l) => {
+        const lead = { ...l, id: uid(), createdAt: Date.now(), notes: [], queued: !navigator.onLine };
+        patch((p) => ({ ...p, leads: [lead, ...p.leads.filter((item) => item.id !== lead.id)] }));
+        void submitAgentLead({
+          data: {
+            id: lead.id,
+            school: lead.school,
+            contactName: lead.contactName,
+            phone: lead.phone,
+            stage: lead.stage,
+            agentId: lead.agentId,
+            createdAt: lead.createdAt,
+          },
+        }).then((result) => {
+          if (result.ok) patch((p) => ({ ...p, leads: p.leads.map((item) => item.id === lead.id ? { ...item, queued: false } : item) }));
+        });
+      },
       setLeadStage: (id, stage) =>
         patch((p) => ({ ...p, leads: p.leads.map((l) => (l.id === id ? { ...l, stage, queued: false } : l)) })),
       addLeadNote: (id, text) =>
