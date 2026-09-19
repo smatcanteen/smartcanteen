@@ -428,7 +428,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!hydrated || user?.role !== "admin") return;
-    setS((current) => {
+    const expireEndedSubscriptions = () => setS((current) => {
       let changed = false;
       const tenants = current.tenants.map((tenant) => {
         const status = effectiveTenantStatus(tenant);
@@ -438,6 +438,9 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       });
       return changed ? { ...current, tenants } : current;
     });
+    expireEndedSubscriptions();
+    const timer = window.setInterval(expireEndedSubscriptions, 60_000);
+    return () => window.clearInterval(timer);
   }, [hydrated, user?.role]);
 
   const patch = useCallback((fn: (prev: PlatformState) => PlatformState) => setS(fn), []);
