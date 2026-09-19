@@ -4,10 +4,13 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import { useAuth } from "./auth";
+import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 
 /* ------------------------------------------------------------------ types */
 
@@ -230,28 +233,50 @@ type Ctx = {
 const PlatformContext = createContext<Ctx | null>(null);
 
 export function PlatformProvider({ children }: { children: ReactNode }) {
-  const { accounts, ready: accountsReady } = useAuth();
+  const { accounts, ready: accountsReady, user } = useAuth();
   const [s, setS] = useState<PlatformState>(seed);
   const [hydrated, setHydrated] = useState(false);
+  const pendingRef = useRef(false);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(KEY);
-      if (raw) {
-        const saved = { ...seed, ...(JSON.parse(raw) as PlatformState) };
-        const isLegacyDemoId = (id: string | null) => !!id && id.startsWith("acc-");
-        setS({
-          ...saved,
-          tenants: saved.tenants.filter((tenant) => !isLegacyDemoId(tenant.accountId)),
-          agents: saved.agents.filter((agent) => !isLegacyDemoId(agent.accountId)),
-          commissions: saved.commissions.filter((commission) => !isLegacyDemoId(commission.accountId)),
-          tickets: saved.tickets.filter((ticket) => !isLegacyDemoId(ticket.accountId)),
-        });
+    let alive = true;
+    const localState = () => {
+      try {
+        const raw = localStorage.getItem(KEY);
+        if (raw) return { ...seed, ...(JSON.parse(raw) as PlatformState) };
+      } catch {
+        /* use empty state */
       }
-    } catch {
-      /* ignore */
-    }
-    setHydrated(true);
+      return seed;
+    };
+    const clean = (saved: PlatformState) => {
+      const isLegacyDemoId = (id: string | null) => !!id && id.startsWith("acc-");
+      return {
+        ...saved,
+        tenants: saved.tenants.filter((tenant) => !isLegacyDemoId(tenant.accountId)),
+        agents: saved.agents.filter((agent) => !isLegacyDemoId(agent.accountId)),
+        commissions: saved.commissions.filter((commission) => !isLegacyDemoId(commission.accountId)),
+        tickets: saved.tickets.filter((ticket) => !isLegacyDemoId(ticket.accountId)),
+      };
+    };
+    setS(clean(localState()));
+    void supabase
+      .from("platform_state")
+      .select("data")
+      .eq("id", "shared")
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (!alive) return;
+        if (!error && data?.data && Object.keys(data.data as object).length) {
+          setS(clean({ ...seed, ...(data.data as unknown as PlatformState) }));
+        }
+        setHydrated(true);
+      });
+    const fallback = window.setTimeout(() => alive && setHydrated(true), 3000);
+    return () => {
+      alive = false;
+      window.clearTimeout(fallback);
+    };
   }, []);
 
   useEffect(() => {
@@ -261,7 +286,37 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     } catch {
       /* ignore */
     }
-  }, [s, hydrated]);
+    const mayShare = user?.role === "agent" || user?.role === "admin" || user?.role === "support" || user?.role === "finance";
+    if (!mayShare || !navigator.onLine) {
+      if (mayShare) pendingRef.current = true;
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void supabase
+        .from("platform_state")
+        .update({ data: s as unknown as Json, updated_at: new Date().toISOString() })
+        .eq("id", "shared")
+        .then(({ error }) => {
+          pendingRef.current = !!error;
+        });
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [s, hydrated, user?.role]);
+
+  useEffect(() => {
+    const flush = () => {
+      if (!pendingRef.current || !user || user.role === "operator") return;
+      void supabase
+        .from("platform_state")
+        .update({ data: s as unknown as Json, updated_at: new Date().toISOString() })
+        .eq("id", "shared")
+        .then(({ error }) => {
+          pendingRef.current = !!error;
+        });
+    };
+    window.addEventListener("online", flush);
+    return () => window.removeEventListener("online", flush);
+  }, [s, user]);
 
   useEffect(() => {
     if (!hydrated || !accountsReady) return;
@@ -420,7 +475,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       addLead: (l) =>
         patch((p) => ({ ...p, leads: [{ ...l, id: uid(), createdAt: Date.now(), notes: [] }, ...p.leads] })),
       setLeadStage: (id, stage) =>
-        patch((p) => ({ ...p, leads: p.leads.map((l) => (l.id === id ? { ...l, stage } : l)) })),
+        patch((p) => ({ ...p, leads: p.leads.map((l) => (l.id === id ? { ...l, stage, queued: false } : l)) })),
       addLeadNote: (id, text) =>
         patch((p) => ({
           ...p,
