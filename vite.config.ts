@@ -5,6 +5,7 @@
 //     React/TanStack dedupe, error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
   tanstackStart: {
@@ -12,7 +13,47 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
-  // public/sw.js is deliberately hand-written: every offline navigation falls
-  // back to the cached app shell, including a page not opened before signal loss.
-  vite: {},
+  vite: {
+    plugins: [
+      VitePWA({
+        strategies: "generateSW",
+        registerType: "autoUpdate",
+        filename: "service-worker.js",
+        injectRegister: null,
+        devOptions: { enabled: false },
+        manifest: false,
+        workbox: {
+          // Cache every compiled page file, not only pages already visited.
+          globPatterns: ["**/*.{js,css,html,png,svg,woff2}"],
+          additionalManifestEntries: [
+            { url: "/", revision: null },
+            { url: "/manifest.webmanifest", revision: null },
+          ],
+          navigateFallback: "/",
+          navigateFallbackDenylist: [/^\/~oauth/, /^\/api\//, /^\/_serverFn\//],
+          cleanupOutdatedCaches: true,
+          runtimeCaching: [
+            {
+              urlPattern: ({ request, url }) =>
+                url.origin === self.location.origin &&
+                ["script", "style", "font", "image"].includes(request.destination),
+              handler: "CacheFirst",
+              options: {
+                cacheName: "smartcanteen-assets",
+                expiration: { maxEntries: 250, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              },
+            },
+            {
+              urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\//,
+              handler: "StaleWhileRevalidate",
+              options: {
+                cacheName: "smartcanteen-fonts",
+                expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              },
+            },
+          ],
+        },
+      }),
+    ],
+  },
 });
