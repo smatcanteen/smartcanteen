@@ -1,10 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Icon } from "@/components/Icon";
 import { Card, Field, PrimaryButton, SectionTitle } from "@/components/ui-kit";
 import { useAuth } from "@/lib/auth";
-import { fmtDate, usePlatform } from "@/lib/platform";
+import { fmtDate, type Ticket } from "@/lib/platform";
+import { listSupportTickets, submitSupportTicket, updateSupportTicket } from "@/lib/platform.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/support")({
   head: () => ({
@@ -25,12 +27,30 @@ export const Route = createFileRoute("/support")({
 
 function SupportPage() {
   const { user } = useAuth();
-  const { s, openTicket, replyTicket } = usePlatform();
+  const [tickets, setTickets] = useState<Ticket[]>([]);
   const [subject, setSubject] = useState("");
   const [text, setText] = useState("");
   const [reply, setReply] = useState<Record<string, string>>({});
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
 
-  const mine = useMemo(() => s.tickets.filter((t) => t.accountId === user?.id), [s.tickets, user]);
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data.session?.access_token;
+      if (!accessToken) return;
+      const result = await listSupportTickets({ data: { accessToken } });
+      if (!active) return;
+      if (result.ok) { setTickets(result.tickets as Ticket[]); setMessage(""); }
+      else setMessage(result.error);
+    };
+    void load();
+    const timer = window.setInterval(() => void load(), 3000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, []);
+
+  const mine = tickets.filter((ticket) => ticket.accountId === user?.id);
 
   return (
     <AppLayout title="Help & feedback" back>
@@ -47,15 +67,30 @@ function SupportPage() {
           />
         </label>
         <PrimaryButton
-          onClick={() => {
-            if (!subject.trim() || !text.trim() || !user) return;
-            openTicket(user.id, user.name, subject.trim(), text.trim());
-            setSubject("");
-            setText("");
+          disabled={sending}
+          onClick={async () => {
+            if (!subject.trim() || !text.trim() || !user || sending) return;
+            setSending(true);
+            setMessage("");
+            const { data } = await supabase.auth.getSession();
+            const accessToken = data.session?.access_token;
+            if (!accessToken) { setMessage("Your login expired. Log in again."); setSending(false); return; }
+            const id = crypto.randomUUID();
+            const messageId = crypto.randomUUID();
+            const createdAt = Date.now();
+            const result = await submitSupportTicket({ data: { accessToken, id, accountId: user.id, accountName: user.name, subject: subject.trim(), text: text.trim(), createdAt, messageId } });
+            if (result.ok) {
+              setTickets((items) => [{ id, accountId: user.id, accountName: user.name, subject: subject.trim(), status: "open", assignedTo: null, messages: [{ id: messageId, from: "operator", text: text.trim(), ts: createdAt }], createdAt }, ...items]);
+              setSubject("");
+              setText("");
+              setMessage("Message sent to Admin.");
+            } else setMessage(result.error);
+            setSending(false);
           }}
         >
-          <Icon name="send" /> Send to admin
+          <Icon name="send" /> {sending ? "Sending…" : "Send to admin"}
         </PrimaryButton>
+        {message ? <p className="text-sm font-semibold text-primary">{message}</p> : null}
       </Card>
 
       <SectionTitle>Your conversations</SectionTitle>
@@ -87,11 +122,18 @@ function SupportPage() {
                 className="h-12 flex-1 rounded-md border-2 border-outline-variant bg-surface-lowest px-3 text-sm"
               />
               <button
-                onClick={() => {
+                onClick={async () => {
                   const v = (reply[t.id] ?? "").trim();
-                  if (!v) return;
-                  replyTicket(t.id, "operator", v);
-                  setReply({ ...reply, [t.id]: "" });
+                  if (!v || !user) return;
+                  const { data } = await supabase.auth.getSession();
+                  const accessToken = data.session?.access_token;
+                  if (!accessToken) return setMessage("Your login expired. Log in again.");
+                  const nextMessage = { id: crypto.randomUUID(), from: "operator" as const, text: v, ts: Date.now() };
+                  const result = await updateSupportTicket({ data: { accessToken, accountId: user.id, ticketId: t.id, message: nextMessage } });
+                  if (result.ok) {
+                    setTickets((items) => items.map((item) => item.id === t.id ? { ...item, status: item.status === "resolved" ? "open" : item.status, messages: [...item.messages, nextMessage] } : item));
+                    setReply({ ...reply, [t.id]: "" });
+                  } else setMessage(result.error);
                 }}
                 aria-label="Send message"
                 className="flex h-12 w-12 items-center justify-center rounded-md bg-primary text-on-primary"
