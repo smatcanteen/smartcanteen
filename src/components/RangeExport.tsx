@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Icon } from "./Icon";
 import { exportExcel, exportPdf, type Sheet } from "@/lib/export";
 import { dateInput, fromDateInput } from "@/lib/store";
@@ -24,9 +24,16 @@ export function useRange(termStartedAt?: number) {
   const window = useMemo(() => {
     const now = Date.now();
     if (key === "Today") return { start: startOfDay(now), end: endOfDay(now) };
-    if (key === "Week") return { start: startOfDay(now - 6 * 86400000), end: endOfDay(now) };
-    if (key === "Custom")
-      return { start: startOfDay(fromDateInput(from)), end: endOfDay(fromDateInput(to)) };
+    if (key === "Week") {
+      const today = new Date(now);
+      const mondayOffset = (today.getDay() + 6) % 7;
+      return { start: startOfDay(now - mondayOffset * 86400000), end: endOfDay(now) };
+    }
+    if (key === "Custom") {
+      const a = startOfDay(fromDateInput(from));
+      const b = endOfDay(fromDateInput(to));
+      return { start: Math.min(a, b), end: Math.max(a, b) };
+    }
     return { start: termStartedAt ? startOfDay(termStartedAt) : 0, end: endOfDay(now) };
   }, [key, from, to, termStartedAt]);
 
@@ -152,6 +159,7 @@ export function DataTable({
   const [page, setPage] = useState(0);
   const pages = Math.max(1, Math.ceil(rows.length / pageSize));
   const current = Math.min(page, pages - 1);
+  useEffect(() => setPage(0), [rows.length, pageSize]);
   const slice = rows.slice(current * pageSize, current * pageSize + pageSize);
 
   if (rows.length === 0) return <p className="text-sm text-on-surface-variant">{empty}</p>;
