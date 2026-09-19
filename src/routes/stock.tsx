@@ -39,8 +39,10 @@ const blankForm = (): CheckForm => ({
 });
 
 function Stock() {
-  const { state, checkStock, setRunningLow } = useStore();
+  const { state, checkStock, setRunningLow, removeStockItem } = useStore();
   const [editing, setEditing] = useState<string | null>(null);
+  const [details, setDetails] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [form, setForm] = useState<CheckForm>(blankForm);
   const [itemSearch, setItemSearch] = useState("");
   const [itemPage, setItemPage] = useState(0);
@@ -251,68 +253,74 @@ function Stock() {
                 !(Number(form.restockQty) > 0 && Number(form.restockCost) > 0));
 
             return (
-              <Card key={item.id} className="space-y-sm">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-bold text-on-surface">{item.name}</p>
-                  <div className="flex flex-wrap gap-2">
+              <Card key={item.id} className="space-y-2 p-3 sm:space-y-sm sm:p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate font-bold text-on-surface">{item.name}</p>
+                    <p className="text-xs text-on-surface-variant">{item.qty} bought · {isChecked ? `${item.lastKnownQuantity} left` : "count not checked"}</p>
+                  </div>
+                  <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
                     {item.runningLow && (
-                      <span className="rounded-full bg-tertiary/10 px-3 py-1 text-xs font-bold text-tertiary">
+                      <span className="rounded-full bg-tertiary/10 px-2 py-1 text-[11px] font-bold text-tertiary">
                         Running Low
                       </span>
                     )}
-                    <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
-                      {isChecked ? `${item.lastKnownQuantity} left` : "In Stock"}
+                    <span className="rounded-full bg-primary/10 px-2 py-1 text-[11px] font-bold text-primary">
+                      {isChecked ? `${item.lastKnownQuantity} left` : "Not checked"}
                     </span>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 rounded-md bg-surface-low p-2 text-sm">
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-outline">Total bought this term</p>
-                    <p className="font-bold text-on-surface">{item.qty} units</p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-outline">Latest stock count</p>
-                    <p className="font-bold text-primary">
-                      {isChecked ? `${item.lastKnownQuantity} units` : "Not checked"}
+                  <Stat label="Expected profit" value={`UGX ${ugx(expectedProfit)}`} />
+                  <Stat label="Realized profit" value={`UGX ${ugx(item.realizedProfit ?? 0)}`} accent />
+                </div>
+
+                <button
+                  onClick={() => setDetails(details === item.id ? null : item.id)}
+                  className="flex min-h-9 w-full items-center justify-center gap-1 text-xs font-bold text-primary"
+                  aria-expanded={details === item.id}
+                >
+                  {details === item.id ? "Hide details" : "View cost and count details"}
+                  <Icon name={details === item.id ? "expand_less" : "expand_more"} className="text-base" />
+                </button>
+
+                {details === item.id && (
+                  <div className="space-y-2 rounded-md border border-outline-variant/60 p-2">
+                    <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+                      <Stat label="Total bought" value={`${item.qty} units`} />
+                      <Stat label="Latest count" value={isChecked ? `${item.lastKnownQuantity} units` : "Not checked"} accent={isChecked} />
+                      <Stat label="Unit cost" value={`UGX ${ugx(unitCost)}`} />
+                      <Stat label="Profit / unit" value={`UGX ${ugx(item.sell - unitCost)}`} />
+                    </div>
+                    <p className="text-xs text-on-surface-variant">
+                      {isChecked && item.lastCheckedAt
+                        ? `Last checked ${new Date(item.lastCheckedAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}`
+                        : "Tap Update Stock to confirm what is physically left."}
                     </p>
                   </div>
-                </div>
-
-                {isChecked && item.lastCheckedAt ? (
-                  <p className="text-xs text-on-surface-variant">
-                    Last checked {new Date(item.lastCheckedAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
-                  </p>
-                ) : (
-                  <p className="text-xs text-on-surface-variant">Tap Update Stock to confirm what is physically left.</p>
                 )}
 
-                <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-5">
-                  <Stat label="Unit cost" value={`UGX ${ugx(unitCost)}`} />
-                  <Stat label="Profit / unit" value={`UGX ${ugx(item.sell - unitCost)}`} />
-                  <Stat
-                    label="Stock quantity"
-                    value={isChecked ? `${item.lastKnownQuantity} units` : "Not checked"}
-                    accent={isChecked}
-                  />
-                  <Stat label="Expected Profit" value={`UGX ${ugx(expectedProfit)}`} />
-                  <Stat label="Realized Profit" value={`UGX ${ugx(item.realizedProfit ?? 0)}`} accent />
-                </div>
-
                 {!isEditing ? (
-                  <div className="grid grid-cols-2 gap-2 border-t border-outline-variant/50 pt-sm">
+                  <div className="grid grid-cols-3 gap-2 border-t border-outline-variant/50 pt-2">
                     <button
                       onClick={() => setRunningLow(item.id, !item.runningLow)}
-                      className="flex min-h-11 items-center justify-center gap-2 rounded-md border border-outline-variant px-3 text-sm font-bold text-tertiary hover:bg-surface-low"
+                      className="flex min-h-11 items-center justify-center gap-1 rounded-md border border-outline-variant px-2 text-xs font-bold text-tertiary hover:bg-surface-low"
                     >
                       <Icon name={item.runningLow ? "remove_circle" : "warning"} className="text-[18px]" />
                       {item.runningLow ? "Clear Low Flag" : "Running Low"}
                     </button>
                     <button
                       onClick={() => openCheck(item)}
-                      className="flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary px-3 text-sm font-bold text-on-primary"
+                      className="flex min-h-11 items-center justify-center gap-1 rounded-md bg-primary px-2 text-xs font-bold text-on-primary"
                     >
-                      <Icon name="inventory" className="text-[18px]" /> Update Stock
+                      <Icon name="inventory" className="text-[18px]" /> Update
+                    </button>
+                    <button
+                      onClick={() => setConfirmDelete(item.id)}
+                      className="flex min-h-11 items-center justify-center gap-1 rounded-md border border-tertiary/40 px-2 text-xs font-bold text-tertiary hover:bg-tertiary/10"
+                    >
+                      <Icon name="delete" className="text-[18px]" /> Delete
                     </button>
                   </div>
                 ) : (
@@ -379,6 +387,31 @@ function Stock() {
                       <PrimaryButton onClick={() => saveCheck(item)} disabled={invalid}>
                         <Icon name="check" /> Save Check
                       </PrimaryButton>
+                    </div>
+                  </div>
+                )}
+
+                {confirmDelete === item.id && (
+                  <div className="space-y-2 rounded-md border border-tertiary/40 bg-tertiary/10 p-3">
+                    <p className="text-sm font-bold text-on-surface">Delete {item.name} from the current Stock list?</p>
+                    <p className="text-xs text-on-surface-variant">Past purchase entries and stock checks will remain in reports.</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setConfirmDelete(null)}
+                        className="min-h-11 rounded-md border border-outline-variant bg-surface-lowest text-sm font-bold text-on-surface"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => {
+                          removeStockItem(item.id);
+                          setConfirmDelete(null);
+                          setDetails(null);
+                        }}
+                        className="min-h-11 rounded-md bg-tertiary text-sm font-bold text-on-tertiary"
+                      >
+                        Yes, delete item
+                      </button>
                     </div>
                   </div>
                 )}
