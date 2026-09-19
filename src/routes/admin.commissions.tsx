@@ -25,6 +25,7 @@ export const Route = createFileRoute("/admin/commissions")({
 function Commissions() {
   const { s, setCommissionStatus, markPayoutPaid } = usePlatform();
   const [ref, setRef] = useState<Record<string, string>>({});
+  const [error, setError] = useState("");
 
   const sum = (status: string) =>
     s.commissions.filter((c) => c.status === status).reduce((a, c) => a + c.amount, 0);
@@ -44,6 +45,8 @@ function Commissions() {
         <Kpi label="Paid" value={`UGX ${ugx(sum("paid"))}`} icon="payments" />
         <Kpi label="Clawed back" value={`UGX ${ugx(sum("clawback"))}`} icon="undo" />
       </div>
+
+      {error ? <p className="rounded-md bg-tertiary/10 px-3 py-2 text-sm font-bold text-tertiary">{error}</p> : null}
 
       <Card className="space-y-sm">
         <SectionTitle>Commission ledger</SectionTitle>
@@ -67,12 +70,26 @@ function Commissions() {
                 </button>
               ) : null}
               {c.status === "approved" ? (
-                <button
-                  onClick={() => setCommissionStatus(c.id, "paid", ref[c.id] || `MM-${Math.floor(Math.random() * 99999)}`)}
-                  className="text-xs font-bold text-primary underline"
-                >
-                  Mark paid
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    aria-label={`Payment reference for ${name(c.agentId)}`}
+                    placeholder="Mobile-money reference"
+                    value={ref[c.id] ?? ""}
+                    onChange={(e) => setRef({ ...ref, [c.id]: e.target.value })}
+                    className="h-10 min-w-44 rounded-md border-2 border-outline-variant bg-surface px-2 text-sm"
+                  />
+                  <button
+                    onClick={() => {
+                      const paymentRef = (ref[c.id] ?? "").trim();
+                      if (!paymentRef) return setError("Enter the real mobile-money reference before marking a commission paid.");
+                      setError("");
+                      setCommissionStatus(c.id, "paid", paymentRef);
+                    }}
+                    className="text-xs font-bold text-primary underline"
+                  >
+                    Mark paid
+                  </button>
+                </div>
               ) : null}
               {c.type === "signup" && c.status !== "clawback" && clawbackDue(c.accountId, c.createdAt) ? (
                 <button onClick={() => setCommissionStatus(c.id, "clawback")} className="text-xs font-bold text-tertiary underline">
@@ -107,7 +124,12 @@ function Commissions() {
                   className="h-11 rounded-md border-2 border-outline-variant bg-surface px-2 text-sm"
                 />
                 <button
-                  onClick={() => markPayoutPaid(p.id, ref[p.id] || "MM-manual")}
+                  onClick={() => {
+                    const paymentRef = (ref[p.id] ?? "").trim();
+                    if (!paymentRef) return setError("Enter the real mobile-money reference before marking a payout paid.");
+                    setError("");
+                    markPayoutPaid(p.id, paymentRef);
+                  }}
                   className="min-h-11 rounded-full bg-primary px-4 text-sm font-bold text-on-primary"
                 >
                   Mark paid
