@@ -55,7 +55,7 @@ export type StockItem = {
   name: string;
   /** Total units bought this term. */
   qty: number;
-  /** Units still on the shelf. */
+  /** Legacy running quantity; physical checks are authoritative. */
   stock: number;
   /** Total buying price paid. */
   buy: number;
@@ -65,6 +65,26 @@ export type StockItem = {
   pack?: string;
   /** Units contained in one package (1 = sold as ones). */
   unitsPerPack?: number;
+  /** Last quantity physically confirmed by the operator; absent until first check. */
+  lastKnownQuantity?: number | null;
+  lastCheckedAt?: number | null;
+  /** Profit confirmed through physical stock checks this term. */
+  realizedProfit?: number;
+  runningLow?: boolean;
+};
+
+/** An auditable physical stock check, optionally followed by a restock. */
+export type StockCheck = {
+  id: string;
+  itemId: string;
+  itemName: string;
+  ts: number;
+  previousKnownQuantity: number;
+  newConfirmedQuantity: number;
+  unitsSold: number;
+  writtenOffUnits: number;
+  realizedProfit: number;
+  restock?: { quantity: number; cost: number; date: number };
 };
 
 /** One payment made against a student's credit. */
@@ -116,6 +136,8 @@ export type State = {
   /** Money the operator wants to be holding by the end of the term. */
   savingsGoal: number;
   items: StockItem[];
+  /** Physical item counts and the profit each count confirmed. */
+  stockChecks?: StockCheck[];
   txs: Tx[];
   debtors: Debtor[];
   expenseCategories: ExpenseCategory[];
@@ -323,8 +345,14 @@ type Ctx = {
   /** Records a part or full payment against a debt, on the date it happened. */
   payDebtor: (id: string, amount: number, ts?: number) => void;
   addDebtor: (d: Omit<Debtor, "id" | "ts" | "paid"> & { ts?: number }) => void;
-  /** Corrects the units left on the shelf after a physical count. */
-  setStockCount: (itemId: string, counted: number) => void;
+  /** Records a physical count, write-offs and an optional restock as one action. */
+  checkStock: (
+    itemId: string,
+    counted: number,
+    writtenOffUnits?: number,
+    restock?: { quantity: number; cost: number; date: number },
+  ) => void;
+  setRunningLow: (itemId: string, runningLow: boolean) => void;
 
   undoLast: () => void;
 
@@ -769,13 +797,71 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
-  /** A physical shelf count wins over the running figure. */
-  const setStockCount = useCallback((itemId: string, counted: number) => {
+  /** A physical shelf count wins over estimates and creates a traceable profit event. */
+  const checkStock = useCallback<Ctx["checkStock"]>((itemId, counted, writtenOffUnits = 0, restock) => {
+    setState((s) => {
+      const item = s.items.find((i) => i.id === itemId);
+      if (!item) return s;
+      const confirmed = Math.max(0, Math.round(counted));
+      const previous = Math.max(0, Math.round(item.lastKnownQuantity ?? item.stock ?? item.qty));
+      const accountedFor = Math.max(0, previous - confirmed);
+      const writtenOff = Math.min(accountedFor, Math.max(0, Math.round(writtenOffUnits)));
+      const unitsSold = accountedFor - writtenOff;
+      const unitCost = item.qty > 0 ? item.buy / item.qty : 0;
+      const profitAdded = Math.max(0, unitsSold * (item.sell - unitCost));
+      const restockQty = Math.max(0, Math.round(restock?.quantity ?? 0));
+      const restockCost = Math.max(0, Math.round(restock?.cost ?? 0));
+      const when = Date.now();
+      const nextKnown = confirmed + restockQty;
+      const check: StockCheck = {
+        id: uid(),
+        itemId,
+        itemName: item.name,
+        ts: when,
+        previousKnownQuantity: previous,
+        newConfirmedQuantity: confirmed,
+        unitsSold,
+        writtenOffUnits: writtenOff,
+        realizedProfit: profitAdded,
+        ...(restockQty > 0 && restockCost > 0
+          ? { restock: { quantity: restockQty, cost: restockCost, date: restock?.date ?? when } }
+          : {}),
+      };
+      const items = s.items.map((i) =>
+        i.id === itemId
+          ? {
+              ...i,
+              qty: i.qty + restockQty,
+              stock: nextKnown,
+              buy: i.buy + restockCost,
+              lastKnownQuantity: nextKnown,
+              lastCheckedAt: when,
+              realizedProfit: (i.realizedProfit ?? 0) + profitAdded,
+              runningLow: false,
+            }
+          : i,
+      );
+      const txs = [...s.txs];
+      if (restockQty > 0 && restockCost > 0) {
+        txs.push({
+          id: uid(),
+          type: "stock",
+          label: `${item.name} restock`,
+          amount: restockCost,
+          itemId,
+          units: restockQty,
+          sell: item.sell,
+          ts: restock?.date ?? when,
+        });
+      }
+      return { ...s, items, txs, stockChecks: [...(s.stockChecks ?? []), check] };
+    });
+  }, []);
+
+  const setRunningLow = useCallback<Ctx["setRunningLow"]>((itemId, runningLow) => {
     setState((s) => ({
       ...s,
-      items: s.items.map((i) =>
-        i.id === itemId ? { ...i, stock: Math.max(0, Math.min(i.qty, Math.round(counted))) } : i,
-      ),
+      items: s.items.map((i) => (i.id === itemId ? { ...i, runningLow } : i)),
     }));
   }, []);
 
@@ -910,7 +996,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       settleDebtor,
       payDebtor,
       addDebtor,
-      setStockCount,
+      checkStock,
+      setRunningLow,
       undoLast,
       setPin,
       addPayment,
@@ -938,7 +1025,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     settleDebtor,
     payDebtor,
     addDebtor,
-    setStockCount,
+    checkStock,
+    setRunningLow,
     undoLast,
     setPin,
     addPayment,
