@@ -277,7 +277,14 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         if (!error && data?.data && Object.keys(data.data as object).length) {
           const shared = clean({ ...seed, ...(data.data as unknown as PlatformState) });
           if (user?.role === "operator") {
-            setS((local) => ({ ...local, announcements: shared.announcements }));
+            const ownTenant = shared.tenants.find((tenant) => tenant.accountId === user.id);
+            setS((local) => ({
+              ...local,
+              announcements: shared.announcements,
+              tenants: ownTenant
+                ? [...local.tenants.filter((tenant) => tenant.accountId !== user.id), ownTenant]
+                : local.tenants,
+            }));
           } else {
             setS(shared);
           }
