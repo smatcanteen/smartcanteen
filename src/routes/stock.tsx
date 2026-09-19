@@ -227,9 +227,14 @@ function Stock() {
                   <p className="text-xs text-on-surface-variant">Tap Update Stock to confirm what is physically left.</p>
                 )}
 
-                <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+                <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-5">
                   <Stat label="Unit cost" value={`UGX ${ugx(unitCost)}`} />
                   <Stat label="Profit / unit" value={`UGX ${ugx(item.sell - unitCost)}`} />
+                  <Stat
+                    label="Stock quantity"
+                    value={isChecked ? `${item.lastKnownQuantity} units` : "Not checked"}
+                    accent={isChecked}
+                  />
                   <Stat label="Expected Profit" value={`UGX ${ugx(expectedProfit)}`} />
                   <Stat label="Realized Profit" value={`UGX ${ugx(item.realizedProfit ?? 0)}`} accent />
                 </div>
