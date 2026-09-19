@@ -68,7 +68,7 @@ export function AppLayout({
 
   if (!ready || !hydrated) {
     return (
-      <div className="flex min-h-screen flex-col bg-surface-high">
+      <div className="flex min-h-screen flex-col overflow-x-clip bg-surface-high">
         <div className="h-28 bg-primary" />
         <div className="mx-auto -mt-10 w-full max-w-container-max space-y-sm px-3 sm:px-4">
           <div className="h-32 animate-pulse rounded-xl bg-surface-lowest" />
@@ -86,7 +86,7 @@ export function AppLayout({
 
 
   return (
-    <div className="flex min-h-screen flex-col bg-surface-high">
+    <div className="flex min-h-screen flex-col overflow-x-clip bg-surface-high">
       <div className={`bg-primary ${hero ? "pb-20" : "pb-6"}`}>
         <header className="mx-auto grid h-16 w-full max-w-container-max grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-3 sm:px-4 md:px-gutter">
           <div className="flex min-w-0 items-center gap-2">
