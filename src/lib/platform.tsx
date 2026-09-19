@@ -461,18 +461,26 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!hydrated || !user || ["operator", "agent"].includes(user.role)) return;
+    const applyShared = (data?: PlatformState) => {
+      if (data) setS(clean({ ...seed, ...data }));
+    };
     const channel = supabase
       .channel("admin-platform-state")
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "platform_state", filter: "id=eq.shared" },
-        (payload) => {
-          const data = (payload.new as { data?: PlatformState }).data;
-          if (data) setS(clean({ ...seed, ...data }));
-        },
+        (payload) => applyShared((payload.new as { data?: PlatformState }).data),
       )
       .subscribe();
-    return () => { void supabase.removeChannel(channel); };
+    const poll = window.setInterval(() => {
+      void supabase.from("platform_state").select("data").eq("id", "shared").single().then(({ data }) => {
+        applyShared(data?.data as unknown as PlatformState | undefined);
+      });
+    }, 10_000);
+    return () => {
+      window.clearInterval(poll);
+      void supabase.removeChannel(channel);
+    };
   }, [hydrated, user]);
 
   useEffect(() => {
