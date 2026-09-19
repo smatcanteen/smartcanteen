@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
-import { GroupedBars } from "@/components/Charts";
+import { useEffect, useState } from "react";
+import { listAccountProgress } from "@/lib/accounts.functions";
 import { Icon } from "@/components/Icon";
 import { Card, SectionTitle } from "@/components/ui-kit";
 import { Kpi, Pill, can, statusTone } from "@/components/AdminShell";
@@ -34,33 +34,33 @@ function Dashboard() {
   const trial = t.filter((x) => x.status === "trial");
   const pastDue = t.filter((x) => x.status === "past_due");
   const churned = t.filter((x) => x.status === "churned");
-  const mrr = active.length * s.settings.priceUGX;
+  const monthlyRecurring = active.length * (s.settings.priceUGX / Math.max(1, s.settings.months));
+  const [progress, setProgress] = useState<Record<string, { entries: number; lastLoginAt: number | null; checklist: { loggedIn: boolean; capitalSet: boolean; firstStock: boolean; firstSale: boolean } }>>({});
 
-  const payments = useMemo(() => {
-    const now = new Date();
-    return Array.from({ length: 6 }, (_, i) => {
-      const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
-      const count = t.filter((x) => {
-        const c = new Date(x.createdAt);
-        return c <= d && x.status !== "trial";
-      }).length;
-      return {
-        label: d.toLocaleDateString("en-GB", { month: "short" }),
-        values: { collected: count * s.settings.priceUGX },
-      };
-    });
-  }, [t, s.settings.priceUGX]);
+  useEffect(() => {
+    let alive = true;
+    void listAccountProgress().then((res) => {
+      if (!alive || !res.ok) return;
+      setProgress(Object.fromEntries(res.rows.map((row) => [row.accountId, row])));
+    }).catch(() => undefined);
+    return () => { alive = false; };
+  }, []);
 
   const week = Date.now() + 7 * 86400000;
   const renewals = t.filter((x) => x.nextBillingAt <= week && x.status !== "churned");
   const recent = [...t].sort((a, b) => b.createdAt - a.createdAt).slice(0, 6);
 
-  const funnel = {
-    signed: t.length,
-    loggedIn: t.filter((x) => x.checklist.loggedIn).length,
-    activated: t.filter(isActivated).length,
+  const liveTenant = (tenant: (typeof t)[number]) => {
+    const p = progress[tenant.accountId];
+    return p ? { ...tenant, entries: p.entries, lastLoginAt: p.lastLoginAt, checklist: p.checklist } : tenant;
   };
-  const stalled = t.filter(isStalled).length;
+  const liveTenants = t.map(liveTenant);
+  const funnel = {
+    signed: liveTenants.length,
+    loggedIn: liveTenants.filter((x) => x.checklist.loggedIn || !!x.lastLoginAt).length,
+    activated: liveTenants.filter(isActivated).length,
+  };
+  const stalled = liveTenants.filter(isStalled).length;
   const atRisk = t.filter((x) => x.status === "past_due" || x.tags.includes("stalled")).length;
 
   return (
@@ -69,9 +69,9 @@ function Dashboard() {
         <Kpi label="Active subscribers" value={String(active.length)} icon="verified" />
         {can(user?.role, "revenue") ? (
           <Kpi
-            label="MRR"
-            value={`UGX ${ugx(mrr)}`}
-            sub={`${active.length} × ${ugx(s.settings.priceUGX)} / ${s.settings.months} months`}
+            label="Monthly subscription value"
+            value={`UGX ${ugx(monthlyRecurring)}`}
+            sub={`${active.length} active × ${ugx(s.settings.priceUGX)} every ${s.settings.months} month${s.settings.months === 1 ? "" : "s"}`}
             icon="payments"
           />
         ) : null}
@@ -79,16 +79,6 @@ function Dashboard() {
         <Kpi label="Past due" value={String(pastDue.length)} icon="error" />
         <Kpi label="Churned this month" value={String(churned.length)} icon="trending_down" />
       </div>
-
-      {can(user?.role, "revenue") ? (
-        <Card className="min-w-0 space-y-sm">
-          <SectionTitle>Payments collected — last 6 months</SectionTitle>
-          <GroupedBars
-            rows={payments}
-            series={[{ key: "collected", label: "Collected (UGX)", color: "var(--color-primary)" }]}
-          />
-        </Card>
-      ) : null}
 
       <Card className="min-w-0 space-y-sm">
         <SectionTitle>Activation funnel</SectionTitle>
