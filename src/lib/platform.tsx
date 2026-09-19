@@ -359,6 +359,33 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   }, [s, hydrated, user?.role]);
 
   useEffect(() => {
+    if (!hydrated || user?.role !== "agent" || !navigator.onLine || !s.leads.length) return;
+    let active = true;
+    const syncSavedLeads = () => {
+      s.leads.forEach((lead) => {
+        void syncAgentLead({
+          id: lead.id,
+          school: lead.school,
+          contactName: lead.contactName,
+          phone: lead.phone,
+          stage: lead.stage,
+          agentId: lead.agentId,
+          createdAt: lead.createdAt,
+        }).then((result) => {
+          if (!active || !result.ok) return;
+          setS((current) => ({
+            ...current,
+            leads: current.leads.map((item) => item.id === lead.id ? { ...item, queued: false } : item),
+          }));
+        });
+      });
+    };
+    syncSavedLeads();
+    const timer = window.setInterval(syncSavedLeads, 5000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [hydrated, user?.role, s.leads]);
+
+  useEffect(() => {
     const flush = () => {
       if (!pendingRef.current || !user || user.role === "operator") return;
       void supabase
