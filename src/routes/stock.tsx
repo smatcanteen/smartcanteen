@@ -41,6 +41,8 @@ function Stock() {
   const { state, checkStock, setRunningLow } = useStore();
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState<CheckForm>(blankForm);
+  const [itemSearch, setItemSearch] = useState("");
+  const [itemPage, setItemPage] = useState(0);
   const checked = state.items.filter((i) => i.lastKnownQuantity != null);
   const atCost = checked.reduce(
     (a, i) => a + (i.qty ? (i.buy / i.qty) * (i.lastKnownQuantity ?? 0) : 0),
@@ -48,6 +50,16 @@ function Stock() {
   );
   const atRetail = checked.reduce((a, i) => a + i.sell * (i.lastKnownQuantity ?? 0), 0);
   const low = state.items.filter((i) => i.runningLow);
+  const filteredItems = state.items.filter((i) =>
+    i.name.toLowerCase().includes(itemSearch.trim().toLowerCase()),
+  );
+  const itemPageSize = 6;
+  const itemPages = Math.max(1, Math.ceil(filteredItems.length / itemPageSize));
+  const currentItemPage = Math.min(itemPage, itemPages - 1);
+  const visibleItems = filteredItems.slice(
+    currentItemPage * itemPageSize,
+    (currentItemPage + 1) * itemPageSize,
+  );
   const range = useRange(state.termStartedAt);
   const purchases = state.txs
     .filter((t) => t.type === "stock" && range.has(t.ts))
@@ -125,9 +137,23 @@ function Stock() {
       )}
 
       <section>
-        <SectionTitle>Items this term</SectionTitle>
+        <div className="mb-sm flex items-end justify-between gap-3">
+          <SectionTitle>Items this term</SectionTitle>
+          <label className="w-48 max-w-[55%] text-xs font-bold text-on-surface-variant">
+            Find item
+            <input
+              value={itemSearch}
+              onChange={(e) => {
+                setItemSearch(e.target.value);
+                setItemPage(0);
+              }}
+              placeholder="Type item name"
+              className="mt-1 h-10 w-full rounded-md border border-outline-variant bg-surface-lowest px-3 text-sm text-on-surface outline-none focus:border-primary"
+            />
+          </label>
+        </div>
         <div className="space-y-sm">
-          {state.items.map((item) => {
+          {visibleItems.map((item) => {
             const unitCost = item.qty ? item.buy / item.qty : 0;
             const expectedProfit = item.qty * item.sell - item.buy;
             const isChecked = item.lastKnownQuantity != null;
@@ -264,7 +290,29 @@ function Stock() {
               </Card>
             );
           })}
+          {visibleItems.length === 0 && (
+            <Card><p className="text-sm text-on-surface-variant">No item matches “{itemSearch}”.</p></Card>
+          )}
         </div>
+        {itemPages > 1 && (
+          <div className="mt-sm flex items-center justify-between rounded-md bg-surface-low px-3 py-2 text-sm">
+            <button
+              onClick={() => setItemPage((p) => Math.max(0, p - 1))}
+              disabled={currentItemPage === 0}
+              className="font-bold text-primary disabled:opacity-40"
+            >
+              Back
+            </button>
+            <span className="text-on-surface-variant">Page {currentItemPage + 1} of {itemPages}</span>
+            <button
+              onClick={() => setItemPage((p) => Math.min(itemPages - 1, p + 1))}
+              disabled={currentItemPage >= itemPages - 1}
+              className="font-bold text-primary disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
+        )}
       </section>
 
       <Link
