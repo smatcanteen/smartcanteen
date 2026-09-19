@@ -289,6 +289,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
             setS((local) => ({
               ...local,
               announcements: shared.announcements,
+              tickets: shared.tickets.filter((ticket) => ticket.accountId === user.id),
               tenants: ownTenant
                 ? [...local.tenants.filter((tenant) => tenant.accountId !== user.id), ownTenant]
                 : local.tenants,
