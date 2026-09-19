@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 import { Icon } from "./Icon";
 import { useAuth, roleLabels, isAdminRole, homeForRole, type Role } from "@/lib/auth";
@@ -52,6 +52,9 @@ const tabs: { to: string; label: string; perm: AdminPerm }[] = [
 export function AdminShell({ children }: { children: ReactNode }) {
   const { user, ready, logout } = useAuth();
   const navigate = useNavigate();
+  const router = useRouter();
+  const path = router.state.location.pathname;
+  const requiredPermission = tabs.find((tab) => tab.to === path)?.perm ?? (path === "/admin" ? "dashboard" : null);
 
   useSetupGate(ready && !!user);
 
@@ -61,9 +64,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
     if (!user) navigate({ to: "/login" });
     else if (!isAdminRole(user.role)) navigate({ to: homeForRole(user.role) });
     else if (user.otpPending) navigate({ to: "/first-run" });
-  }, [ready, user, navigate]);
+    else if (requiredPermission && !can(user.role, requiredPermission)) navigate({ to: "/admin" });
+  }, [ready, user, navigate, requiredPermission]);
 
-  if (!user || !isAdminRole(user.role)) return null;
+  if (!user || !isAdminRole(user.role) || (requiredPermission && !can(user.role, requiredPermission))) return null;
 
   return (
     <div className="min-h-screen bg-surface-high pb-16">
