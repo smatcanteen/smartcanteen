@@ -407,16 +407,18 @@ function Accounts() {
                     <button
                       disabled={busyId === t.accountId}
                       onClick={async () => {
+                        const account = accounts.find((item) => item.id === t.accountId);
+                        if (!account) return setActionError("This account has no operator login.");
                         setBusyId(t.accountId);
                         updateTenant(t.accountId, {
-                          status: t.status === "suspended" ? "active" : "suspended",
+                          status: account.active ? "suspended" : effectiveTenantStatus({ ...t, status: "active" }),
                         });
                         await toggleAccount(t.accountId);
                         setBusyId(null);
                       }}
                       className="min-h-11 rounded-full bg-tertiary px-4 text-sm font-bold text-on-tertiary disabled:opacity-50"
                     >
-                      {t.status === "suspended" ? "Restore login" : "Suspend login"}
+                      {accounts.find((item) => item.id === t.accountId)?.active === false ? "Restore login" : "Suspend login"}
                     </button>
                   ) : null}
                   {(() => {
