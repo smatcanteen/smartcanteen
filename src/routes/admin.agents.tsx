@@ -36,7 +36,8 @@ export const Route = createFileRoute("/admin/agents")({
 function Agents() {
   const { s, addAgent, updateAgent, certifyAgent, updateSettings, requestPayout } = usePlatform();
   const [openId, setOpenId] = useState<string | null>(null);
-  const { createAccount } = useAuth();
+  const { user, createAccount } = useAuth();
+  const canManageAgents = user?.role === "admin";
   const [f, setF] = useState({ name: "", phone: "", email: "", territory: zones[0]! });
   const [msg, setMsg] = useState("");
   const [error, setError] = useState("");
@@ -47,6 +48,7 @@ function Agents() {
     s.agents.reduce((a, x) => a + agentChurnRate(x.id, s.tenants), 0) / Math.max(1, s.agents.length);
 
   const register = async () => {
+    if (!canManageAgents) return setError("Only a Super Admin can register or change agents.");
     if (busy) return;
     const email = f.email.trim().toLowerCase();
     if (!f.name.trim()) {
@@ -99,27 +101,31 @@ function Agents() {
           label="Signup bonus (UGX)"
           inputMode="numeric"
           value={String(s.settings.signupBonus)}
-          onChange={(e) => updateSettings({ signupBonus: Number(e.target.value) || 0 })}
+          disabled={!canManageAgents}
+          onChange={(e) => canManageAgents && updateSettings({ signupBonus: Number(e.target.value) || 0 })}
         />
         <Field
           label="Recurring trail (% of subscription)"
           inputMode="numeric"
           value={String(s.settings.trailPct)}
-          onChange={(e) => updateSettings({ trailPct: Number(e.target.value) || 0 })}
+          disabled={!canManageAgents}
+          onChange={(e) => canManageAgents && updateSettings({ trailPct: Number(e.target.value) || 0 })}
         />
         <Field
           label="Clawback window (days)"
           inputMode="numeric"
           hint="Signup bonus is reversed if the account churns inside this window."
           value={String(s.settings.clawbackDays)}
-          onChange={(e) => updateSettings({ clawbackDays: Number(e.target.value) || 0 })}
+          disabled={!canManageAgents}
+          onChange={(e) => canManageAgents && updateSettings({ clawbackDays: Number(e.target.value) || 0 })}
         />
         <label className="flex items-center gap-2 text-sm font-bold text-on-surface-variant">
           <input
             type="checkbox"
             className="h-5 w-5"
             checked={s.settings.leaderboard}
-            onChange={(e) => updateSettings({ leaderboard: e.target.checked })}
+            disabled={!canManageAgents}
+            onChange={(e) => canManageAgents && updateSettings({ leaderboard: e.target.checked })}
           />
           Show agent leaderboard
         </label>
@@ -205,17 +211,19 @@ function Agents() {
                     <button onClick={() => setOpenId(open ? null : a.id)} className="text-xs font-bold text-primary underline">
                       {open ? "Hide details" : "View details"}
                     </button>
-                    {!a.certified ? (
+                    {canManageAgents && !a.certified ? (
                       <button onClick={() => certifyAgent(a.id)} className="text-xs font-bold text-primary underline">
                         Approve &amp; certify
                       </button>
                     ) : null}
-                    <button
-                      onClick={() => updateAgent(a.id, { status: a.status === "suspended" ? "certified" : "suspended" })}
-                      className="text-xs font-bold text-tertiary underline"
-                    >
-                      {a.status === "suspended" ? "Restore" : "Suspend"}
-                    </button>
+                    {canManageAgents ? (
+                      <button
+                        onClick={() => updateAgent(a.id, { status: a.status === "suspended" ? "certified" : "suspended" })}
+                        className="text-xs font-bold text-tertiary underline"
+                      >
+                        {a.status === "suspended" ? "Restore" : "Suspend"}
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               </div>
