@@ -3,6 +3,8 @@ import { useState } from "react";
 import { AppLayout, Saved } from "@/components/AppLayout";
 import { Icon } from "@/components/Icon";
 import { Card, Field, MicButton, PrimaryButton, SectionTitle } from "@/components/ui-kit";
+import { DataTable, RangeBar, useRange } from "@/components/RangeExport";
+import type { Sheet } from "@/lib/export";
 import { parseExpense } from "@/lib/voice";
 import { useDraft } from "@/lib/draft";
 import { dateInput, fromDateInput, ugx, useStore } from "@/lib/store";
@@ -40,6 +42,24 @@ function Expense() {
   const setRecurring = (v: boolean) => draft.setValue((d) => ({ ...d, recurring: v }));
   const [saved, setSaved] = useState(false);
   const value = Number(amount) || 0;
+  const range = useRange(state.termStartedAt);
+  const expenses = state.txs.filter((t) => t.type === "expense" && range.has(t.ts));
+  const byCategory = Object.entries(
+    expenses.reduce<Record<string, number>>((all, t) => {
+      const key = t.category ?? "Miscellaneous";
+      all[key] = (all[key] ?? 0) + t.amount;
+      return all;
+    }, {}),
+  ).sort((a, b) => b[1] - a[1]);
+  const spent = expenses.reduce((sum, t) => sum + t.amount, 0);
+  const expenseSheet: Sheet = {
+    name: "Expenses",
+    columns: ["Date", "Category", "Description", "Amount (UGX)"],
+    rows: [...expenses].sort((a, b) => b.ts - a.ts).map((t) => [
+      new Date(t.ts).toLocaleDateString("en-GB"), t.category ?? "Miscellaneous", t.label, t.amount,
+    ]),
+    summary: [["Period", range.label], ["Total spent", `UGX ${ugx(spent)}`]],
+  };
 
   const save = () => {
     if (value <= 0) return;
@@ -56,6 +76,20 @@ function Expense() {
 
   return (
     <AppLayout title="Expense" back>
+      <RangeBar range={range} title={`Expense report — ${range.label}`} sheets={[expenseSheet]} baseName="smartcanteen-expenses" />
+
+      <Card className="space-y-sm">
+        <div className="flex items-end justify-between gap-2">
+          <SectionTitle>Spending summary</SectionTitle>
+          <p className="font-bold text-tertiary">UGX {ugx(spent)}</p>
+        </div>
+        <DataTable
+          columns={["Category", "Amount (UGX)"]}
+          rows={byCategory.map(([cat, total]) => [cat, total])}
+          empty="No expenses in this period."
+        />
+      </Card>
+
       <section>
         <div className="mb-sm flex items-end justify-between px-1">
           <h2 className="label-bold text-on-surface-variant">Category</h2>
