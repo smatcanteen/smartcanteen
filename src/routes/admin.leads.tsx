@@ -125,7 +125,7 @@ function Leads() {
         );
       })}
       </div>
-      )}
+      ) : null}
     </>
   );
 }
