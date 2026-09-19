@@ -16,6 +16,7 @@ import { AuthProvider } from "@/lib/auth";
 import { PlatformProvider } from "@/lib/platform";
 import { InstallApp } from "@/components/InstallApp";
 import { OfflineStatus } from "@/components/OfflineStatus";
+import { SubscriptionAccess } from "@/components/SubscriptionAccess";
 import { registerAppServiceWorker } from "@/lib/pwa";
 
 
@@ -197,7 +198,7 @@ function RootComponent() {
         <PlatformProvider>
         <StoreProvider>
           {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-          <Outlet />
+          <SubscriptionAccess><Outlet /></SubscriptionAccess>
           <OfflineStatus />
           <InstallApp />
         </StoreProvider>
