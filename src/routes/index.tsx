@@ -84,7 +84,7 @@ const tabs: { id: string; label: string; tiles: Tile[] }[] = [
 const TAB_KEY = "smartcanteen.tab";
 
 function Home() {
-  const { state, cashAtHand, today, termProfit, shelfValueAtCost } = useStore();
+  const { state, cashAtHand, today } = useStore();
   const [tab, setTab] = useState(tabs[0]!.id);
   const [hide, setHide] = useState(false);
   const touch = useRef<{ x: number; y: number } | null>(null);
@@ -104,7 +104,6 @@ function Home() {
     if (next) setTab(next.id);
   };
 
-  const capital = state.capital;
   const { user } = useAuth();
   const goalPct = Math.max(
     0,
@@ -154,15 +153,6 @@ function Home() {
           </div>
         ) : null}
 
-        <div className="mt-sm grid grid-cols-3 gap-2 rounded-lg bg-surface-low p-2 text-center">
-          <Kpi label="Started with" value={`UGX ${shortUgx(capital)}`} />
-          <Kpi label="On shelf" value={`UGX ${shortUgx(shelfValueAtCost)}`} />
-          <Kpi
-            label="Profit so far"
-            value={`UGX ${shortUgx(termProfit)}`}
-            tone={termProfit >= 0 ? "text-primary" : "text-tertiary"}
-          />
-        </div>
       </div>
 
       <div className="grid grid-cols-2 border-t border-outline-variant/50">
