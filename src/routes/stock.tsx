@@ -64,12 +64,24 @@ function Stock() {
   const purchases = state.txs
     .filter((t) => t.type === "stock" && range.has(t.ts))
     .sort((a, b) => b.ts - a.ts);
-  const purchaseRows = purchases.map((t) => [
-    new Date(t.ts).toLocaleDateString("en-GB"),
-    t.label.replace(/\s+restock$/i, ""),
-    t.units ?? "—",
-    t.amount,
-  ]);
+  const purchaseQuantity = (tx: (typeof purchases)[number]) => {
+    if (tx.units != null) return { value: tx.units, estimated: false };
+    const item = state.items.find((i) => i.id === tx.itemId) ??
+      state.items.find((i) => tx.label.toLowerCase().startsWith(i.name.toLowerCase()));
+    const unitCost = item && item.qty > 0 ? item.buy / item.qty : 0;
+    return unitCost > 0
+      ? { value: Math.max(1, Math.round(tx.amount / unitCost)), estimated: true }
+      : { value: "Not recorded", estimated: false };
+  };
+  const purchaseRows = purchases.map((t) => {
+    const quantity = purchaseQuantity(t);
+    return [
+      new Date(t.ts).toLocaleDateString("en-GB"),
+      t.label.replace(/\s+restock$/i, ""),
+      quantity.estimated ? `${quantity.value} estimated` : quantity.value,
+      t.amount,
+    ];
+  });
   const stockSheet: Sheet = {
     name: "Stock purchases",
     columns: ["Date", "Item", "Quantity", "Cost (UGX)"],
@@ -112,6 +124,11 @@ function Stock() {
       <Card className="space-y-sm overflow-hidden">
         <SectionTitle>Daily stock purchases</SectionTitle>
         <DataTable columns={["Date", "Item", "Quantity", "Cost (UGX)"]} rows={purchaseRows} pageSize={8} />
+        {purchases.some((t) => purchaseQuantity(t).estimated) && (
+          <p className="text-xs text-on-surface-variant">
+            “Estimated” quantities are older purchases calculated from the item’s average buying price.
+          </p>
+        )}
       </Card>
 
       <div className="grid gap-sm sm:grid-cols-2">
@@ -189,12 +206,25 @@ function Stock() {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-2 gap-2 rounded-md bg-surface-low p-2 text-sm">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-outline">Total bought this term</p>
+                    <p className="font-bold text-on-surface">{item.qty} units</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-outline">Latest stock count</p>
+                    <p className="font-bold text-primary">
+                      {isChecked ? `${item.lastKnownQuantity} units` : "Not checked"}
+                    </p>
+                  </div>
+                </div>
+
                 {isChecked && item.lastCheckedAt ? (
                   <p className="text-xs text-on-surface-variant">
                     Last checked {new Date(item.lastCheckedAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
                   </p>
                 ) : (
-                  <p className="text-xs text-on-surface-variant">Quantity not yet checked.</p>
+                  <p className="text-xs text-on-surface-variant">Tap Update Stock to confirm what is physically left.</p>
                 )}
 
                 <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
