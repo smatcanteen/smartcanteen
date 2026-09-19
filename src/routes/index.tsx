@@ -220,120 +220,38 @@ function Home() {
   );
 }
 
-/**
- * Button-by-button walkthrough: what each button does, how to use it and what
- * the operator gains from it. Steps that live on another section switch to it
- * first, so every button is actually pointed at.
- */
-const tourSteps = (setTab: (id: string) => void): TourStep[] => {
-  const on = (id: string) => () => setTab(id);
-  return [
-    {
-      id: "balance",
-      title: "Cash at Hand card",
-      body: "Read this first every morning. It is opening cash, plus sales, minus stock and expenses. Count the money in your box — if it matches this number, your book is correct and nothing is missing.",
-    },
-    {
-      id: "eye",
-      title: "The eye button",
-      body: "Tap the eye to hide the amount when a customer is standing at the counter, and tap it again to show it. Your money stays private in a crowd.",
-    },
-    {
-      id: "close-day",
-      title: "Close Day button",
-      body: "Tap this at the end of the day, count your cash and type what you actually have. It tells you at once whether you are short or over, so a mistake is caught the same day.",
-    },
-    {
-      id: "statements",
-      title: "Statements button",
-      body: "Tap here for your money-in and money-out statement. Use it when the school office or a parent asks for proof — you can send it as Excel or PDF.",
-    },
-    {
-      id: "tabs",
-      title: "The four section buttons",
-      body: "FOR YOU is your daily shortcuts, MONEY IN is anything you receive, MONEY OUT is anything you pay, MANAGE is stock, terms and settings. Tap a name or swipe left and right.",
-      before: on("for-you"),
-    },
-    {
-      id: "tile-Cash Sale",
-      title: "Cash Sale button",
-      body: "Tap it every time a student pays cash. Type the amount and it is added to your cash at hand instantly — no paper book, and your daily total is always ready.",
-      before: on("for-you"),
-    },
-    {
-      id: "tile-Stock",
-      title: "Stock button",
-      body: "Open Stock to add purchased items, confirm what is physically left, and review quantities and buying costs in one place.",
-      before: on("for-you"),
-    },
-    {
-      id: "tile-Expense",
-      title: "Expense button",
-      body: "For any other money going out: transport, airtime, repairs. Recording it keeps your profit honest instead of leaving unexplained gaps in the cash.",
-      before: on("for-you"),
-    },
-    {
-      id: "tile-Credit Book",
-      title: "Credit Book button",
-      body: "Tap it when someone takes goods without paying. You will always know who owes you, how much and since when, and you record the payment here when they clear it.",
-      before: on("for-you"),
-    },
-    {
-      id: "tile-Reports",
-      title: "Reports button",
-      body: "Your term profit, best sellers and biggest costs in one screen. Use it to decide what to stock more of and where to cut spending.",
-      before: on("for-you"),
-    },
-    {
-      id: "tile-Collect Debt",
-      title: "Collect Debt button",
-      body: "In MONEY IN, tap this when a student clears a debt. The amount joins your cash and their balance drops — no arguments about what is still owed.",
-      before: on("money-in"),
-    },
-    {
-      id: "tile-Add Capital",
-      title: "Add Capital button",
-      body: "Use it when the school or owner puts extra money into the canteen. It is counted as capital, not profit, so your real earnings stay accurate.",
-      before: on("money-in"),
-    },
-    {
-      id: "tile-Transport",
-      title: "The money-out shortcuts",
-      body: "In MONEY OUT each button is a ready-made category — transport, salary, rent, airtime, data. Tap one, type the amount, done, and your reports group the spending for you.",
-      before: on("money-out"),
-    },
-    {
-      id: "tile-Stock List",
-      title: "Stock List button",
-      body: "In MANAGE, this shows everything on your shelf and what it is worth. Check it before buying so you never pay twice for goods you already have.",
-      before: on("manage"),
-    },
-    {
-      id: "tile-Close Term",
-      title: "Close Term button",
-      body: "At the end of a term, tap this to bank the results and carry your cash and stock into the new term. Last term is saved for comparison instead of being lost.",
-      before: on("manage"),
-    },
-    {
-      id: "tile-Help & Feedback",
-      title: "Help & Feedback button",
-      body: "Stuck, or something looks wrong? Tap here to reach the SmartCanteen team directly and get an answer without leaving the app.",
-      before: on("manage"),
-    },
-    {
-      id: "tile-Settings",
-      title: "Settings button",
-      body: "Change your PIN, your canteen details and your backup here. Setting a PIN you remember keeps your money data safe if the phone is left on the counter.",
-      before: on("manage"),
-    },
-    {
-      id: "see-all",
-      title: "See all button",
-      body: "Opens your full history with search, past terms and Excel or PDF export. Use it to check an old day or to prove an entry.",
-      before: on("for-you"),
-    },
-  ];
-};
+const tourSteps = (): TourStep[] => [
+  {
+    id: "tile-Sale",
+    title: "Record a sale",
+    body: "Use Sale whenever a customer pays. Cash at Hand updates immediately.",
+  },
+  {
+    id: "tile-Stock",
+    title: "Add and count stock",
+    body: "Use Stock to record purchases, quantities, buying costs and physical counts.",
+  },
+  {
+    id: "tile-Expense",
+    title: "Record money spent",
+    body: "Use Expense for transport, wages, rent and every other business cost.",
+  },
+  {
+    id: "tile-Credit",
+    title: "Track unpaid sales",
+    body: "Use Credit when goods leave before payment, then record each payment received.",
+  },
+  {
+    id: "tile-Close Day",
+    title: "Check the day’s cash",
+    body: "At day end, count the cash box and compare it with the amount in SmartCanteen.",
+  },
+  {
+    id: "tile-Reports",
+    title: "Review the cash book",
+    body: "Use Reports for sales, costs, stock profit and exports for the selected period.",
+  },
+];
 
 
 /** Tiles link to both static and dynamic routes, so params are passed loosely. */
