@@ -65,6 +65,24 @@ function Dashboard() {
 
   return (
     <>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wider text-primary">Portfolio overview</p>
+          <h1 className="text-2xl font-extrabold text-on-surface sm:text-3xl">Admin dashboard</h1>
+          <p className="mt-1 text-sm text-on-surface-variant">Subscriptions, setup progress and accounts needing attention.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link to="/admin/accounts" className="inline-flex min-h-11 items-center gap-2 rounded-full border-2 border-primary px-4 text-sm font-bold text-primary">
+            <Icon name="storefront" className="text-[18px]" /> Manage accounts
+          </Link>
+          {can(user?.role, "new") ? (
+            <Link to="/admin/new" className="inline-flex min-h-11 items-center gap-2 rounded-full bg-primary px-4 text-sm font-bold text-on-primary shadow-sm">
+              <Icon name="person_add" className="text-[18px]" /> New account
+            </Link>
+          ) : null}
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-sm md:grid-cols-5">
         <Kpi label="Active subscribers" value={String(active.length)} icon="verified" />
         {can(user?.role, "revenue") ? (
@@ -76,8 +94,8 @@ function Dashboard() {
           />
         ) : null}
         <Kpi label="On trial" value={String(trial.length)} icon="schedule" />
-        <Kpi label="Past due" value={String(pastDue.length)} icon="error" />
-        <Kpi label="Churned this month" value={String(churned.length)} icon="trending_down" />
+        <Kpi label="Expired" value={String(pastDue.length)} icon="error" />
+        <Kpi label="Deactivated" value={String(churned.length)} icon="block" />
       </div>
 
       <Card className="min-w-0 space-y-sm">
