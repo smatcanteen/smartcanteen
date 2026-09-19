@@ -3,6 +3,8 @@ import { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Icon } from "@/components/Icon";
 import { Card, Field, PrimaryButton, SectionTitle } from "@/components/ui-kit";
+import { DataTable, RangeBar, useRange } from "@/components/RangeExport";
+import type { Sheet } from "@/lib/export";
 import { dateInput, fromDateInput, ugx, useStore, type StockItem } from "@/lib/store";
 
 export const Route = createFileRoute("/stock")({
@@ -46,6 +48,22 @@ function Stock() {
   );
   const atRetail = checked.reduce((a, i) => a + i.sell * (i.lastKnownQuantity ?? 0), 0);
   const low = state.items.filter((i) => i.runningLow);
+  const range = useRange(state.termStartedAt);
+  const purchases = state.txs
+    .filter((t) => t.type === "stock" && range.has(t.ts))
+    .sort((a, b) => b.ts - a.ts);
+  const purchaseRows = purchases.map((t) => [
+    new Date(t.ts).toLocaleDateString("en-GB"),
+    t.label.replace(/\s+restock$/i, ""),
+    t.units ?? "—",
+    t.amount,
+  ]);
+  const stockSheet: Sheet = {
+    name: "Stock purchases",
+    columns: ["Date", "Item", "Quantity", "Cost (UGX)"],
+    rows: purchaseRows,
+    summary: [["Period", range.label], ["Total stocked", `UGX ${ugx(purchases.reduce((a, t) => a + t.amount, 0))}`]],
+  };
 
   const openCheck = (item: StockItem) => {
     setEditing(item.id);
@@ -77,14 +95,21 @@ function Stock() {
 
   return (
     <AppLayout title="Stock">
+      <RangeBar range={range} title={`Stock purchases — ${range.label}`} sheets={[stockSheet]} baseName="smartcanteen-stock" />
+
+      <Card className="space-y-sm overflow-hidden">
+        <SectionTitle>Daily stock purchases</SectionTitle>
+        <DataTable columns={["Date", "Item", "Quantity", "Cost (UGX)"]} rows={purchaseRows} pageSize={8} />
+      </Card>
+
       <div className="grid gap-sm sm:grid-cols-2">
         <Card>
-          <p className="label-bold text-on-surface-variant">Checked shelf value at cost</p>
+          <p className="label-bold text-on-surface-variant">Total Stocked · checked at cost</p>
           <p className="price-display text-on-surface">UGX {ugx(atCost)}</p>
           <p className="mt-1 text-xs text-on-surface-variant">Only items physically checked are included.</p>
         </Card>
         <Card>
-          <p className="label-bold text-on-surface-variant">Checked shelf value at retail</p>
+          <p className="label-bold text-on-surface-variant">Total Stocked · checked at retail</p>
           <p className="price-display text-primary">UGX {ugx(atRetail)}</p>
           <p className="mt-1 text-xs text-on-surface-variant">Based on the latest confirmed count.</p>
         </Card>
