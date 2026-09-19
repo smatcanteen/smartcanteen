@@ -108,6 +108,11 @@ function AgentDashboard() {
     .sort((x, y) => y.count - x.count);
 
   const score = answers.filter((a, i) => a === quiz[i]?.answer).length;
+  const announcement = s.announcements.find((item) =>
+    item.active &&
+    ["agents", "both"].includes(item.audience ?? "operators") &&
+    (!item.segment.agentId || item.segment.agentId === me.id),
+  );
 
   return (
     <div className="min-h-screen bg-surface-high pb-16">
@@ -145,6 +150,14 @@ function AgentDashboard() {
             </button>
           ))}
         </nav>
+        {announcement ? (
+          <div className="mx-auto w-full max-w-container-max px-3 pb-3 sm:px-4 md:px-gutter">
+            <div className="rounded-md bg-on-primary/10 p-3">
+              <p className="text-sm font-bold text-on-primary">{announcement.title}</p>
+              <p className="text-xs text-on-primary/80">{announcement.body}</p>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <main className="mx-auto w-full max-w-container-max space-y-md px-4 py-md md:px-gutter">
