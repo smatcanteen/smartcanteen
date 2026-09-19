@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import { AppLayout, Saved } from "@/components/AppLayout";
 import { Icon } from "@/components/Icon";
@@ -8,6 +8,9 @@ import { useDraft } from "@/lib/draft";
 import { dateInput, fromDateInput, ugx, useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/stock-in")({
+  beforeLoad: () => {
+    throw redirect({ to: "/stock" });
+  },
   head: () => ({
     meta: [
       { title: "Buy Stock — SmartCanteen" },
@@ -33,6 +36,10 @@ const packs = [
 ];
 
 function StockIn() {
+  return <StockPurchaseForm />;
+}
+
+export function StockPurchaseForm({ onSaved }: { onSaved?: () => void }) {
   const { state, addStockItems, cashAtHand } = useStore();
   // The trip is auto-saved as it is built, so an interruption loses nothing.
   const draft = useDraft<{ lines: Line[]; when: string }>("stock-in", {
@@ -110,11 +117,12 @@ function StockIn() {
     draft.setValue({ lines: [{ ...blank }], when });
     setOpen(0);
     setSaved(true);
+    onSaved?.();
     setTimeout(() => setSaved(false), 4000);
   };
 
   return (
-    <AppLayout title="Buy Stock" back>
+    <div className="space-y-md">
       <Card className="flex flex-col gap-sm sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <p className="label-bold text-on-surface-variant">Cash at Hand after this trip</p>
@@ -315,7 +323,7 @@ function StockIn() {
         <Icon name="check" /> Save stocking trip
       </PrimaryButton>
       <Saved show={saved} onUndo={() => setSaved(false)} />
-    </AppLayout>
+    </div>
   );
 }
 
