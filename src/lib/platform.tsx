@@ -11,7 +11,7 @@ import {
 import { useAuth } from "./auth";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
-import { submitSupportReply, submitSupportTicket } from "./platform.functions";
+import { submitAgentLead, submitSupportReply, submitSupportTicket } from "./platform.functions";
 
 /* ------------------------------------------------------------------ types */
 
@@ -168,9 +168,10 @@ export function effectiveTenantStatus(tenant: Pick<Tenant, "status" | "nextBilli
 }
 
 async function syncAgentLead(lead: Pick<Lead, "id" | "school" | "contactName" | "phone" | "stage" | "agentId" | "createdAt">) {
-  const { data, error } = await (supabase as any).rpc("submit_agent_lead", { p_lead: lead });
-  if (error) return { ok: false as const, error: error.message };
-  return (data ?? { ok: true }) as { ok: boolean; error?: string };
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData.session?.access_token;
+  if (!accessToken) return { ok: false as const, error: "Your login expired. Log in again and retry." };
+  return submitAgentLead({ data: { ...lead, accessToken } });
 }
 
 export const stageLabels: Record<LeadStage, string> = {
@@ -595,7 +596,8 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
           patch((p) => ({ ...p, leads: p.leads.map((item) => item.id === lead.id ? { ...item, queued: false } : item) }));
           return { ok: true };
         } catch (error) {
-          return { ok: false, error: error instanceof Error ? error.message : navigator.onLine ? "Could not reach Admin records. Try again." : "Saved on this device. Reconnect and try again." };
+          const detail = error instanceof Error ? error.message : typeof error === "string" ? error : "The Admin connection rejected the request.";
+          return { ok: false, error: navigator.onLine ? detail : "Saved on this device. Reconnect and try again." };
         }
       },
       setLeadStage: (id, stage) =>
