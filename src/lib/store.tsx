@@ -557,6 +557,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (existing) {
           existing.qty += e.qty;
           existing.stock += e.qty;
+          if (existing.lastKnownQuantity != null) existing.lastKnownQuantity += e.qty;
           existing.buy += e.buy;
           existing.sell = e.sell;
           if (e.pack) existing.pack = e.pack;
@@ -920,7 +921,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         capital: carryCash,
         savingsGoal: target,
         txs: [{ id: uid(), type: "capital", label: "Opening term capital", amount: carryCash, ts: Date.now() }],
-        items: s.items.filter((i) => i.stock > 0).map((i) => ({ ...i, qty: i.stock })),
+        items: s.items
+          .filter((i) => (i.lastKnownQuantity ?? i.stock) > 0)
+          .map((i) => {
+            const carried = i.lastKnownQuantity ?? i.stock;
+            return {
+              ...i,
+              qty: carried,
+              stock: carried,
+              buy: i.qty > 0 ? (i.buy / i.qty) * carried : 0,
+              lastKnownQuantity: carried,
+              lastCheckedAt: Date.now(),
+              realizedProfit: 0,
+              runningLow: false,
+            };
+          }),
+        stockChecks: [],
         debtors: s.debtors.filter((d) => !d.paid),
       };
     });
