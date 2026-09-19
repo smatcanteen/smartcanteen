@@ -154,6 +154,20 @@ const STORAGE_BASE = "smartcanteen.v2";
 export const storeKeyFor = (userId: string | null | undefined) =>
   userId ? `${STORAGE_BASE}.${userId}` : STORAGE_BASE;
 
+const RESERVED_SHARED_KEYS = ["agentLeads", "agentAdmin", "supportTickets"] as const;
+
+async function saveCashBookWithoutErasingSharedRecords(userId: string, state: State, updatedAt: number) {
+  const { data: existing } = await supabase.from("canteen_books").select("data").eq("user_id", userId).maybeSingle();
+  const previous = (existing?.data ?? {}) as Record<string, unknown>;
+  const next = { ...(state as unknown as Record<string, unknown>) };
+  RESERVED_SHARED_KEYS.forEach((key) => {
+    if (previous[key] !== undefined && next[key] === undefined) next[key] = previous[key];
+  });
+  return supabase.from("canteen_books").upsert(
+    { user_id: userId, data: next as unknown as Json, updated_at: new Date(updatedAt).toISOString() },
+    { onConflict: "user_id" },
+  );
+}
 
 /** Deterministic timestamps so server and client render the same demo data. */
 const ANCHOR = Date.UTC(2026, 7, 14, 9, 0, 0);
@@ -494,12 +508,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // Debounced push; a failure just leaves the local copy authoritative and
     // the next change (or reconnection) retries it.
     const t = setTimeout(() => {
-      void supabase
-        .from("canteen_books")
-        .upsert(
-          { user_id: userId, data: state as unknown as Json, updated_at: new Date(updatedAt).toISOString() },
-          { onConflict: "user_id" },
-        )
+      void saveCashBookWithoutErasingSharedRecords(userId, state, updatedAt)
         .then(({ error }) => {
           pendingRef.current = !!error;
         });
@@ -513,12 +522,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (typeof window === "undefined" || !userId) return;
     const flush = () => {
       if (!pendingRef.current) return;
-      void supabase
-        .from("canteen_books")
-        .upsert(
-          { user_id: userId, data: state as unknown as Json, updated_at: new Date().toISOString() },
-          { onConflict: "user_id" },
-        )
+      void saveCashBookWithoutErasingSharedRecords(userId, state, Date.now())
         .then(({ error }) => {
           pendingRef.current = !!error;
           if (!error) setSyncReady(true);
@@ -1015,14 +1019,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     } catch {
       /* ignore */
     }
-    const { error } = await supabase.from("canteen_books").upsert(
-      {
-        user_id: userId,
-        data: stateRef.current as unknown as Json,
-        updated_at: new Date(now).toISOString(),
-      },
-      { onConflict: "user_id" },
-    );
+    const { error } = await saveCashBookWithoutErasingSharedRecords(userId, stateRef.current, now);
     pendingRef.current = !!error;
   }, [userId]);
 
