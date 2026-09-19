@@ -2,7 +2,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import { Saved } from "@/components/AppLayout";
 import { Icon } from "@/components/Icon";
-import { Card, Field, MicButton, PrimaryButton, SelectField } from "@/components/ui-kit";
+import { Card, Field, MicButton, PrimaryButton } from "@/components/ui-kit";
 import { parseStock } from "@/lib/voice";
 import { useDraft } from "@/lib/draft";
 import { dateInput, fromDateInput, ugx, useStore } from "@/lib/store";
@@ -14,9 +14,9 @@ export const Route = createFileRoute("/stock-in")({
   head: () => ({
     meta: [
       { title: "Buy Stock — SmartCanteen" },
-      { name: "description", content: "Log a restocking trip: package size, quantity, buying price, selling price and live expected profit." },
-      { property: "og:title", content: "Buy Stock — SmartCanteen" },
-      { property: "og:description", content: "Roomy line-item stock entry with package sizes, dates and live expected profit." },
+      { name: "description", content: "Record the total quantity bought, buying cost, selling price and expected profit." },
+      { property: "og:title", content: "Add Stock — SmartCanteen" },
+      { property: "og:description", content: "Simple stock entry using total sellable quantity." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -24,16 +24,8 @@ export const Route = createFileRoute("/stock-in")({
   component: StockIn,
 });
 
-type Line = { name: string; qty: string; buy: string; sell: string; pack: string; unitsPerPack: string };
-const blank: Line = { name: "", qty: "", buy: "", sell: "", pack: "Piece", unitsPerPack: "1" };
-
-const packs = [
-  { label: "Piece (sold as ones)", units: 1 },
-  { label: "Packet of 6", units: 6 },
-  { label: "Box of 12", units: 12 },
-  { label: "Crate of 24", units: 24 },
-  { label: "Sack / bulk", units: 1 },
-];
+type Line = { name: string; qty: string; buy: string; sell: string };
+const blank: Line = { name: "", qty: "", buy: "", sell: "" };
 
 function StockIn() {
   return <StockPurchaseForm />;
@@ -63,8 +55,6 @@ export function StockPurchaseForm({ onSaved }: { onSaved?: () => void }) {
       qty: "",
       buy: "",
       sell: String(it.sell || ""),
-      pack: it.pack ?? "Piece",
-      unitsPerPack: String(it.unitsPerPack ?? 1),
     };
     setLines((ls) => {
       const empty = ls.findIndex((l) => !l.name.trim());
@@ -77,19 +67,12 @@ export function StockPurchaseForm({ onSaved }: { onSaved?: () => void }) {
     });
   };
 
-  const parsed = lines.map((l) => {
-    const packUnits = Number(l.unitsPerPack) || 1;
-    const packQty = Number(l.qty) || 0;
-    return {
-      name: l.name.trim(),
-      packQty,
-      pack: l.pack,
-      unitsPerPack: packUnits,
-      qty: packQty * packUnits,
-      buy: Number(l.buy) || 0,
-      sell: Number(l.sell) || 0,
-    };
-  });
+  const parsed = lines.map((l) => ({
+    name: l.name.trim(),
+    qty: Number(l.qty) || 0,
+    buy: Number(l.buy) || 0,
+    sell: Number(l.sell) || 0,
+  }));
   const totalUnits = parsed.reduce((a, l) => a + l.qty, 0);
   const cost = parsed.reduce((a, l) => a + l.buy, 0);
   const revenue = parsed.reduce((a, l) => a + l.qty * l.sell, 0);
@@ -108,8 +91,8 @@ export function StockPurchaseForm({ onSaved }: { onSaved?: () => void }) {
           qty: l.qty,
           buy: l.buy,
           sell: l.sell,
-          pack: l.pack,
-          unitsPerPack: l.unitsPerPack,
+          pack: "Unit",
+          unitsPerPack: 1,
           ts: fromDateInput(when),
         })),
     );
@@ -241,38 +224,14 @@ export function StockPurchaseForm({ onSaved }: { onSaved?: () => void }) {
                     />
                   </div>
 
-                  <div className="grid gap-sm sm:grid-cols-2">
-                    <SelectField
-                      label="Package size"
-                      value={line.pack}
-                      onChange={(e) => {
-                        const pack = packs.find((x) => x.label === e.target.value);
-                        update(i, "pack", e.target.value);
-                        update(i, "unitsPerPack", String(pack?.units ?? 1));
-                      }}
-                    >
-                      {packs.map((pk) => (
-                        <option key={pk.label} value={pk.label}>
-                          {pk.label}
-                        </option>
-                      ))}
-                    </SelectField>
-                    <Field
-                      label="Units in one package"
-                      inputMode="numeric"
-                      value={line.unitsPerPack}
-                      onChange={(e) => update(i, "unitsPerPack", e.target.value.replace(/\D/g, ""))}
-                      hint="1 means the item is sold as ones"
-                    />
-                  </div>
-
                   <div className="grid gap-sm sm:grid-cols-3">
                     <Field
-                      label="How many packages"
+                      label="Quantity bought"
                       inputMode="numeric"
+                      placeholder="e.g. 480"
                       value={line.qty}
                       onChange={(e) => update(i, "qty", e.target.value.replace(/\D/g, ""))}
-                      hint={p.qty > 0 ? `= ${p.qty} sellable units` : undefined}
+                      hint="Enter the total quantity you will sell, not crates or cartons"
                     />
                     <Field
                       label="Total buying price"
@@ -313,7 +272,7 @@ export function StockPurchaseForm({ onSaved }: { onSaved?: () => void }) {
       </button>
 
       <Card className="space-y-2 bg-surface-low">
-        <Row label="Total quantity being saved" value={`${ugx(totalUnits)} sellable units`} />
+        <Row label="Total quantity bought" value={`${ugx(totalUnits)} units`} />
         <Row label="Total spent" value={`UGX ${ugx(cost)}`} />
         <Row label="Expected revenue" value={`UGX ${ugx(revenue)}`} />
         <Row label="Expected profit" value={`UGX ${ugx(profit)}`} strong />
