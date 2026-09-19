@@ -87,7 +87,7 @@ function Stock() {
           state.items.find((i) => tx.label.toLowerCase().startsWith(i.name.toLowerCase()));
         const name = item?.name ?? tx.label.replace(/\s+restock$/i, "");
         const quantity = purchaseQuantity(tx);
-        const key = item?.id ?? name.toLowerCase();
+        const key = name.toLowerCase();
         const row = summary[key] ?? { item: name, quantity: 0, cost: 0, incomplete: false };
         row.quantity += typeof quantity.value === "number" ? quantity.value : 0;
         row.cost += tx.amount;
