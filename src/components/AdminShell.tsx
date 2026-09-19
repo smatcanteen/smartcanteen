@@ -37,15 +37,15 @@ const matrix: Record<"admin" | "support" | "finance", AdminPerm[]> = {
 export const can = (role: Role | undefined, perm: AdminPerm) =>
   !!role && isAdminRole(role) && matrix[role as "admin" | "support" | "finance"].includes(perm);
 
-const tabs: { to: string; label: string; perm: AdminPerm }[] = [
-  { to: "/admin", label: "Dashboard", perm: "dashboard" },
-  { to: "/admin/accounts", label: "Accounts", perm: "accounts" },
-  { to: "/admin/new", label: "New account", perm: "new" },
-  { to: "/admin/agents", label: "Agents", perm: "agents" },
-  { to: "/admin/leads", label: "Leads", perm: "leads" },
-  { to: "/admin/commissions", label: "Commissions", perm: "commissions" },
-  { to: "/admin/support", label: "Support", perm: "support" },
-  { to: "/admin/announcements", label: "Announcements", perm: "announcements" },
+const tabs: { to: string; label: string; icon: string; perm: AdminPerm }[] = [
+  { to: "/admin", label: "Dashboard", icon: "dashboard", perm: "dashboard" },
+  { to: "/admin/accounts", label: "Accounts", icon: "storefront", perm: "accounts" },
+  { to: "/admin/new", label: "New account", icon: "person_add", perm: "new" },
+  { to: "/admin/agents", label: "Agents", icon: "badge", perm: "agents" },
+  { to: "/admin/leads", label: "Leads", icon: "group", perm: "leads" },
+  { to: "/admin/commissions", label: "Commissions", icon: "payments", perm: "commissions" },
+  { to: "/admin/support", label: "Support", icon: "support_agent", perm: "support" },
+  { to: "/admin/announcements", label: "Notices", icon: "campaign", perm: "announcements" },
 ];
 
 /** Shared chrome for every Super Admin / Support / Finance screen. */
@@ -71,7 +71,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-surface-high pb-16">
-      <div className="bg-primary">
+      <div className="sticky top-0 z-50 border-b border-on-primary/10 bg-primary shadow-sm">
         <header className="mx-auto flex h-16 w-full max-w-container-max items-center justify-between gap-2 px-3 sm:px-4 md:px-gutter">
           <div className="flex min-w-0 items-center gap-2">
             <BrandMark variant="dark" size="sm" />
@@ -116,15 +116,16 @@ export function AdminShell({ children }: { children: ReactNode }) {
                   "aria-current": "page",
                 }}
                 inactiveProps={{ className: "text-on-primary/80 hover:bg-on-primary/10" }}
-                className="shrink-0 rounded-full px-3 py-2 text-sm font-bold transition-colors sm:px-4"
+                className="flex min-h-10 shrink-0 items-center gap-1.5 rounded-full px-3 py-2 text-xs font-bold transition-colors sm:px-4 sm:text-sm"
               >
+                <Icon name={t.icon} className="text-[17px]" />
                 {t.label}
               </Link>
             ))}
         </nav>
       </div>
 
-      <main className="mx-auto w-full max-w-container-max space-y-sm px-3 py-md sm:space-y-md sm:px-4 md:px-gutter">
+      <main className="mx-auto w-full max-w-container-max space-y-sm px-3 py-4 sm:space-y-md sm:px-4 sm:py-6 md:px-gutter">
         {children}
       </main>
 
