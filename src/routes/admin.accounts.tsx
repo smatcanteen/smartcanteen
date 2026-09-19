@@ -360,12 +360,6 @@ function Accounts() {
 
 
                 <div className="flex flex-wrap gap-sm">
-                  <button
-                    onClick={() => logAction(user?.name ?? "admin", `Viewed ${t.canteenName} as operator (read-only)`)}
-                    className="min-h-11 rounded-full border-2 border-primary px-4 text-sm font-bold text-primary"
-                  >
-                    <Icon name="visibility" className="text-[18px]" /> View as operator (logged)
-                  </button>
                   {can(user?.role, "suspend") ? (
                     <button
                       disabled={busyId === t.accountId}
