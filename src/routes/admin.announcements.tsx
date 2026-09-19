@@ -42,12 +42,15 @@ function Announcements() {
         }))
       : []),
   ];
-  const selectedIds = f.recipientIds.length ? f.recipientIds : recipients.map((recipient) => recipient.id);
+  const validRecipientIds = new Set(recipients.map((recipient) => recipient.id));
+  const selectedIds = f.recipientIds.length
+    ? f.recipientIds.filter((id) => validRecipientIds.has(id))
+    : recipients.map((recipient) => recipient.id);
   const allSelected = recipients.length > 0 && selectedIds.length === recipients.length;
 
   const changeAudience = (audience: AnnouncementAudience) => setF({ ...f, audience, recipientIds: [] });
   const toggleRecipient = (id: string) => {
-    const current = f.recipientIds.length ? f.recipientIds : recipients.map((recipient) => recipient.id);
+    const current = selectedIds;
     setF({ ...f, recipientIds: current.includes(id) ? current.filter((item) => item !== id) : [...current, id] });
   };
 
