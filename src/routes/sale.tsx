@@ -95,10 +95,17 @@ function Sale() {
         .map(([itemId, qty]) => ({ itemId, qty }));
       const { label } = sellItems(lines, { ts, credit });
       if (credit) {
-        addDebtor({ name: debtor.name || "Unnamed student", klass: debtor.klass, item: label, amount: total });
+        addDebtor({
+          name: debtor.name || "Unnamed student",
+          klass: debtor.klass,
+          item: label,
+          qty: lines.reduce((sum, line) => sum + line.qty, 0),
+          amount: total,
+          ts,
+        });
       }
     } else if (credit) {
-      addDebtor({ name: debtor.name || "Unnamed student", klass: debtor.klass, item: "Cash sale", amount: total });
+      addDebtor({ name: debtor.name || "Unnamed student", klass: debtor.klass, item: "Cash sale", qty: 1, amount: total, ts });
     } else {
       addTx({ type: "sale", label: "Cash sale", amount: total, ts });
     }
