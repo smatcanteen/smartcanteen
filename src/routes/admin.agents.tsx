@@ -1,11 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { Card, Field, PrimaryButton, SectionTitle, SelectField } from "@/components/ui-kit";
 import { Pill, statusTone } from "@/components/AdminShell";
 import { useAuth } from "@/lib/auth";
 import { ugx } from "@/lib/store";
-import { agentChurnRate, fmtDate, stageLabels, statusLabels, usePlatform, zones } from "@/lib/platform";
+import { agentChurnRate, fmtDate, stageLabels, statusLabels, usePlatform, zones, type Lead } from "@/lib/platform";
+import { listAgentAdminData, setAgentCertification } from "@/lib/platform.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
@@ -43,6 +45,38 @@ function Agents() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [otp, setOtp] = useState<{ phone: string; code: string } | null>(null);
+  const [agentData, setAgentData] = useState<Record<string, { admin: any; leads: Lead[] }>>({});
+  const [savingAgent, setSavingAgent] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data.session?.access_token;
+      if (!accessToken) return;
+      const result = await listAgentAdminData({ data: { accessToken } });
+      if (!active || !result.ok) return;
+      setAgentData(Object.fromEntries(result.agents.map((item: any) => [item.accountId, { admin: item.admin, leads: item.leads ?? [] }])));
+    };
+    void load();
+    const timer = window.setInterval(() => void load(), 5000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, []);
+
+  const certify = async (agent: (typeof s.agents)[number]) => {
+    if (!agent.accountId || savingAgent) return;
+    setSavingAgent(agent.id);
+    setError("");
+    const { data } = await supabase.auth.getSession();
+    const accessToken = data.session?.access_token;
+    if (!accessToken) { setError("Admin login expired. Log in again."); setSavingAgent(null); return; }
+    const result = await setAgentCertification({ data: { accessToken, agentAccountId: agent.accountId, certified: true } });
+    if (result.ok) {
+      certifyAgent(agent.id);
+      setAgentData((current) => ({ ...current, [agent.accountId!]: { admin: result.agentAdmin, leads: current[agent.accountId!]?.leads ?? [] } }));
+    } else setError(result.error);
+    setSavingAgent(null);
+  };
 
   const avgChurn =
     s.agents.reduce((a, x) => a + agentChurnRate(x.id, s.tenants), 0) / Math.max(1, s.agents.length);
@@ -165,6 +199,13 @@ function Agents() {
       <div className="space-y-sm">
         {s.agents.map((a) => {
           const mine = s.tenants.filter((t) => t.agentId === a.id);
+          const remote = a.accountId ? agentData[a.accountId] : undefined;
+          const remoteLeads = remote?.leads ?? [];
+          const recordedSchools = new Set(remoteLeads.filter((lead) => lead.stage !== "lost").map((lead) => lead.school.trim().toLowerCase()).filter(Boolean)).size;
+          const onboardedCount = Math.max(mine.length, recordedSchools);
+          const isCertified = remote?.admin?.certified ?? a.certified;
+          const agentStatus = remote?.admin?.status ?? a.status;
+          const trainedAt = remote?.admin?.trainedAt ?? a.trainedAt;
           const churn = agentChurnRate(a.id, s.tenants);
           const mineCommissions = s.commissions.filter((c) => c.agentId === a.id);
           const earned = mineCommissions
@@ -176,7 +217,7 @@ function Agents() {
           const paid = mineCommissions
             .filter((c) => c.status === "paid")
             .reduce((x, c) => x + c.amount, 0);
-          const myLeads = s.leads.filter((l) => l.agentId === a.id);
+          const myLeads = remoteLeads.length ? remoteLeads : s.leads.filter((l) => l.agentId === a.id);
           const active = mine.filter((t) => t.status === "active").length;
           const trial = mine.filter((t) => t.status === "trial").length;
           const activated = mine.filter((t) => t.checklist.firstSale).length;
@@ -196,24 +237,24 @@ function Agents() {
                     {a.email} · {a.phone} · {a.territory}
                   </p>
                   <div className="mt-1 flex flex-wrap gap-1">
-                    <Pill tone={a.status === "certified" ? "good" : a.status === "pending" ? "warn" : "bad"}>
-                      {a.status === "certified" ? "Certified" : a.status === "pending" ? "Pending approval" : "Suspended"}
+                    <Pill tone={agentStatus === "certified" ? "good" : agentStatus === "pending" ? "warn" : "bad"}>
+                      {agentStatus === "certified" ? "Certified" : agentStatus === "pending" ? "Pending approval" : "Suspended"}
                     </Pill>
-                    <Pill tone="info">{mine.length} schools onboarded</Pill>
-                    {a.trainedAt ? <Pill tone="info">Trained {fmtDate(a.trainedAt)}</Pill> : null}
+                    <Pill tone="info">{onboardedCount} schools onboarded</Pill>
+                    {trainedAt ? <Pill tone="info">Trained {fmtDate(trainedAt)}</Pill> : null}
                     {churn > avgChurn + 0.2 ? <Pill tone="bad">High churn — review quality</Pill> : null}
                   </div>
                 </div>
                 <div className="shrink-0 text-right text-xs text-on-surface-variant">
-                  <p>{mine.length} accounts onboarded</p>
+                  <p>{onboardedCount} schools onboarded</p>
                   <p>UGX {ugx(earned)} commission</p>
                   <div className="mt-1 flex flex-wrap justify-end gap-2">
                     <button onClick={() => setOpenId(open ? null : a.id)} className="text-xs font-bold text-primary underline">
                       {open ? "Hide details" : "View details"}
                     </button>
-                    {canManageAgents && !a.certified ? (
-                      <button onClick={() => certifyAgent(a.id)} className="text-xs font-bold text-primary underline">
-                        Approve &amp; certify
+                    {canManageAgents && !isCertified ? (
+                      <button disabled={savingAgent === a.id} onClick={() => void certify(a)} className="text-xs font-bold text-primary underline disabled:opacity-50">
+                        {savingAgent === a.id ? "Saving…" : "Approve & certify"}
                       </button>
                     ) : null}
                     {canManageAgents ? (
@@ -231,10 +272,10 @@ function Agents() {
               {open ? (
                 <div className="space-y-sm rounded-md bg-surface-lowest p-sm">
                   <div className="grid grid-cols-2 gap-sm sm:grid-cols-4">
-                    <Stat label="Schools onboarded" value={String(mine.length)} />
+                    <Stat label="Schools onboarded" value={String(onboardedCount)} />
                     <Stat label="Paying / active" value={String(active)} />
                     <Stat label="On free trial" value={String(trial)} />
-                    <Stat label="Actually using it" value={`${activated}/${mine.length}`} />
+                    <Stat label="Actually using it" value={`${activated}/${onboardedCount}`} />
                     <Stat label="Leads captured" value={String(myLeads.length)} />
                     <Stat label="Churn rate" value={`${Math.round(churn * 100)}%`} />
                     <Stat label="Commission pending" value={`UGX ${ugx(pending)}`} />
