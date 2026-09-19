@@ -353,6 +353,8 @@ type Ctx = {
     restock?: { quantity: number; cost: number; date: number },
   ) => void;
   setRunningLow: (itemId: string, runningLow: boolean) => void;
+  /** Removes an item from the current stock list while preserving transaction and stock-check history. */
+  removeStockItem: (itemId: string) => void;
 
   undoLast: () => void;
 
@@ -871,6 +873,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  const removeStockItem = useCallback<Ctx["removeStockItem"]>((itemId) => {
+    setState((s) => {
+      const item = s.items.find((i) => i.id === itemId);
+      if (!item) return s;
+      return {
+        ...s,
+        items: s.items.filter((i) => i.id !== itemId),
+        savedItems: (s.savedItems ?? []).filter(
+          (saved) => saved.name.toLowerCase() !== item.name.toLowerCase(),
+        ),
+      };
+    });
+  }, []);
+
 
   const undoLast = useCallback(() => {
     setState((s) => ({ ...s, txs: s.txs.slice(0, -1) }));
@@ -1019,6 +1035,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addDebtor,
       checkStock,
       setRunningLow,
+      removeStockItem,
       undoLast,
       setPin,
       addPayment,
@@ -1048,6 +1065,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     addDebtor,
     checkStock,
     setRunningLow,
+    removeStockItem,
     undoLast,
     setPin,
     addPayment,
