@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Card, Field, PrimaryButton, SectionTitle, SelectField } from "@/components/ui-kit";
-import { categoryLabels, fmtDate, usePlatform, zones, type CategoryTemplate } from "@/lib/platform";
+import { categoryLabels, fmtDate, usePlatform, zones, type AnnouncementAudience, type CategoryTemplate } from "@/lib/platform";
 
 export const Route = createFileRoute("/admin/announcements")({
   head: () => ({
@@ -22,20 +22,23 @@ export const Route = createFileRoute("/admin/announcements")({
 
 function Announcements() {
   const { s, addAnnouncement, toggleAnnouncement } = usePlatform();
-  const [f, setF] = useState({ title: "", body: "", zone: "", category: "", agentId: "" });
+  const [f, setF] = useState<{ title: string; body: string; audience: AnnouncementAudience; zone: string; category: string; agentId: string }>({
+    title: "", body: "", audience: "operators", zone: "", category: "", agentId: "",
+  });
 
   const publish = () => {
     if (!f.title.trim() || !f.body.trim()) return;
     addAnnouncement({
       title: f.title.trim(),
       body: f.body.trim(),
+      audience: f.audience,
       segment: {
         ...(f.zone ? { zone: f.zone } : {}),
         ...(f.category ? { category: f.category as CategoryTemplate } : {}),
         ...(f.agentId ? { agentId: f.agentId } : {}),
       },
     });
-    setF({ title: "", body: "", zone: "", category: "", agentId: "" });
+    setF({ title: "", body: "", audience: "operators", zone: "", category: "", agentId: "" });
   };
 
   return (
@@ -43,8 +46,13 @@ function Announcements() {
       <Card className="space-y-sm">
         <SectionTitle>New announcement</SectionTitle>
         <p className="text-xs text-on-surface-variant">
-          Shown as a banner to the selected canteen operators while it is switched on.
+          Publish one clear banner to canteen operators, field agents, or both groups.
         </p>
+        <SelectField label="Who should see it?" value={f.audience} onChange={(e) => setF({ ...f, audience: e.target.value as AnnouncementAudience })}>
+          <option value="operators">Canteen operators</option>
+          <option value="agents">Field agents</option>
+          <option value="both">Operators and agents</option>
+        </SelectField>
         <Field label="Title" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} />
         <label className="block text-sm font-bold text-on-surface-variant">
           Message
@@ -56,7 +64,7 @@ function Announcements() {
           />
         </label>
         <div className="grid gap-sm sm:grid-cols-3">
-          <SelectField label="Zone" value={f.zone} onChange={(e) => setF({ ...f, zone: e.target.value })}>
+          <SelectField label="Operator zone" value={f.zone} disabled={f.audience === "agents"} onChange={(e) => setF({ ...f, zone: e.target.value })}>
             <option value="">All zones</option>
             {zones.map((z) => (
               <option key={z} value={z}>
@@ -64,7 +72,7 @@ function Announcements() {
               </option>
             ))}
           </SelectField>
-          <SelectField label="Category" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })}>
+          <SelectField label="Canteen type" value={f.category} disabled={f.audience === "agents"} onChange={(e) => setF({ ...f, category: e.target.value })}>
             <option value="">All categories</option>
             {(Object.keys(categoryLabels) as CategoryTemplate[]).map((c) => (
               <option key={c} value={c}>
@@ -72,7 +80,7 @@ function Announcements() {
               </option>
             ))}
           </SelectField>
-          <SelectField label="Agent" value={f.agentId} onChange={(e) => setF({ ...f, agentId: e.target.value })}>
+          <SelectField label={f.audience === "agents" ? "Field agent" : "Assigned agent"} value={f.agentId} onChange={(e) => setF({ ...f, agentId: e.target.value })}>
             <option value="">All agents</option>
             {s.agents.map((a) => (
               <option key={a.id} value={a.id}>
@@ -90,6 +98,9 @@ function Announcements() {
             <div className="min-w-0">
               <p className="font-bold text-on-surface">{a.title}</p>
               <p className="text-sm text-on-surface-variant">{a.body}</p>
+              <p className="mt-1 text-xs font-bold text-primary">
+                Audience: {a.audience === "agents" ? "Field agents" : a.audience === "both" ? "Operators and agents" : "Canteen operators"}
+              </p>
               <p className="mt-1 text-xs text-outline">
                 Posted {fmtDate(a.ts)}
                 {a.segment.zone ? ` · ${a.segment.zone}` : ""}
