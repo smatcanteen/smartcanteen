@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
-import { AppLayout, Saved } from "@/components/AppLayout";
+import { Saved } from "@/components/AppLayout";
 import { Icon } from "@/components/Icon";
 import { Card, Field, MicButton, PrimaryButton, SelectField } from "@/components/ui-kit";
 import { parseStock } from "@/lib/voice";
