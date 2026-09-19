@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { listAccountProgress } from "@/lib/accounts.functions";
@@ -136,58 +136,66 @@ function Accounts() {
     logAction(user?.name ?? "admin", `Deactivated ${tenant.canteenName} subscription; past records remain read-only`);
   };
 
-  const counts = rows.reduce(
-    (total, tenant) => ({ ...total, [tenant.status]: (total[tenant.status] ?? 0) + 1 }),
-    {} as Record<string, number>,
-  );
+  const counts = s.tenants
+    .filter((tenant) => accounts.some((account) => account.role === "operator" && account.id === tenant.accountId))
+    .map((tenant) => effectiveTenantStatus(tenant))
+    .reduce(
+      (total, status) => ({ ...total, [status]: (total[status] ?? 0) + 1 }),
+      {} as Record<string, number>,
+    );
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-sm">
-        <div className="min-w-[220px] flex-1">
-          <Field label="Search" placeholder="Search name, school or phone" value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wider text-primary">Account administration</p>
+          <h1 className="text-2xl font-extrabold text-on-surface sm:text-3xl">Canteen accounts</h1>
+          <p className="mt-1 text-sm text-on-surface-variant">Manage access, renewals and operator setup.</p>
         </div>
-        <div className="flex flex-wrap gap-1 pt-5">
-          {filters.map((f) => (
-            <button
-              key={f.key}
-              onClick={() => setFilter(f.key)}
-              className={`min-h-11 rounded-full px-4 text-sm font-bold ${
-                filter === f.key ? "bg-primary text-on-primary" : "bg-surface-lowest text-on-surface-variant"
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex flex-wrap gap-1 pt-5">
-          {["all", ...zones].map((z) => (
-            <button
-              key={z}
-              onClick={() => setZone(z)}
-              className={`min-h-11 rounded-full px-3 text-xs font-bold ${
-                zone === z ? "bg-secondary text-on-secondary" : "bg-surface-lowest text-on-surface-variant"
-              }`}
-            >
-              {z === "all" ? "All zones" : z}
-            </button>
-          ))}
-        </div>
+        <Link to="/admin/new" className="inline-flex min-h-11 items-center gap-2 rounded-full bg-primary px-5 text-sm font-bold text-on-primary shadow-sm">
+          <Icon name="person_add" className="text-[18px]" /> New account
+        </Link>
       </div>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
         {[
-          ["Active", counts.active ?? 0, "text-primary"],
-          ["Trial", counts.trial ?? 0, "text-on-surface"],
-          ["Expired", counts.past_due ?? 0, "text-secondary"],
-          ["Suspended", counts.suspended ?? 0, "text-tertiary"],
-          ["Deactivated", counts.churned ?? 0, "text-on-surface-variant"],
-        ].map(([label, value, tone]) => (
-          <Card key={String(label)} className="p-3">
-            <p className="text-xs font-bold text-on-surface-variant">{label}</p>
-            <p className={`text-2xl font-extrabold ${tone}`}>{value}</p>
-          </Card>
+          ["Active", counts.active ?? 0, "active", "text-primary"],
+          ["Trial", counts.trial ?? 0, "trial", "text-on-surface"],
+          ["Expired", counts.past_due ?? 0, "past_due", "text-secondary"],
+          ["Suspended", counts.suspended ?? 0, "suspended", "text-tertiary"],
+          ["Deactivated", counts.churned ?? 0, "churned", "text-on-surface-variant"],
+        ].map(([label, value, key, tone]) => (
+          <button
+            key={String(label)}
+            onClick={() => setFilter(filter === key ? "all" : key as TenantStatus)}
+            className={`rounded-md border p-3 text-left transition ${filter === key ? "border-primary bg-primary/5 shadow-sm" : "border-outline-variant bg-surface hover:border-primary/40"}`}
+          >
+            <span className="text-[11px] font-bold uppercase tracking-wide text-on-surface-variant">{label}</span>
+            <span className={`mt-1 block text-2xl font-extrabold ${tone}`}>{value}</span>
+          </button>
         ))}
+      </div>
+
+      <Card className="grid gap-3 p-3 sm:grid-cols-[minmax(220px,1fr)_180px_180px_auto] sm:items-end">
+        <Field label="Find an account" placeholder="Name, school or phone" value={q} onChange={(e) => setQ(e.target.value)} />
+        <SelectField label="Subscription" value={filter} onChange={(e) => setFilter(e.target.value as TenantStatus | "all")}>
+          {filters.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
+        </SelectField>
+        <SelectField label="Zone" value={zone} onChange={(e) => setZone(e.target.value)}>
+          <option value="all">All zones</option>
+          {zones.map((item) => <option key={item} value={item}>{item}</option>)}
+        </SelectField>
+        <button
+          onClick={() => { setQ(""); setFilter("all"); setZone("all"); }}
+          className="min-h-11 rounded-full border-2 border-outline-variant px-4 text-sm font-bold text-on-surface-variant"
+        >
+          Clear filters
+        </button>
+      </Card>
+
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-bold text-on-surface">{rows.length} account{rows.length === 1 ? "" : "s"}</p>
+        <p className="text-xs text-on-surface-variant">Select accounts for bulk renewal or deactivation.</p>
       </div>
 
       {picked.length ? (
@@ -221,7 +229,7 @@ function Accounts() {
 
       <div className="space-y-sm">
         {rows.map((t) => (
-          <Card key={t.accountId} className="space-y-sm">
+          <Card key={t.accountId} className="space-y-sm border border-transparent transition hover:border-primary/25 hover:shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <label className="flex min-w-0 items-start gap-2">
                 <input
@@ -248,15 +256,15 @@ function Accounts() {
                   </span>
                 </span>
               </label>
-              <div className="shrink-0 text-right text-xs text-on-surface-variant">
-                <p>Next billing {fmtDate(t.nextBillingAt)}</p>
-                <p>Last login {t.lastLoginAt ? fmtDate(t.lastLoginAt) : "Never"}</p>
-                <p>{t.entries} entries</p>
+              <div className="grid shrink-0 grid-cols-3 gap-3 text-right text-xs text-on-surface-variant">
+                <div><span className="block text-[10px] uppercase">Access ends</span><strong className="text-on-surface">{fmtDate(t.nextBillingAt)}</strong></div>
+                <div><span className="block text-[10px] uppercase">Last login</span><strong className="text-on-surface">{t.lastLoginAt ? fmtDate(t.lastLoginAt) : "Never"}</strong></div>
+                <div><span className="block text-[10px] uppercase">Entries</span><strong className="text-on-surface">{t.entries}</strong></div>
                 <button
                   onClick={() => setOpenId(openId === t.accountId ? null : t.accountId)}
-                  className="mt-1 text-xs font-bold text-primary underline"
+                  className="col-span-3 mt-1 inline-flex min-h-9 items-center justify-end gap-1 font-bold text-primary"
                 >
-                  {openId === t.accountId ? "Hide detail" : "Open detail"}
+                  {openId === t.accountId ? "Close details" : "Manage account"} <Icon name={openId === t.accountId ? "expand_less" : "chevron_right"} className="text-[17px]" />
                 </button>
               </div>
             </div>
