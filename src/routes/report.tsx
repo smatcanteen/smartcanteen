@@ -95,7 +95,7 @@ function Report() {
           <span className="font-bold text-on-surface">Closing balance</span>
           <span className="font-bold text-primary">UGX {ugx(closing)}</span>
         </div>
-        <p className="text-xs text-outline">Matches Cash at Hand exactly.</p>
+        <p className="text-xs text-outline">Calculated from entries in the selected period.</p>
       </Card>
 
       <div className="grid gap-sm sm:grid-cols-2">
