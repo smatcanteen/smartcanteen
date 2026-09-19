@@ -32,7 +32,7 @@ async function readSharedState() {
 export const submitAgentLead = createServerFn({ method: "POST" })
   .inputValidator((data: LeadInput) => data)
   .handler(async ({ data }) => {
-    const { supabaseAdmin, state } = await readSharedState();
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(data.accessToken);
     const userId = authData.user?.id;
     if (authError || !userId) return { ok: false as const, error: "Your login expired. Log in again and retry." };
@@ -40,16 +40,48 @@ export const submitAgentLead = createServerFn({ method: "POST" })
     if (!(roles ?? []).some((row: any) => row.role === "agent")) {
       return { ok: false as const, error: "This login is not connected to a Field Agent account." };
     }
-    const agents = Array.isArray(state.agents) ? state.agents : [];
-    const agent = agents.find((item: any) => item.accountId === userId);
-    if (!agent) return { ok: false as const, error: "This Field Agent login is not linked to the Admin agent list." };
-    if (agent.status === "suspended") return { ok: false as const, error: "This Field Agent account is suspended." };
-    const leads = Array.isArray(state.leads) ? state.leads : [];
+    const { data: book, error: bookError } = await supabaseAdmin.from("canteen_books").select("data, revision").eq("user_id", userId).maybeSingle();
+    if (bookError) return { ok: false as const, error: bookError.message };
+    const current = (book?.data ?? {}) as any;
+    const leads = Array.isArray(current.agentLeads) ? current.agentLeads : [];
     if (!leads.some((lead: any) => lead.id === data.id)) {
-      leads.unshift({ ...data, agentId: agent.id, notes: [], queued: false });
+      leads.unshift({ ...data, agentAccountId: userId, notes: [], queued: false });
     }
-    const { error } = await supabaseAdmin.from("platform_state").update({ data: { ...state, leads }, updated_at: new Date().toISOString() }).eq("id", "shared");
+    const nextData = { ...current, agentLeads: leads };
+    const { error } = await supabaseAdmin.from("canteen_books").upsert({
+      user_id: userId,
+      data: nextData,
+      revision: (book?.revision ?? 0) + 1,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "user_id" });
     return error ? { ok: false as const, error: error.message } : { ok: true as const };
+  });
+
+export const listAgentLeads = createServerFn({ method: "POST" })
+  .inputValidator((data: { accessToken: string }) => data)
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(data.accessToken);
+    const userId = authData.user?.id;
+    if (authError || !userId) return { ok: false as const, error: "Your Admin login expired.", leads: [] };
+    const { data: roles } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", userId);
+    if (!(roles ?? []).some((row: any) => ["admin", "support"].includes(row.role))) {
+      return { ok: false as const, error: "This login cannot view Agent leads.", leads: [] };
+    }
+    const { data: agentRoles } = await supabaseAdmin.from("user_roles").select("user_id").eq("role", "agent");
+    const agentIds = (agentRoles ?? []).map((row: any) => row.user_id);
+    if (!agentIds.length) return { ok: true as const, leads: [] };
+    const [{ data: books, error }, { data: profiles }] = await Promise.all([
+      supabaseAdmin.from("canteen_books").select("user_id, data").in("user_id", agentIds),
+      supabaseAdmin.from("profiles").select("id, full_name").in("id", agentIds),
+    ]);
+    if (error) return { ok: false as const, error: error.message, leads: [] };
+    const names = new Map((profiles ?? []).map((profile: any) => [profile.id, profile.full_name]));
+    const leads = (books ?? []).flatMap((book: any) => {
+      const saved = Array.isArray(book.data?.agentLeads) ? book.data.agentLeads : [];
+      return saved.map((lead: any) => ({ ...lead, agentAccountId: book.user_id, agentName: names.get(book.user_id) ?? "Field agent" }));
+    });
+    return { ok: true as const, leads };
   });
 
 export const submitSupportTicket = createServerFn({ method: "POST" })
