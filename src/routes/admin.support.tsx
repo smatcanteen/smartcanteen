@@ -85,7 +85,7 @@ function Support() {
               <select
                 aria-label={`Assign ${t.subject}`}
                 value={t.assignedTo ?? ""}
-                onChange={(event) => setTicketStatus(t.id, t.status === "open" ? "in_progress" : t.status, event.target.value || undefined)}
+                onChange={(event) => setTicketStatus(t.id, t.status === "open" ? "in_progress" : t.status, event.target.value)}
                 className="h-10 rounded-md border-2 border-outline-variant bg-surface-lowest px-2 text-xs font-semibold text-on-surface"
               >
                 <option value="">Unassigned</option>
