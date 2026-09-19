@@ -36,7 +36,16 @@ function Report() {
   const closing = opening + actualNet;
   const expectedProfit = inRange
     .filter((t) => t.type === "stock")
-    .reduce((a, t) => a + (t.units ?? 0) * (t.sell ?? 0) - t.amount, 0);
+    .reduce((total, t) => {
+      if (t.units != null && t.sell != null) return total + t.units * t.sell - t.amount;
+      // Older stock entries did not store quantity on the transaction. Use the
+      // matching item's term margin so those records never appear as pure loss.
+      const item = state.items.find((i) => i.id === t.itemId) ??
+        state.items.find((i) => t.label.toLowerCase().startsWith(i.name.toLowerCase()));
+      if (!item || item.buy <= 0) return total;
+      const marginOnCost = (item.qty * item.sell - item.buy) / item.buy;
+      return total + t.amount * marginOnCost;
+    }, 0);
   const outstanding = state.debtors.reduce((a, d) => a + Math.max(0, d.amount - (d.payments ?? []).reduce((p, x) => p + x.amount, 0)), 0);
 
   const byCategory = Object.entries(
