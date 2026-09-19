@@ -1,6 +1,16 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+type LeadInput = {
+  id: string;
+  school: string;
+  contactName: string;
+  phone: string;
+  stage: "contacted" | "demo" | "trial" | "subscribed" | "lost";
+  agentId: string;
+  createdAt: number;
+};
+
 type TicketInput = {
   id: string;
   accountId: string;
@@ -17,6 +27,22 @@ async function readSharedState() {
   if (error) throw new Error(error.message);
   return { supabaseAdmin, state: (data?.data ?? {}) as any };
 }
+
+export const submitAgentLead = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: LeadInput) => data)
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin, state } = await readSharedState();
+    const agents = Array.isArray(state.agents) ? state.agents : [];
+    const agent = agents.find((item: any) => item.id === data.agentId && item.accountId === context.userId && item.status === "certified");
+    if (!agent) return { ok: false as const, error: "Your certified Agent account was not found." };
+    const leads = Array.isArray(state.leads) ? state.leads : [];
+    if (!leads.some((lead: any) => lead.id === data.id)) {
+      leads.unshift({ ...data, notes: [], queued: false });
+    }
+    const { error } = await supabaseAdmin.from("platform_state").update({ data: { ...state, leads }, updated_at: new Date().toISOString() }).eq("id", "shared");
+    return error ? { ok: false as const, error: error.message } : { ok: true as const };
+  });
 
 export const submitSupportTicket = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
