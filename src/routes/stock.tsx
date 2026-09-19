@@ -49,7 +49,7 @@ function Stock() {
 
   const openCheck = (item: StockItem) => {
     setEditing(item.id);
-    setForm({ ...blankForm(), count: String(item.lastKnownQuantity ?? item.stock ?? item.qty) });
+    setForm({ ...blankForm(), count: String(item.lastKnownQuantity ?? item.qty) });
   };
 
   const saveCheck = (item: StockItem) => {
@@ -57,7 +57,7 @@ function Stock() {
     const writtenOff = Number(form.writtenOff || 0);
     const restockQty = Number(form.restockQty || 0);
     const restockCost = Number(form.restockCost || 0);
-    const previous = item.lastKnownQuantity ?? item.stock ?? item.qty;
+    const previous = item.lastKnownQuantity ?? item.qty;
     const accountedFor = previous - count;
     const validRestock = restockQty > 0 && restockCost > 0;
     if (!Number.isFinite(count) || count < 0 || count > previous) return;
@@ -107,7 +107,7 @@ function Stock() {
             const expectedProfit = item.qty * item.sell - item.buy;
             const isChecked = item.lastKnownQuantity != null;
             const isEditing = editing === item.id;
-            const previous = item.lastKnownQuantity ?? item.stock ?? item.qty;
+            const previous = item.lastKnownQuantity ?? item.qty;
             const count = Number(form.count || 0);
             const accountedFor = Math.max(0, previous - count);
             const writtenOff = Number(form.writtenOff || 0);
