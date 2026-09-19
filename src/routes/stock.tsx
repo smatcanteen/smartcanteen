@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Icon } from "@/components/Icon";
@@ -6,6 +6,7 @@ import { Card, Field, PrimaryButton, SectionTitle } from "@/components/ui-kit";
 import { DataTable, RangeBar, useRange } from "@/components/RangeExport";
 import type { Sheet } from "@/lib/export";
 import { dateInput, fromDateInput, ugx, useStore, type StockItem } from "@/lib/store";
+import { StockPurchaseForm } from "./stock-in";
 
 export const Route = createFileRoute("/stock")({
   head: () => ({
@@ -43,6 +44,7 @@ function Stock() {
   const [form, setForm] = useState<CheckForm>(blankForm);
   const [itemSearch, setItemSearch] = useState("");
   const [itemPage, setItemPage] = useState(0);
+  const [addingItem, setAddingItem] = useState(false);
   const checked = state.items.filter((i) => i.lastKnownQuantity != null);
   const atCost = checked.reduce(
     (a, i) => a + (i.qty ? (i.buy / i.qty) * (i.lastKnownQuantity ?? 0) : 0),
@@ -144,6 +146,24 @@ function Stock() {
   return (
     <AppLayout title="Stock">
       <RangeBar range={range} title={`Stock purchases — ${range.label}`} sheets={[stockSheet, stockSummarySheet]} baseName="smartcanteen-stock" />
+
+      <button
+        onClick={() => setAddingItem((open) => !open)}
+        className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-primary font-bold text-on-primary shadow-raised"
+        aria-expanded={addingItem}
+      >
+        <Icon name={addingItem ? "close" : "add"} /> {addingItem ? "Close purchase form" : "Add item"}
+      </button>
+
+      {addingItem && (
+        <section className="space-y-sm rounded-lg border border-outline-variant bg-surface-lowest p-sm">
+          <div>
+            <SectionTitle>Add purchased stock</SectionTitle>
+            <p className="text-sm text-on-surface-variant">Enter the packages bought, their cost, and the selling price.</p>
+          </div>
+          <StockPurchaseForm onSaved={() => setAddingItem(false)} />
+        </section>
+      )}
 
       <Card className="space-y-sm overflow-hidden">
         <div className="flex items-end justify-between gap-3">
@@ -390,12 +410,6 @@ function Stock() {
         )}
       </section>
 
-      <Link
-        to="/stock-in"
-        className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-primary font-bold text-on-primary shadow-raised"
-      >
-        <Icon name="add" /> New stocking trip
-      </Link>
     </AppLayout>
   );
 }
