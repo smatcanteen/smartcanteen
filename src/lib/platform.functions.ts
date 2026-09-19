@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 type LeadInput = {
+  accessToken: string;
   id: string;
   school: string;
   contactName: string;
@@ -29,16 +30,18 @@ async function readSharedState() {
 }
 
 export const submitAgentLead = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((data: LeadInput) => data)
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data }) => {
     const { supabaseAdmin, state } = await readSharedState();
-    const { data: roles } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", context.userId);
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(data.accessToken);
+    const userId = authData.user?.id;
+    if (authError || !userId) return { ok: false as const, error: "Your login expired. Log in again and retry." };
+    const { data: roles } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", userId);
     if (!(roles ?? []).some((row: any) => row.role === "agent")) {
       return { ok: false as const, error: "This login is not connected to a Field Agent account." };
     }
     const agents = Array.isArray(state.agents) ? state.agents : [];
-    const agent = agents.find((item: any) => item.accountId === context.userId);
+    const agent = agents.find((item: any) => item.accountId === userId);
     if (!agent) return { ok: false as const, error: "This Field Agent login is not linked to the Admin agent list." };
     if (agent.status === "suspended") return { ok: false as const, error: "This Field Agent account is suspended." };
     const leads = Array.isArray(state.leads) ? state.leads : [];
