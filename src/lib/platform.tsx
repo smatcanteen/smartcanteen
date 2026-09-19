@@ -11,7 +11,7 @@ import {
 import { useAuth } from "./auth";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
-import { submitAgentLead, submitSupportReply, submitSupportTicket } from "./platform.functions";
+import { submitSupportReply, submitSupportTicket } from "./platform.functions";
 
 /* ------------------------------------------------------------------ types */
 
@@ -167,6 +167,12 @@ export function effectiveTenantStatus(tenant: Pick<Tenant, "status" | "nextBilli
   return end <= now ? "past_due" : tenant.status;
 }
 
+async function syncAgentLead(lead: Pick<Lead, "id" | "school" | "contactName" | "phone" | "stage" | "agentId" | "createdAt">) {
+  const { data, error } = await (supabase as any).rpc("submit_agent_lead", { p_lead: lead });
+  if (error) return { ok: false as const, error: error.message };
+  return (data ?? { ok: true }) as { ok: boolean; error?: string };
+}
+
 export const stageLabels: Record<LeadStage, string> = {
   contacted: "Contacted",
   demo: "Demo given",
@@ -304,16 +310,14 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
             const unsynced = localOwnLeads.filter((lead) => !sharedIds.has(lead.id));
             setS({ ...shared, leads: [...unsynced, ...shared.leads] });
             unsynced.forEach((lead) => {
-              void submitAgentLead({
-                data: {
-                  id: lead.id,
-                  school: lead.school,
-                  contactName: lead.contactName,
-                  phone: lead.phone,
-                  stage: lead.stage,
-                  agentId: lead.agentId,
-                  createdAt: lead.createdAt,
-                },
+              void syncAgentLead({
+                id: lead.id,
+                school: lead.school,
+                contactName: lead.contactName,
+                phone: lead.phone,
+                stage: lead.stage,
+                agentId: lead.agentId,
+                createdAt: lead.createdAt,
               });
             });
           } else {
@@ -578,22 +582,20 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         const lead = { ...l, id: uid(), createdAt: Date.now(), notes: [], queued: true };
         patch((p) => ({ ...p, leads: [lead, ...p.leads.filter((item) => item.id !== lead.id)] }));
         try {
-          const result = await submitAgentLead({
-            data: {
-              id: lead.id,
-              school: lead.school,
-              contactName: lead.contactName,
-              phone: lead.phone,
-              stage: lead.stage,
-              agentId: lead.agentId,
-              createdAt: lead.createdAt,
-            },
+          const result = await syncAgentLead({
+            id: lead.id,
+            school: lead.school,
+            contactName: lead.contactName,
+            phone: lead.phone,
+            stage: lead.stage,
+            agentId: lead.agentId,
+            createdAt: lead.createdAt,
           });
           if (!result.ok) return { ok: false, error: result.error };
           patch((p) => ({ ...p, leads: p.leads.map((item) => item.id === lead.id ? { ...item, queued: false } : item) }));
           return { ok: true };
-        } catch {
-          return { ok: false, error: navigator.onLine ? "Could not reach Admin records. Try again." : "Saved on this device. Reconnect and try again." };
+        } catch (error) {
+          return { ok: false, error: error instanceof Error ? error.message : navigator.onLine ? "Could not reach Admin records. Try again." : "Saved on this device. Reconnect and try again." };
         }
       },
       setLeadStage: (id, stage) =>
