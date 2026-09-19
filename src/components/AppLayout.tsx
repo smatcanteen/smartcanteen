@@ -51,6 +51,7 @@ export function AppLayout({
   const tenant = platform.tenants.find((item) => item.accountId === user?.id);
   const banner = platform.announcements.find((announcement) => {
     if (!announcement.active || !["operators", "both"].includes(announcement.audience ?? "operators")) return false;
+    if (announcement.segment.recipientIds?.length && !announcement.segment.recipientIds.includes(`operator:${user?.id}`)) return false;
     if (announcement.segment.zone && announcement.segment.zone !== tenant?.zone) return false;
     if (announcement.segment.category && announcement.segment.category !== tenant?.category) return false;
     if (announcement.segment.agentId && announcement.segment.agentId !== tenant?.agentId) return false;
