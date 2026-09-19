@@ -47,6 +47,7 @@ function Stock() {
   const [itemSearch, setItemSearch] = useState("");
   const [itemPage, setItemPage] = useState(0);
   const [addingItem, setAddingItem] = useState(false);
+  const [showPurchaseTables, setShowPurchaseTables] = useState(false);
   const checked = state.items.filter((i) => i.lastKnownQuantity != null);
   const atCost = checked.reduce(
     (a, i) => a + (i.qty ? (i.buy / i.qty) * (i.lastKnownQuantity ?? 0) : 0),
@@ -167,31 +168,50 @@ function Stock() {
         </section>
       )}
 
-      <Card className="space-y-sm overflow-hidden">
-        <div className="flex items-end justify-between gap-3">
-          <SectionTitle>Purchases by item</SectionTitle>
-          <div className="text-right text-xs text-on-surface-variant">
-            <p><strong className="text-on-surface">{totalPurchaseQuantity}</strong> recorded units</p>
-            <p><strong className="text-on-surface">UGX {ugx(totalPurchaseCost)}</strong> total cost</p>
+      <Card className="space-y-2 p-3 sm:p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="label-bold text-on-surface">Purchase totals</p>
+            <p className="text-xs text-on-surface-variant">{range.label}</p>
+          </div>
+          <div className="text-right text-sm">
+            <p><strong>{totalPurchaseQuantity}</strong> recorded units</p>
+            <p className="font-bold text-primary">UGX {ugx(totalPurchaseCost)}</p>
           </div>
         </div>
-        <DataTable
-          columns={["Item", "Total quantity", "Total cost (UGX)"]}
-          rows={purchaseSummaryRows}
-          pageSize={8}
-          empty="No stock purchases in this period."
-        />
+        <button
+          onClick={() => setShowPurchaseTables((show) => !show)}
+          className="flex min-h-10 w-full items-center justify-center gap-1 rounded-md border border-outline-variant text-sm font-bold text-primary"
+          aria-expanded={showPurchaseTables}
+        >
+          {showPurchaseTables ? "Hide purchase tables" : "View purchase tables"}
+          <Icon name={showPurchaseTables ? "expand_less" : "expand_more"} />
+        </button>
       </Card>
 
-      <Card className="space-y-sm overflow-hidden">
-        <SectionTitle>Purchase entries</SectionTitle>
-        <DataTable columns={["Date", "Item", "Quantity", "Cost (UGX)"]} rows={purchaseRows} pageSize={8} />
-        {purchases.some((t) => !purchaseQuantity(t).recorded) && (
-          <p className="text-xs text-on-surface-variant">
-            Older purchases without a saved quantity show “Not recorded.” They are excluded from quantity totals but remain included in cost totals.
-          </p>
-        )}
-      </Card>
+      {showPurchaseTables && (
+        <div className="space-y-sm">
+          <Card className="space-y-sm overflow-hidden p-3 sm:p-4">
+            <SectionTitle>Purchases by item</SectionTitle>
+            <DataTable
+              columns={["Item", "Total quantity", "Total cost (UGX)"]}
+              rows={purchaseSummaryRows}
+              pageSize={8}
+              empty="No stock purchases in this period."
+            />
+          </Card>
+
+          <Card className="space-y-sm overflow-hidden p-3 sm:p-4">
+            <SectionTitle>Purchase entries</SectionTitle>
+            <DataTable columns={["Date", "Item", "Quantity", "Cost (UGX)"]} rows={purchaseRows} pageSize={8} />
+            {purchases.some((t) => !purchaseQuantity(t).recorded) && (
+              <p className="text-xs text-on-surface-variant">
+                Older purchases without a saved quantity show “Not recorded.” They are excluded from quantity totals but remain included in cost totals.
+              </p>
+            )}
+          </Card>
+        </div>
+      )}
 
       <div className="grid gap-sm sm:grid-cols-2">
         <Card>
@@ -216,9 +236,9 @@ function Stock() {
       )}
 
       <section>
-        <div className="mb-sm flex items-end justify-between gap-3">
+        <div className="mb-sm flex items-end justify-between gap-2">
           <SectionTitle>Items this term</SectionTitle>
-          <label className="w-48 max-w-[55%] text-xs font-bold text-on-surface-variant">
+          <label className="w-40 max-w-[55%] text-xs font-bold text-on-surface-variant sm:w-48">
             Find item
             <input
               value={itemSearch}
