@@ -11,6 +11,7 @@ import {
 import { useAuth } from "./auth";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
+import { submitSupportReply, submitSupportTicket } from "./platform.functions";
 
 /* ------------------------------------------------------------------ types */
 
@@ -556,36 +557,45 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
           ...p,
           payouts: p.payouts.map((x) => (x.id === id ? { ...x, status: "paid", ref } : x)),
         })),
-      openTicket: (accountId, accountName, subject, text) =>
+      openTicket: (accountId, accountName, subject, text) => {
+        const id = uid();
+        const messageId = uid();
+        const createdAt = Date.now();
         patch((p) => ({
           ...p,
           tickets: [
             {
-              id: uid(),
+              id,
               accountId,
               accountName,
               subject,
               status: "open",
               assignedTo: null,
-              messages: [{ id: uid(), from: "operator", text, ts: Date.now() }],
-              createdAt: Date.now(),
+              messages: [{ id: messageId, from: "operator", text, ts: createdAt }],
+              createdAt,
             },
             ...p.tickets,
           ],
-        })),
-      replyTicket: (id, from, text) =>
+        }));
+        void submitSupportTicket({ data: { id, accountId, accountName, subject, text, createdAt, messageId } });
+      },
+      replyTicket: (id, from, text) => {
+        const messageId = uid();
+        const ts = Date.now();
         patch((p) => ({
           ...p,
           tickets: p.tickets.map((t) =>
             t.id === id
               ? {
                   ...t,
-                  status: from === "admin" && t.status === "open" ? "in_progress" : t.status,
-                  messages: [...t.messages, { id: uid(), from, text, ts: Date.now() }],
+                  status: from === "admin" && t.status === "open" ? "in_progress" : from === "operator" && t.status === "resolved" ? "open" : t.status,
+                  messages: [...t.messages, { id: messageId, from, text, ts }],
                 }
               : t,
           ),
-        })),
+        }));
+        if (from === "operator") void submitSupportReply({ data: { ticketId: id, messageId, text, ts } });
+      },
       setTicketStatus: (id, status, assignedTo) =>
         patch((p) => ({
           ...p,
