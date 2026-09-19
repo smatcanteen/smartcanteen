@@ -152,10 +152,16 @@ export const categoryLabels: Record<CategoryTemplate, string> = {
 export const statusLabels: Record<TenantStatus, string> = {
   trial: "Free trial",
   active: "Active",
-  past_due: "Past due",
-  suspended: "Suspended",
-  churned: "Churned",
+  past_due: "Expired — read only",
+  suspended: "Access suspended",
+  churned: "Deactivated",
 };
+
+export function effectiveTenantStatus(tenant: Pick<Tenant, "status" | "nextBillingAt" | "trialEndsAt">, now = Date.now()): TenantStatus {
+  if (tenant.status === "suspended" || tenant.status === "churned") return tenant.status;
+  const end = tenant.status === "trial" ? (tenant.trialEndsAt ?? tenant.nextBillingAt) : tenant.nextBillingAt;
+  return end <= now ? "past_due" : tenant.status;
+}
 
 export const stageLabels: Record<LeadStage, string> = {
   contacted: "Contacted",
@@ -412,6 +418,20 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     });
   }, [accounts, accountsReady, hydrated]);
 
+
+  useEffect(() => {
+    if (!hydrated || user?.role !== "admin") return;
+    setS((current) => {
+      let changed = false;
+      const tenants = current.tenants.map((tenant) => {
+        const status = effectiveTenantStatus(tenant);
+        if (status === tenant.status) return tenant;
+        changed = true;
+        return { ...tenant, status };
+      });
+      return changed ? { ...current, tenants } : current;
+    });
+  }, [hydrated, user?.role]);
 
   const patch = useCallback((fn: (prev: PlatformState) => PlatformState) => setS(fn), []);
 
