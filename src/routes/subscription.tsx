@@ -3,6 +3,8 @@ import { useState } from "react";
 import { AppLayout, Saved } from "@/components/AppLayout";
 import { Card, Field, PrimaryButton, SectionTitle } from "@/components/ui-kit";
 import { ugx, useStore } from "@/lib/store";
+import { useAuth } from "@/lib/auth";
+import { effectiveTenantStatus, fmtDate, statusLabels, usePlatform } from "@/lib/platform";
 
 export const Route = createFileRoute("/subscription")({
   head: () => ({
@@ -29,6 +31,11 @@ const NUMBERS = ["+256 758 727269", "+256 783 113352"];
 
 function SubscriptionPage() {
   const { state, addPayment } = useStore();
+  const { user } = useAuth();
+  const { s } = usePlatform();
+  const tenant = s.tenants.find((item) => item.accountId === user?.id);
+  const status = tenant ? effectiveTenantStatus(tenant) : null;
+  const readOnly = status === "past_due" || status === "churned";
   const [amount, setAmount] = useState("35000");
   const [note, setNote] = useState("");
   const [saved, setSaved] = useState(false);
@@ -42,9 +49,14 @@ function SubscriptionPage() {
           One prepay payment covers 4 months — no monthly renewal to remember.
         </p>
         <p className="text-sm text-on-surface">
-          Status: <span className="font-bold text-secondary">Free trial</span>
-          <span className="text-on-surface-variant"> · renews 24 Aug 2026</span>
+          Status: <span className="font-bold text-secondary">{status ? statusLabels[status] : "Account setup pending"}</span>
+          {tenant ? <span className="text-on-surface-variant"> · access through {fmtDate(tenant.nextBillingAt)}</span> : null}
         </p>
+        {readOnly ? (
+          <p className="rounded-md bg-secondary/10 px-3 py-2 text-sm font-bold text-secondary">
+            New sales, stock and expenses are locked. Your reports and past records remain available.
+          </p>
+        ) : null}
       </Card>
 
       <Card className="space-y-sm">
@@ -88,6 +100,7 @@ function SubscriptionPage() {
             </ul>
           )}
 
+          {readOnly ? <p className="text-sm font-bold text-secondary">Send payment using the instructions above. Admin will restore full access after confirming it.</p> : null}
           <div className="grid gap-sm pt-2 md:grid-cols-2">
             <Field
               label="Record a payment (UGX)"
@@ -104,6 +117,7 @@ function SubscriptionPage() {
           </div>
           <PrimaryButton
             tone="cta"
+            disabled={readOnly}
             onClick={() => {
               const v = Number(amount) || 0;
               if (!v) return;
