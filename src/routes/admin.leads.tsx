@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, SectionTitle } from "@/components/ui-kit";
 import { Pill } from "@/components/AdminShell";
 import { fmtDate, stageLabels, usePlatform, type Lead, type LeadStage } from "@/lib/platform";
-import { listAgentLeads } from "@/lib/platform.functions";
+import { listAgentLeads, updateAgentLeadStage } from "@/lib/platform.functions";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/admin/leads")({
@@ -32,6 +32,7 @@ function Leads() {
   const [sharedLeads, setSharedLeads] = useState<SharedLead[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -107,10 +108,21 @@ function Leads() {
                 <select
                   aria-label={`Move ${l.school}`}
                   value={l.stage}
-                  onChange={(e) => setLeadStage(l.id, e.target.value as LeadStage)}
-                  disabled={Boolean(l.agentAccountId)}
-                  title={l.agentAccountId ? "Stage changes are made from the Field Agent account." : undefined}
-                  className="mt-1 h-11 w-full rounded-md border-2 border-outline-variant bg-surface-lowest px-2 text-sm font-semibold text-on-surface"
+                  disabled={savingId === l.id}
+                  onChange={async (e) => {
+                    const stage = e.target.value as LeadStage;
+                    if (!l.agentAccountId) { setLeadStage(l.id, stage); return; }
+                    setSavingId(l.id);
+                    setLoadError("");
+                    const { data } = await supabase.auth.getSession();
+                    const accessToken = data.session?.access_token;
+                    if (!accessToken) { setLoadError("Admin login expired. Log in again."); setSavingId(null); return; }
+                    const result = await updateAgentLeadStage({ data: { accessToken, agentAccountId: l.agentAccountId, leadId: l.id, stage } });
+                    if (result.ok) setSharedLeads((items) => items.map((item) => item.id === l.id ? { ...item, stage } : item));
+                    else setLoadError(result.error);
+                    setSavingId(null);
+                  }}
+                  className="mt-1 h-11 w-full rounded-md border-2 border-outline-variant bg-surface-lowest px-2 text-sm font-semibold text-on-surface disabled:opacity-60"
                 >
                   {stages.map((x) => (
                     <option key={x} value={x}>
