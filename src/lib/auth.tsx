@@ -100,6 +100,23 @@ type Ctx = {
 };
 
 const AuthContext = createContext<Ctx | null>(null);
+const AUTH_CACHE = "smartcanteen.auth.directory.v1";
+
+function readAuthCache(): Account[] {
+  try {
+    return JSON.parse(localStorage.getItem(AUTH_CACHE) ?? "[]") as Account[];
+  } catch {
+    return [];
+  }
+}
+
+function writeAuthCache(accounts: Account[]) {
+  try {
+    localStorage.setItem(AUTH_CACHE, JSON.stringify(accounts));
+  } catch {
+    /* Device storage may be unavailable in private browsing. */
+  }
+}
 
 const toAccount = (p: ProfileRow, role: Role): Account => ({
   id: p.id,
@@ -132,17 +149,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAccounts([]);
       return;
     }
-    const [{ data: profiles }, { data: roles }] = await Promise.all([
-      supabase.from("profiles").select("*"),
-      supabase.from("user_roles").select("user_id, role"),
-    ]);
-    const roleFor = new Map<string, Role>();
-    (roles ?? []).forEach((r) => roleFor.set(r.user_id, r.role as Role));
-    const list = (profiles ?? []).map((p) =>
-      toAccount(p as ProfileRow, roleFor.get(p.id) ?? "operator"),
-    );
-    setAccounts(list);
-    setUser(list.find((a) => a.id === uid) ?? null);
+    const cached = readAuthCache();
+    try {
+      const [profilesResult, rolesResult] = await Promise.all([
+        supabase.from("profiles").select("*"),
+        supabase.from("user_roles").select("user_id, role"),
+      ]);
+      if (profilesResult.error || rolesResult.error) throw profilesResult.error ?? rolesResult.error;
+      const roleFor = new Map<string, Role>();
+      (rolesResult.data ?? []).forEach((r) => roleFor.set(r.user_id, r.role as Role));
+      const list = (profilesResult.data ?? []).map((p) =>
+        toAccount(p as ProfileRow, roleFor.get(p.id) ?? "operator"),
+      );
+      const current = list.find((a) => a.id === uid) ?? cached.find((a) => a.id === uid) ?? null;
+      setAccounts(list.length ? list : cached);
+      setUser(current);
+      if (list.length) writeAuthCache(list);
+    } catch {
+      // The signed-in operator must remain identifiable when the school has no data signal.
+      setAccounts(cached);
+      setUser(cached.find((a) => a.id === uid) ?? null);
+    }
   }, []);
 
   useEffect(() => {
@@ -160,15 +187,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     (async () => {
+      // Supabase keeps the last valid session on this device. Restore the cached
+      // account first; network directory checks happen afterwards.
+      const { data } = await supabase.auth.getSession();
+      if (!alive) return;
+      const sessionUser = data.session?.user;
+      const uid = sessionUser?.id ?? null;
+      if (uid) {
+        const cached = readAuthCache();
+        let current = cached.find((a) => a.id === uid) ?? null;
+        if (!current && sessionUser) {
+          const meta = sessionUser.user_metadata ?? {};
+          current = {
+            id: uid,
+            name: String(meta.full_name ?? meta.name ?? "Canteen operator"),
+            email: sessionUser.email ?? "",
+            role: (meta.role as Role | undefined) ?? "operator",
+            school: String(meta.school ?? ""),
+            phone: String(meta.phone ?? sessionUser.phone ?? ""),
+            createdAt: new Date(sessionUser.created_at).getTime(),
+            active: true,
+          };
+          writeAuthCache([...cached, current]);
+        }
+        setAccounts(current ? [...cached.filter((a) => a.id !== uid), current] : cached);
+        setUser(current);
+      }
+      setReady(true);
       try {
         await ensureBootstrap();
       } catch {
         /* bootstrap is best-effort */
       }
-      const { data } = await supabase.auth.getSession();
-      if (!alive) return;
-      await loadDirectory(data.session?.user.id ?? null);
-      if (alive) setReady(true);
+      await loadDirectory(uid);
     })();
 
     return () => {
