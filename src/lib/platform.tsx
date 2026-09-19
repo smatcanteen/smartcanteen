@@ -11,7 +11,7 @@ import {
 import { useAuth } from "./auth";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
-import { submitAgentLead, submitSupportReply, submitSupportTicket } from "./platform.functions";
+import { submitAgentLead, submitSupportTicket, updateSupportTicket } from "./platform.functions";
 
 /* ------------------------------------------------------------------ types */
 
@@ -673,7 +673,10 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
             ...p.tickets,
           ],
         }));
-        void submitSupportTicket({ data: { id, accountId, accountName, subject, text, createdAt, messageId } });
+        void supabase.auth.getSession().then(({ data }) => {
+          const accessToken = data.session?.access_token;
+          if (accessToken) void submitSupportTicket({ data: { accessToken, id, accountId, accountName, subject, text, createdAt, messageId } });
+        });
       },
       replyTicket: (id, from, text) => {
         const messageId = uid();
@@ -690,7 +693,11 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
               : t,
           ),
         }));
-        if (from === "operator") void submitSupportReply({ data: { ticketId: id, messageId, text, ts } });
+        if (from === "operator") void supabase.auth.getSession().then(({ data }) => {
+          const accessToken = data.session?.access_token;
+          const ticket = s.tickets.find((item) => item.id === id);
+          if (accessToken && ticket) void updateSupportTicket({ data: { accessToken, accountId: ticket.accountId, ticketId: id, message: { id: messageId, from, text, ts } } });
+        });
       },
       setTicketStatus: (id, status, assignedTo) =>
         patch((p) => ({
