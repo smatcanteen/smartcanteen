@@ -200,7 +200,7 @@ type Ctx = {
   s: PlatformState;
   hydrated: boolean;
   /* tenants */
-  addTenant: (t: Omit<Tenant, "createdAt" | "notes" | "lastLoginAt" | "entries">) => void;
+  addTenant: (t: Omit<Tenant, "createdAt" | "notes" | "lastLoginAt" | "entries"> & { initialNote?: string }) => void;
   updateTenant: (accountId: string, patch: Partial<Tenant>) => void;
   removeTenant: (accountId: string) => void;
   addTenantNote: (accountId: string, text: string) => void;
@@ -421,13 +421,22 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       s,
       hydrated,
       addTenant: (t) =>
-        patch((p) => ({
-          ...p,
-          tenants: [
-            ...p.tenants,
-            { ...t, createdAt: Date.now(), notes: [], lastLoginAt: null, entries: 0 },
-          ],
-        })),
+        patch((p) => {
+          const { initialNote, ...tenant } = t;
+          return {
+            ...p,
+            tenants: [
+              ...p.tenants,
+              {
+                ...tenant,
+                createdAt: Date.now(),
+                notes: initialNote?.trim() ? [note(initialNote.trim())] : [],
+                lastLoginAt: null,
+                entries: 0,
+              },
+            ],
+          };
+        }),
       updateTenant: (accountId, upd) =>
         patch((p) => ({
           ...p,
