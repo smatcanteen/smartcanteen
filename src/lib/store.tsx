@@ -453,7 +453,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     } catch {
       /* ignore */
     }
-    if (!userId || !syncReady) return;
+    if (!userId) return;
+    if (!syncReady || (typeof navigator !== "undefined" && !navigator.onLine)) {
+      pendingRef.current = true;
+      return;
+    }
     // Debounced push; a failure just leaves the local copy authoritative and
     // the next change (or reconnection) retries it.
     const t = setTimeout(() => {
@@ -484,6 +488,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         )
         .then(({ error }) => {
           pendingRef.current = !!error;
+          if (!error) setSyncReady(true);
         });
     };
     window.addEventListener("online", flush);
