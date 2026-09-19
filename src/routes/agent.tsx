@@ -63,7 +63,17 @@ function AgentDashboard() {
   const [tab, setTab] = useState<"leads" | "accounts" | "earnings" | "training">("leads");
   const [lead, setLead] = useState({ school: "", contactName: "", phone: "" });
   const [answers, setAnswers] = useState<number[]>([]);
-  const [online, setOnline] = useState(true);
+  const [online, setOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine);
+
+  useEffect(() => {
+    const updateConnection = () => setOnline(navigator.onLine);
+    window.addEventListener("online", updateConnection);
+    window.addEventListener("offline", updateConnection);
+    return () => {
+      window.removeEventListener("online", updateConnection);
+      window.removeEventListener("offline", updateConnection);
+    };
+  }, []);
 
   useEffect(() => {
     if (!ready) return;
@@ -98,12 +108,10 @@ function AgentDashboard() {
         <header className="mx-auto flex h-16 w-full max-w-container-max items-center justify-between gap-2 px-3 sm:px-4 md:px-gutter">
           <BrandLock variant="dark" size="sm" title="Field agent" context={`${me.name} · ${me.territory}`} />
           <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-            <button
-              onClick={() => setOnline((o) => !o)}
-              className="min-h-11 rounded-full px-3 text-xs font-bold text-on-primary/80 hover:bg-on-primary/10"
-            >
-              {online ? "Online" : "Offline mode"}
-            </button>
+            <span className="flex min-h-11 items-center gap-1 rounded-full px-3 text-xs font-bold text-on-primary/80">
+              <span className={`h-2 w-2 rounded-full ${online ? "bg-green-300" : "bg-secondary-container"}`} />
+              {online ? "Online" : "Offline — entries will sync"}
+            </span>
             <button
               onClick={() => {
                 logout();
