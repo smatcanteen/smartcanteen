@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Tour, useTour, type TourStep } from "@/components/Tour";
 import { useAuth } from "@/lib/auth";
@@ -29,80 +29,18 @@ export const Route = createFileRoute("/")({
 
 type Tile = { to: string; icon: string; label: string; params?: Record<string, string> };
 
-const tabs: { id: string; label: string; tiles: Tile[] }[] = [
-  {
-    id: "for-you",
-    label: "FOR YOU",
-    tiles: [
-      { to: "/sale", icon: "point_of_sale", label: "Cash Sale" },
-      { to: "/stock", icon: "inventory_2", label: "Stock" },
-      { to: "/expense", icon: "receipt_long", label: "Expense" },
-      { to: "/debtors", icon: "group", label: "Credit Book" },
-      { to: "/close-out", icon: "task_alt", label: "Close Day" },
-      { to: "/report", icon: "bar_chart", label: "Reports" },
-    ],
-  },
-  {
-    id: "money-in",
-    label: "MONEY IN",
-    tiles: [
-      { to: "/sale", icon: "payments", label: "Cash Sale" },
-      { to: "/sale", icon: "sell", label: "Sell Item" },
-      { to: "/debtors", icon: "handshake", label: "Collect Debt" },
-      { to: "/term-capital", icon: "savings", label: "Add Capital" },
-    ],
-  },
-  {
-    id: "money-out",
-    label: "MONEY OUT",
-    tiles: [
-      { to: "/stock", icon: "inventory_2", label: "Stock" },
-      { to: "/pay/$category", params: { category: "transport" }, icon: "local_taxi", label: "Transport" },
-      { to: "/pay/$category", params: { category: "salary-wages" }, icon: "badge", label: "Salary" },
-      { to: "/pay/$category", params: { category: "rent" }, icon: "home_work", label: "Rent" },
-      { to: "/pay/$category", params: { category: "airtime" }, icon: "smartphone", label: "Airtime" },
-      { to: "/pay/$category", params: { category: "data" }, icon: "wifi", label: "Data" },
-      { to: "/expense", icon: "more_horiz", label: "Other Expense" },
-      { to: "/subscription", icon: "card_membership", label: "Subscription" },
-    ],
-  },
-  {
-    id: "manage",
-    label: "MANAGE",
-    tiles: [
-      { to: "/stock", icon: "inventory", label: "Stock List" },
-      { to: "/history", icon: "history", label: "Past Terms" },
-      { to: "/term-capital", icon: "account_balance", label: "Term Capital" },
-      { to: "/term-transition", icon: "event_repeat", label: "Close Term" },
-      { to: "/subscription", icon: "card_membership", label: "Subscription" },
-      { to: "/support", icon: "support_agent", label: "Help & Feedback" },
-      { to: "/settings", icon: "settings", label: "Settings" },
-    ],
-  },
+const dailyActions: Tile[] = [
+  { to: "/sale", icon: "point_of_sale", label: "Sale" },
+  { to: "/stock", icon: "inventory_2", label: "Stock" },
+  { to: "/expense", icon: "receipt_long", label: "Expense" },
+  { to: "/debtors", icon: "group", label: "Credit" },
+  { to: "/close-out", icon: "task_alt", label: "Close Day" },
+  { to: "/report", icon: "bar_chart", label: "Reports" },
 ];
-
-const TAB_KEY = "smartcanteen.tab";
 
 function Home() {
   const { state, cashAtHand, today } = useStore();
-  const [tab, setTab] = useState(tabs[0]!.id);
   const [hide, setHide] = useState(false);
-  const touch = useRef<{ x: number; y: number } | null>(null);
-
-  // Keep the tab the operator was on across refreshes.
-  useEffect(() => {
-    const saved = localStorage.getItem(TAB_KEY);
-    if (saved && tabs.some((t) => t.id === saved)) setTab(saved);
-  }, []);
-  useEffect(() => {
-    localStorage.setItem(TAB_KEY, tab);
-  }, [tab]);
-
-  const index = tabs.findIndex((t) => t.id === tab);
-  const go = (dir: 1 | -1) => {
-    const next = tabs[Math.min(tabs.length - 1, Math.max(0, index + dir))];
-    if (next) setTab(next.id);
-  };
 
   const { user } = useAuth();
   const goalPct = Math.max(
@@ -112,10 +50,8 @@ function Home() {
   const recent = [...state.txs].sort((a, b) => b.ts - a.ts).slice(0, 6);
   const expectedItemProfit = state.items.reduce((sum, item) => sum + item.qty * item.sell - item.buy, 0);
   const realizedItemProfit = state.items.reduce((sum, item) => sum + (item.realizedProfit ?? 0), 0);
-  const active = tabs[index]!;
-
-  const tour = useTour("operator-home", user?.id, true);
-  const steps = React.useMemo(() => tourSteps(setTab), []);
+  const tour = useTour("operator-home-v2", user?.id, true);
+  const steps = React.useMemo(() => tourSteps(), []);
 
 
   const hero = (
@@ -192,45 +128,12 @@ function Home() {
       >
         <Icon name="tips_and_updates" className="text-[18px]" /> Show me around this app
       </button>
-      <div className="-mx-3 overflow-x-auto px-3 sm:-mx-4 sm:px-4 md:mx-0 md:px-0">
-        <div role="tablist" aria-label="Shortcuts" data-tour="tabs" className="flex min-w-max gap-1 border-b border-outline-variant/50">
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              role="tab"
-              aria-selected={t.id === tab}
-              onClick={() => setTab(t.id)}
-              className={`relative min-h-11 px-3 pb-2 pt-1 text-xs font-bold tracking-wide transition-colors sm:text-sm ${
-                t.id === tab ? "text-primary" : "text-on-surface-variant"
-              }`}
-            >
-              {t.label}
-              {t.id === tab ? (
-                <span className="absolute inset-x-2 -bottom-px h-1 rounded-full bg-secondary-container" />
-              ) : null}
-            </button>
-          ))}
-        </div>
+      <div className="flex items-end justify-between px-1">
+        <h2 className="label-bold text-on-surface-variant">Daily actions</h2>
+        <Link to="/settings" className="text-sm font-bold text-primary">More</Link>
       </div>
-
-      <section
-        data-tour="tiles"
-        className="grid grid-cols-3 gap-2 sm:grid-cols-4 sm:gap-sm lg:grid-cols-6"
-        onTouchStart={(e) => {
-          const t = e.touches[0]!;
-          touch.current = { x: t.clientX, y: t.clientY };
-        }}
-        onTouchEnd={(e) => {
-          const start = touch.current;
-          const t = e.changedTouches[0];
-          if (!start || !t) return;
-          const dx = t.clientX - start.x;
-          const dy = t.clientY - start.y;
-          if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) go(dx < 0 ? 1 : -1);
-          touch.current = null;
-        }}
-      >
-        {active.tiles.map((t, i) => (
+      <section data-tour="tiles" className="grid grid-cols-3 gap-2 sm:grid-cols-6 sm:gap-sm">
+        {dailyActions.map((t, i) => (
           <TileLink
             key={`${t.to}-${i}`}
             to={t.to}
@@ -243,19 +146,6 @@ function Home() {
           </TileLink>
 
         ))}
-      </section>
-      <p className="-mt-2 text-center text-[11px] text-on-surface-variant md:hidden">
-        Swipe left or right to change section
-      </p>
-
-      <section className="flex items-start gap-sm rounded-lg border border-secondary-container/40 bg-secondary-fixed/40 p-sm">
-        <Icon name="lightbulb" className="text-secondary" />
-        <div>
-          <p className="label-bold text-on-secondary-container">Simple Insight</p>
-          <p className="text-sm text-on-surface">
-            Transport is your fastest-growing expense this term. Consider one bulk trip a week.
-          </p>
-        </div>
       </section>
 
       <section className="card grid grid-cols-3 p-md">
