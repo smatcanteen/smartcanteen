@@ -131,6 +131,23 @@ function Login() {
       return;
     }
 
+    // Admin-issued one-time passwords are 10 characters. Accept them here so
+    // a new agent/operator does not have to know which login tab to choose.
+    if (pin.length > 6) {
+      let passwordRes = await login(number, pin);
+      if (!passwordRes.ok && pin !== pin.toUpperCase()) {
+        passwordRes = await login(number, pin.toUpperCase());
+      }
+      setBusy(false);
+      if (!passwordRes.ok) {
+        setError("Phone number or one-time password is not correct.");
+        return;
+      }
+      rememberPhone(number);
+      await goHome(passwordRes.role ?? "operator");
+      return;
+    }
+
     const res = await loginWithPin(number, pin);
     if (!res.ok && res.error?.startsWith("No PIN set yet")) {
       // A newly created or reset account has no saved PIN yet. Let the same
@@ -360,7 +377,7 @@ function Login() {
                       className="mb-1 block text-sm font-bold text-on-surface-variant"
                       htmlFor="pin"
                     >
-                      Your PIN
+                      Your PIN or one-time password
                     </label>
                     <div className="relative">
                       <input
@@ -371,7 +388,7 @@ function Login() {
                         maxLength={32}
                         value={pin}
                         onChange={(e) => setPin(e.target.value.replace(/[^A-Za-z0-9]/g, "").slice(0, 32))}
-                        placeholder="••••"
+                        placeholder="PIN or one-time password"
                         className="h-12 min-h-12 w-full rounded-md border-2 border-outline-variant bg-surface-low px-3 pr-12 text-lg font-bold tracking-[0.4em] text-on-surface outline-none focus:border-primary"
                       />
                       <button
