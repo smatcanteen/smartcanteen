@@ -111,6 +111,8 @@ function Home() {
     Math.min(100, Math.round((cashAtHand / Math.max(1, state.savingsGoal)) * 100)),
   );
   const recent = [...state.txs].sort((a, b) => b.ts - a.ts).slice(0, 6);
+  const expectedItemProfit = state.items.reduce((sum, item) => sum + item.qty * item.sell - item.buy, 0);
+  const realizedItemProfit = state.items.reduce((sum, item) => sum + (item.realizedProfit ?? 0), 0);
   const active = tabs[index]!;
 
   const tour = useTour("operator-home", user?.id, true);
@@ -182,6 +184,18 @@ function Home() {
   return (
     <AppLayout title="SmartCanteen" hero={hero}>
       <Tour steps={steps} open={tour.open} onClose={tour.finish} />
+      <section className="card grid grid-cols-2 divide-x divide-outline-variant/50 p-0">
+        <div className="p-sm text-center">
+          <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Expected Profit</p>
+          <p className="font-bold text-on-surface">UGX {ugx(expectedItemProfit)}</p>
+          <p className="mt-1 text-[10px] text-on-surface-variant">All stock bought this term</p>
+        </div>
+        <div className="p-sm text-center">
+          <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Realized Profit</p>
+          <p className="font-bold text-primary">UGX {ugx(realizedItemProfit)}</p>
+          <p className="mt-1 text-[10px] text-on-surface-variant">Confirmed by stock checks</p>
+        </div>
+      </section>
       <button
         onClick={tour.restart}
         className="flex min-h-11 w-full items-center justify-center gap-2 rounded-md border-2 border-dashed border-outline-variant text-sm font-bold text-primary"
