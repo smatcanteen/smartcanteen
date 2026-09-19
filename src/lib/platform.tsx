@@ -239,6 +239,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   const pendingRef = useRef(false);
 
   useEffect(() => {
+    if (!accountsReady) return;
     let alive = true;
     const localState = () => {
       try {
@@ -268,7 +269,12 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       .then(({ data, error }) => {
         if (!alive) return;
         if (!error && data?.data && Object.keys(data.data as object).length) {
-          setS(clean({ ...seed, ...(data.data as unknown as PlatformState) }));
+          const shared = clean({ ...seed, ...(data.data as unknown as PlatformState) });
+          if (user?.role === "operator") {
+            setS((local) => ({ ...local, announcements: shared.announcements }));
+          } else {
+            setS(shared);
+          }
         }
         setHydrated(true);
       });
@@ -277,7 +283,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       alive = false;
       window.clearTimeout(fallback);
     };
-  }, []);
+  }, [accountsReady, user?.id, user?.role]);
 
   useEffect(() => {
     if (!hydrated) return;
