@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Card, Field, PrimaryButton, SectionTitle, SelectField } from "@/components/ui-kit";
-import { categoryLabels, fmtDate, usePlatform, zones, type AnnouncementAudience, type CategoryTemplate } from "@/lib/platform";
+import { fmtDate, usePlatform, type AnnouncementAudience } from "@/lib/platform";
 
 export const Route = createFileRoute("/admin/announcements")({
   head: () => ({
@@ -22,9 +22,34 @@ export const Route = createFileRoute("/admin/announcements")({
 
 function Announcements() {
   const { s, addAnnouncement, toggleAnnouncement } = usePlatform();
-  const [f, setF] = useState<{ title: string; body: string; audience: AnnouncementAudience; zone: string; category: string; agentId: string }>({
-    title: "", body: "", audience: "operators", zone: "", category: "", agentId: "",
+  const [f, setF] = useState<{ title: string; body: string; audience: AnnouncementAudience; recipientIds: string[] }>({
+    title: "", body: "", audience: "operators", recipientIds: [],
   });
+
+  const recipients = [
+    ...(f.audience !== "agents"
+      ? s.tenants.map((operator) => ({
+          id: `operator:${operator.accountId}`,
+          name: operator.canteenName,
+          detail: `${operator.ownerName} · Canteen operator`,
+        }))
+      : []),
+    ...(f.audience !== "operators"
+      ? s.agents.map((agent) => ({
+          id: `agent:${agent.id}`,
+          name: agent.name,
+          detail: `${agent.territory} · Field agent`,
+        }))
+      : []),
+  ];
+  const selectedIds = f.recipientIds.length ? f.recipientIds : recipients.map((recipient) => recipient.id);
+  const allSelected = recipients.length > 0 && selectedIds.length === recipients.length;
+
+  const changeAudience = (audience: AnnouncementAudience) => setF({ ...f, audience, recipientIds: [] });
+  const toggleRecipient = (id: string) => {
+    const current = f.recipientIds.length ? f.recipientIds : recipients.map((recipient) => recipient.id);
+    setF({ ...f, recipientIds: current.includes(id) ? current.filter((item) => item !== id) : [...current, id] });
+  };
 
   const publish = () => {
     if (!f.title.trim() || !f.body.trim()) return;
@@ -33,12 +58,10 @@ function Announcements() {
       body: f.body.trim(),
       audience: f.audience,
       segment: {
-        ...(f.zone ? { zone: f.zone } : {}),
-        ...(f.category ? { category: f.category as CategoryTemplate } : {}),
-        ...(f.agentId ? { agentId: f.agentId } : {}),
+        recipientIds: selectedIds,
       },
     });
-    setF({ title: "", body: "", audience: "operators", zone: "", category: "", agentId: "" });
+    setF({ title: "", body: "", audience: "operators", recipientIds: [] });
   };
 
   return (
@@ -54,7 +77,7 @@ function Announcements() {
         <p className="text-xs text-on-surface-variant">
           Publish one clear banner to canteen operators, field agents, or both groups.
         </p>
-        <SelectField label="Who should see it?" value={f.audience} onChange={(e) => setF({ ...f, audience: e.target.value as AnnouncementAudience })}>
+        <SelectField label="Who should see it?" value={f.audience} onChange={(e) => changeAudience(e.target.value as AnnouncementAudience)}>
           <option value="operators">Canteen operators</option>
           <option value="agents">Field agents</option>
           <option value="both">Operators and agents</option>
@@ -69,33 +92,46 @@ function Announcements() {
             className="mt-1 w-full rounded-md border-2 border-outline-variant bg-surface-lowest p-3 text-sm font-normal text-on-surface"
           />
         </label>
-        <div className="grid gap-sm sm:grid-cols-3">
-          <SelectField label="Operator zone" value={f.zone} disabled={f.audience === "agents"} onChange={(e) => setF({ ...f, zone: e.target.value })}>
-            <option value="">All zones</option>
-            {zones.map((z) => (
-              <option key={z} value={z}>
-                {z}
-              </option>
-            ))}
-          </SelectField>
-          <SelectField label="Canteen type" value={f.category} disabled={f.audience === "agents"} onChange={(e) => setF({ ...f, category: e.target.value })}>
-            <option value="">All categories</option>
-            {(Object.keys(categoryLabels) as CategoryTemplate[]).map((c) => (
-              <option key={c} value={c}>
-                {categoryLabels[c]}
-              </option>
-            ))}
-          </SelectField>
-          <SelectField label={f.audience === "agents" ? "Field agent" : "Assigned agent"} value={f.agentId} onChange={(e) => setF({ ...f, agentId: e.target.value })}>
-            <option value="">All agents</option>
-            {s.agents.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </SelectField>
+        <div className="space-y-2 rounded-md border border-outline-variant bg-surface-lowest p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-bold text-on-surface">
+                Recipients · {selectedIds.length} of {recipients.length}
+              </p>
+              <p className="text-xs text-on-surface-variant">
+                {f.audience === "agents" ? "Field agents" : f.audience === "operators" ? "Canteen operators" : "Operators and field agents"}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setF({ ...f, recipientIds: allSelected ? ["__none__"] : [] })}
+              className="text-xs font-bold text-primary underline"
+            >
+              {allSelected ? "Clear all" : "Select all"}
+            </button>
+          </div>
+          {recipients.length === 0 ? (
+            <p className="rounded-md bg-secondary/10 p-3 text-sm font-bold text-secondary">No matching accounts are available.</p>
+          ) : (
+            <div className="max-h-56 space-y-1 overflow-y-auto pr-1">
+              {recipients.map((recipient) => (
+                <label key={recipient.id} className="flex cursor-pointer items-center gap-3 rounded-md border border-outline-variant bg-surface p-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(recipient.id)}
+                    onChange={() => toggleRecipient(recipient.id)}
+                    className="h-5 w-5 accent-primary"
+                  />
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-bold text-on-surface">{recipient.name}</span>
+                    <span className="block truncate text-xs text-on-surface-variant">{recipient.detail}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
         </div>
-        <PrimaryButton onClick={publish}>Publish</PrimaryButton>
+        <PrimaryButton onClick={publish} disabled={!recipients.length || selectedIds.length === 0}>Publish to {selectedIds.length} recipient{selectedIds.length === 1 ? "" : "s"}</PrimaryButton>
       </Card>
 
       <div className="space-y-sm">
@@ -109,8 +145,7 @@ function Announcements() {
               </p>
               <p className="mt-1 text-xs text-outline">
                 Posted {fmtDate(a.ts)}
-                {a.segment.zone ? ` · ${a.segment.zone}` : ""}
-                {a.segment.category ? ` · ${categoryLabels[a.segment.category]}` : ""}
+                {a.segment.recipientIds?.length ? ` · ${a.segment.recipientIds.length} recipients` : " · All matching accounts"}
               </p>
             </div>
             <button
