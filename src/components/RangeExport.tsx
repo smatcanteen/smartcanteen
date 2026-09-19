@@ -31,8 +31,8 @@ export function useRange(termStartedAt?: number) {
     }
     if (key === "Custom") {
       const a = startOfDay(fromDateInput(from));
-      const b = endOfDay(fromDateInput(to));
-      return { start: Math.min(a, b), end: Math.max(a, b) };
+      const b = startOfDay(fromDateInput(to));
+      return { start: Math.min(a, b), end: endOfDay(Math.max(a, b)) };
     }
     return { start: termStartedAt ? startOfDay(termStartedAt) : 0, end: endOfDay(now) };
   }, [key, from, to, termStartedAt]);
