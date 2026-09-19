@@ -27,7 +27,19 @@ function Leads() {
   const agentName = (id: string) => s.agents.find((a) => a.id === id)?.name ?? "Unassigned";
 
   return (
-    <div className="grid gap-md md:grid-cols-3 xl:grid-cols-5">
+    <>
+      <div>
+        <p className="text-xs font-bold uppercase tracking-wider text-primary">Field activity</p>
+        <h1 className="text-2xl font-extrabold text-on-surface sm:text-3xl">Lead pipeline</h1>
+        <p className="mt-1 text-sm text-on-surface-variant">Only leads submitted by real field-agent accounts appear here.</p>
+      </div>
+      {s.leads.length === 0 ? (
+        <Card className="py-8 text-center">
+          <p className="font-bold text-on-surface">No leads submitted yet.</p>
+          <p className="mt-1 text-sm text-on-surface-variant">A lead will appear after an agent records a school visit.</p>
+        </Card>
+      ) : (
+      <div className="grid gap-md md:grid-cols-3 xl:grid-cols-5">
       {stages.map((stage) => {
         const items = s.leads.filter((l) => l.stage === stage);
         return (
@@ -69,6 +81,8 @@ function Leads() {
           </div>
         );
       })}
-    </div>
+      </div>
+      )}
+    </>
   );
 }
