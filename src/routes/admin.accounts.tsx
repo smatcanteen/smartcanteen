@@ -459,32 +459,6 @@ function Accounts() {
                     </button>
                   ) : null}
 
-                  {user?.role === "admin" ? (
-                    <button
-                      disabled={busyId === t.accountId}
-                      onClick={async () => {
-                        if (!confirm(`Delete ${t.canteenName} permanently? This cannot be undone.`)) return;
-                        setBusyId(t.accountId);
-                        // Sample rows never had a real login, so a backend
-                        // "not found" must still clear them from the list.
-                        const hasLogin = accounts.some((a) => a.id === t.accountId);
-                        const res = hasLogin ? await removeAccount(t.accountId) : { ok: true };
-                        setBusyId(null);
-                        if (!res.ok) {
-                          setActionError(res.error ?? "Could not delete that account.");
-                          return;
-                        }
-                        setActionError("");
-                        setOpenId(null);
-                        setPicked((p) => p.filter((x) => x !== t.accountId));
-                        removeTenant(t.accountId);
-                        logAction(user?.name ?? "admin", `Deleted account ${t.canteenName}`);
-                      }}
-                      className="min-h-11 rounded-full px-4 text-sm font-bold text-tertiary underline disabled:opacity-50"
-                    >
-                      Delete permanently
-                    </button>
-                  ) : null}
                 </div>
 
                 {actionError ? (
