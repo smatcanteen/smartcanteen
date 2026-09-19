@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 type LeadInput = {
   accessToken: string;
@@ -21,13 +20,6 @@ type TicketInput = {
   createdAt: number;
   messageId: string;
 };
-
-async function readSharedState() {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data, error } = await supabaseAdmin.from("platform_state").select("data").eq("id", "shared").single();
-  if (error) throw new Error(error.message);
-  return { supabaseAdmin, state: (data?.data ?? {}) as any };
-}
 
 export const submitAgentLead = createServerFn({ method: "POST" })
   .inputValidator((data: LeadInput) => data)
@@ -202,6 +194,3 @@ export const updateSupportTicket = createServerFn({ method: "POST" })
     } catch (error) { return { ok: false as const, error: error instanceof Error ? error.message : "Could not update support." }; }
   });
 
-export const submitSupportReply = createServerFn({ method: "POST" })
-  .inputValidator((data: { accessToken: string; ticketId: string; messageId: string; text: string; ts: number }) => data)
-  .handler(async ({ data }) => updateSupportTicket({ data: { accessToken: data.accessToken, accountId: "", ticketId: data.ticketId, message: { id: data.messageId, from: "operator", text: data.text, ts: data.ts } } }) as any);
