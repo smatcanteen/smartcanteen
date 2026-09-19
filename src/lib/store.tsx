@@ -303,7 +303,7 @@ type Ctx = {
   hydrated: boolean;
   cashAtHand: number;
   shelfValueAtCost: number;
-  /** Cash + shelf stock minus what the term started with. */
+  /** Cash profit: sales minus stock purchases and other expenses. */
   termProfit: number;
   totals: { sales: number; expenses: number; stock: number };
   today: { sales: number; expenses: number; net: number };
@@ -998,7 +998,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       hydrated,
       cashAtHand,
       shelfValueAtCost,
-      termProfit: cashAtHand + shelfValueAtCost - capital,
+      termProfit: t.sales - t.expenses - t.stock,
       totals: t,
       today: day,
       addTx,
