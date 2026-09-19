@@ -804,12 +804,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const item = s.items.find((i) => i.id === itemId);
       if (!item) return s;
       const confirmed = Math.max(0, Math.round(counted));
-      const previous = Math.max(0, Math.round(item.lastKnownQuantity ?? item.stock ?? item.qty));
+      const previous = Math.max(0, Math.round(item.lastKnownQuantity ?? item.qty));
       const accountedFor = Math.max(0, previous - confirmed);
       const writtenOff = Math.min(accountedFor, Math.max(0, Math.round(writtenOffUnits)));
       const unitsSold = accountedFor - writtenOff;
       const unitCost = item.qty > 0 ? item.buy / item.qty : 0;
-      const profitAdded = Math.max(0, unitsSold * (item.sell - unitCost));
+      const profitAdded = unitsSold * (item.sell - unitCost);
       const restockQty = Math.max(0, Math.round(restock?.quantity ?? 0));
       const restockCost = Math.max(0, Math.round(restock?.cost ?? 0));
       const when = Date.now();
