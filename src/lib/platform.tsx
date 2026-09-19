@@ -460,6 +460,22 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
 
 
   useEffect(() => {
+    if (!hydrated || !user || ["operator", "agent"].includes(user.role)) return;
+    const channel = supabase
+      .channel("admin-platform-state")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "platform_state", filter: "id=eq.shared" },
+        (payload) => {
+          const data = (payload.new as { data?: PlatformState }).data;
+          if (data) setS(clean({ ...seed, ...data }));
+        },
+      )
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [hydrated, user]);
+
+  useEffect(() => {
     if (!hydrated || user?.role !== "admin") return;
     const expireEndedSubscriptions = () => setS((current) => {
       let changed = false;
