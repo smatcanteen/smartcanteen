@@ -64,36 +64,29 @@ function Stock() {
   const purchases = state.txs
     .filter((t) => t.type === "stock" && range.has(t.ts))
     .sort((a, b) => b.ts - a.ts);
-  const purchaseQuantity = (tx: (typeof purchases)[number]) => {
-    if (tx.units != null) return { value: tx.units, estimated: false };
-    const item = state.items.find((i) => i.id === tx.itemId) ??
-      state.items.find((i) => tx.label.toLowerCase().startsWith(i.name.toLowerCase()));
-    const unitCost = item && item.qty > 0 ? item.buy / item.qty : 0;
-    return unitCost > 0
-      ? { value: Math.max(1, Math.round(tx.amount / unitCost)), estimated: true }
-      : { value: "Not recorded", estimated: false };
-  };
+  const purchaseQuantity = (tx: (typeof purchases)[number]) =>
+    tx.units != null ? { value: tx.units, recorded: true } : { value: "Not recorded", recorded: false };
   const purchaseRows = purchases.map((t) => {
     const quantity = purchaseQuantity(t);
     return [
       new Date(t.ts).toLocaleDateString("en-GB"),
       t.label.replace(/\s+restock$/i, ""),
-      quantity.estimated ? `${quantity.value} estimated` : quantity.value,
+      quantity.value,
       t.amount,
     ];
   });
   const purchaseSummary = Object.values(
-    purchases.reduce<Record<string, { item: string; quantity: number; cost: number; estimated: boolean }>>(
+    purchases.reduce<Record<string, { item: string; quantity: number; cost: number; incomplete: boolean }>>(
       (summary, tx) => {
         const item = state.items.find((i) => i.id === tx.itemId) ??
           state.items.find((i) => tx.label.toLowerCase().startsWith(i.name.toLowerCase()));
         const name = item?.name ?? tx.label.replace(/\s+restock$/i, "");
         const quantity = purchaseQuantity(tx);
         const key = item?.id ?? name.toLowerCase();
-        const row = summary[key] ?? { item: name, quantity: 0, cost: 0, estimated: false };
+        const row = summary[key] ?? { item: name, quantity: 0, cost: 0, incomplete: false };
         row.quantity += typeof quantity.value === "number" ? quantity.value : 0;
         row.cost += tx.amount;
-        row.estimated ||= quantity.estimated || typeof quantity.value !== "number";
+        row.incomplete ||= !quantity.recorded;
         summary[key] = row;
         return summary;
       },
@@ -104,20 +97,20 @@ function Stock() {
   const totalPurchaseCost = purchaseSummary.reduce((sum, row) => sum + row.cost, 0);
   const purchaseSummaryRows = purchaseSummary.map((row) => [
     row.item,
-    row.estimated ? `${row.quantity} estimated` : row.quantity,
+    row.incomplete ? `${row.quantity} recorded + older quantity unavailable` : row.quantity,
     row.cost,
   ]);
   const stockSheet: Sheet = {
     name: "Stock purchases",
     columns: ["Date", "Item", "Quantity", "Cost (UGX)"],
     rows: purchaseRows,
-    summary: [["Period", range.label], ["Total quantity bought", totalPurchaseQuantity], ["Total purchase cost", `UGX ${ugx(totalPurchaseCost)}`]],
+    summary: [["Period", range.label], ["Recorded quantity bought", totalPurchaseQuantity], ["Total purchase cost", `UGX ${ugx(totalPurchaseCost)}`]],
   };
   const stockSummarySheet: Sheet = {
     name: "Purchases by item",
     columns: ["Item", "Total quantity", "Total cost (UGX)"],
     rows: purchaseSummaryRows,
-    summary: [["Period", range.label], ["Total quantity bought", totalPurchaseQuantity], ["Total purchase cost", `UGX ${ugx(totalPurchaseCost)}`]],
+    summary: [["Period", range.label], ["Recorded quantity bought", totalPurchaseQuantity], ["Total purchase cost", `UGX ${ugx(totalPurchaseCost)}`]],
   };
 
   const openCheck = (item: StockItem) => {
@@ -156,7 +149,7 @@ function Stock() {
         <div className="flex items-end justify-between gap-3">
           <SectionTitle>Purchases by item</SectionTitle>
           <div className="text-right text-xs text-on-surface-variant">
-            <p><strong className="text-on-surface">{totalPurchaseQuantity}</strong> units</p>
+            <p><strong className="text-on-surface">{totalPurchaseQuantity}</strong> recorded units</p>
             <p><strong className="text-on-surface">UGX {ugx(totalPurchaseCost)}</strong> total cost</p>
           </div>
         </div>
@@ -171,9 +164,9 @@ function Stock() {
       <Card className="space-y-sm overflow-hidden">
         <SectionTitle>Purchase entries</SectionTitle>
         <DataTable columns={["Date", "Item", "Quantity", "Cost (UGX)"]} rows={purchaseRows} pageSize={8} />
-        {purchases.some((t) => purchaseQuantity(t).estimated) && (
+        {purchases.some((t) => !purchaseQuantity(t).recorded) && (
           <p className="text-xs text-on-surface-variant">
-            “Estimated” quantities are older purchases calculated from the item’s average buying price.
+            Older purchases without a saved quantity show “Not recorded.” They are excluded from quantity totals but remain included in cost totals.
           </p>
         )}
       </Card>
