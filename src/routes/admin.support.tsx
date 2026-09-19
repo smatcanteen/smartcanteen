@@ -1,10 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { Card, Field, SectionTitle, SelectField } from "@/components/ui-kit";
 import { Pill } from "@/components/AdminShell";
 import { useAuth } from "@/lib/auth";
-import { fmtDate, usePlatform, type Ticket } from "@/lib/platform";
+import { fmtDate, type Ticket } from "@/lib/platform";
+import { listSupportTickets, updateSupportTicket } from "@/lib/platform.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/admin/support")({
   head: () => ({
@@ -27,20 +29,46 @@ const tone = (s: Ticket["status"]) => (s === "resolved" ? "good" : s === "open" 
 
 function Support() {
   const { user, accounts } = useAuth();
-  const { s, replyTicket, setTicketStatus } = usePlatform();
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [loadError, setLoadError] = useState("");
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<"all" | Ticket["status"]>("all");
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data.session?.access_token;
+      if (!accessToken) return;
+      const result = await listSupportTickets({ data: { accessToken } });
+      if (!active) return;
+      if (result.ok) { setTickets(result.tickets as Ticket[]); setLoadError(""); }
+      else setLoadError(result.error);
+    };
+    void load();
+    const timer = window.setInterval(() => void load(), 3000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, []);
+
+  const saveTicket = async (ticket: Ticket, change: { message?: { id: string; from: "admin"; text: string; ts: number }; status?: Ticket["status"]; assignedTo?: string | null }) => {
+    const { data } = await supabase.auth.getSession();
+    const accessToken = data.session?.access_token;
+    if (!accessToken) return setLoadError("Admin login expired. Log in again.");
+    const result = await updateSupportTicket({ data: { accessToken, accountId: ticket.accountId, ticketId: ticket.id, ...change } });
+    if (!result.ok) setLoadError(result.error);
+    else setTickets((items) => items.map((item) => item.id !== ticket.id ? item : { ...item, status: change.status ?? (change.message ? "in_progress" : item.status), assignedTo: change.assignedTo !== undefined ? change.assignedTo : item.assignedTo, messages: change.message ? [...item.messages, change.message] : item.messages }));
+  };
+
   const staff = accounts.filter((account) => ["admin", "support"].includes(account.role) && account.active);
-  const visible = s.tickets.filter((ticket) => {
+  const visible = tickets.filter((ticket) => {
     if (status !== "all" && ticket.status !== status) return false;
     const haystack = `${ticket.subject} ${ticket.accountName} ${ticket.assignedTo ?? ""}`.toLowerCase();
     return !query || haystack.includes(query.toLowerCase());
   });
   const counts = {
-    open: s.tickets.filter((ticket) => ticket.status === "open").length,
-    inProgress: s.tickets.filter((ticket) => ticket.status === "in_progress").length,
-    resolved: s.tickets.filter((ticket) => ticket.status === "resolved").length,
+    open: tickets.filter((ticket) => ticket.status === "open").length,
+    inProgress: tickets.filter((ticket) => ticket.status === "in_progress").length,
+    resolved: tickets.filter((ticket) => ticket.status === "resolved").length,
   };
 
   return (
@@ -67,9 +95,10 @@ function Support() {
         </SelectField>
       </Card>
 
+      {loadError ? <Card className="border-tertiary/30 text-sm font-bold text-tertiary">{loadError}</Card> : null}
       <SectionTitle>{visible.length} conversation{visible.length === 1 ? "" : "s"}</SectionTitle>
-      {s.tickets.length === 0 ? <Card>No support messages have been submitted.</Card> : null}
-      {s.tickets.length > 0 && visible.length === 0 ? <Card>No conversations match these filters.</Card> : null}
+      {tickets.length === 0 ? <Card>No support messages have been submitted.</Card> : null}
+      {tickets.length > 0 && visible.length === 0 ? <Card>No conversations match these filters.</Card> : null}
       {visible.map((t) => (
         <Card key={t.id} className="space-y-sm">
           <div className="flex flex-wrap items-start justify-between gap-2">
@@ -85,7 +114,7 @@ function Support() {
               <select
                 aria-label={`Assign ${t.subject}`}
                 value={t.assignedTo ?? ""}
-                onChange={(event) => setTicketStatus(t.id, t.status === "open" ? "in_progress" : t.status, event.target.value)}
+                onChange={(event) => void saveTicket(t, { status: t.status === "open" ? "in_progress" : t.status, assignedTo: event.target.value || null })}
                 className="h-10 rounded-md border-2 border-outline-variant bg-surface-lowest px-2 text-xs font-semibold text-on-surface"
               >
                 <option value="">Unassigned</option>
@@ -93,13 +122,13 @@ function Support() {
               </select>
               {t.status !== "resolved" ? (
                 <button
-                  onClick={() => setTicketStatus(t.id, "resolved", user?.name ?? "admin")}
+                  onClick={() => void saveTicket(t, { status: "resolved", assignedTo: user?.name ?? "admin" })}
                   className="text-xs font-bold text-primary underline"
                 >
                   Mark resolved
                 </button>
               ) : (
-                <button onClick={() => setTicketStatus(t.id, "open")} className="text-xs font-bold text-primary underline">
+                <button onClick={() => void saveTicket(t, { status: "open" })} className="text-xs font-bold text-primary underline">
                   Reopen
                 </button>
               )}
@@ -134,8 +163,8 @@ function Support() {
               onClick={() => {
                 const text = (draft[t.id] ?? "").trim();
                 if (!text) return;
-                replyTicket(t.id, "admin", text);
-                setTicketStatus(t.id, "in_progress", user?.name ?? "admin");
+                const message = { id: crypto.randomUUID(), from: "admin" as const, text, ts: Date.now() };
+                void saveTicket(t, { message, status: "in_progress", assignedTo: user?.name ?? "admin" });
                 setDraft({ ...draft, [t.id]: "" });
               }}
               className="flex h-12 w-12 items-center justify-center rounded-md bg-primary text-on-primary"
