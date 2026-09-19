@@ -62,6 +62,8 @@ function AgentDashboard() {
   const navigate = useNavigate();
   const [tab, setTab] = useState<"leads" | "accounts" | "earnings" | "training">("leads");
   const [lead, setLead] = useState({ school: "", contactName: "", phone: "" });
+  const [leadSaving, setLeadSaving] = useState(false);
+  const [leadResult, setLeadResult] = useState<{ ok: boolean; text: string } | null>(null);
   const [answers, setAnswers] = useState<number[]>([]);
   const [online, setOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine);
 
@@ -180,21 +182,34 @@ function AgentDashboard() {
                 <Field label="Contact name" value={lead.contactName} onChange={(e) => setLead({ ...lead, contactName: e.target.value })} />
                 <Field label="Phone" value={lead.phone} onChange={(e) => setLead({ ...lead, phone: e.target.value })} />
               </div>
+              {leadResult ? (
+                <p className={`rounded-md px-3 py-2 text-sm font-bold ${leadResult.ok ? "bg-primary/10 text-primary" : "bg-tertiary/10 text-tertiary"}`}>
+                  {leadResult.text}
+                </p>
+              ) : null}
               <PrimaryButton
-                onClick={() => {
-                  if (!lead.school.trim()) return;
-                  addLead({
+                disabled={leadSaving || !online}
+                onClick={async () => {
+                  if (!lead.school.trim() || leadSaving) return;
+                  setLeadSaving(true);
+                  setLeadResult(null);
+                  const result = await addLead({
                     school: lead.school.trim(),
-                    contactName: lead.contactName,
-                    phone: lead.phone,
+                    contactName: lead.contactName.trim(),
+                    phone: lead.phone.trim(),
                     stage: "contacted",
                     agentId: me.id,
-                    ...(online ? {} : { queued: true }),
                   });
+                  setLeadSaving(false);
+                  if (!result.ok) {
+                    setLeadResult({ ok: false, text: result.error ?? "Lead was not sent to Admin. Try again." });
+                    return;
+                  }
+                  setLeadResult({ ok: true, text: `${lead.school.trim()} was saved and sent to Admin.` });
                   setLead({ school: "", contactName: "", phone: "" });
                 }}
               >
-                <Icon name="add" /> Add lead
+                <Icon name="add" /> {leadSaving ? "Sending to Admin…" : online ? "Add lead" : "Reconnect to add lead"}
               </PrimaryButton>
             </Card>
 
