@@ -82,11 +82,42 @@ function Stock() {
       t.amount,
     ];
   });
+  const purchaseSummary = Object.values(
+    purchases.reduce<Record<string, { item: string; quantity: number; cost: number; estimated: boolean }>>(
+      (summary, tx) => {
+        const item = state.items.find((i) => i.id === tx.itemId) ??
+          state.items.find((i) => tx.label.toLowerCase().startsWith(i.name.toLowerCase()));
+        const name = item?.name ?? tx.label.replace(/\s+restock$/i, "");
+        const quantity = purchaseQuantity(tx);
+        const key = item?.id ?? name.toLowerCase();
+        const row = summary[key] ?? { item: name, quantity: 0, cost: 0, estimated: false };
+        row.quantity += typeof quantity.value === "number" ? quantity.value : 0;
+        row.cost += tx.amount;
+        row.estimated ||= quantity.estimated || typeof quantity.value !== "number";
+        summary[key] = row;
+        return summary;
+      },
+      {},
+    ),
+  ).sort((a, b) => b.cost - a.cost);
+  const totalPurchaseQuantity = purchaseSummary.reduce((sum, row) => sum + row.quantity, 0);
+  const totalPurchaseCost = purchaseSummary.reduce((sum, row) => sum + row.cost, 0);
+  const purchaseSummaryRows = purchaseSummary.map((row) => [
+    row.item,
+    row.estimated ? `${row.quantity} estimated` : row.quantity,
+    row.cost,
+  ]);
   const stockSheet: Sheet = {
     name: "Stock purchases",
     columns: ["Date", "Item", "Quantity", "Cost (UGX)"],
     rows: purchaseRows,
-    summary: [["Period", range.label], ["Total stocked", `UGX ${ugx(purchases.reduce((a, t) => a + t.amount, 0))}`]],
+    summary: [["Period", range.label], ["Total quantity bought", totalPurchaseQuantity], ["Total purchase cost", `UGX ${ugx(totalPurchaseCost)}`]],
+  };
+  const stockSummarySheet: Sheet = {
+    name: "Purchases by item",
+    columns: ["Item", "Total quantity", "Total cost (UGX)"],
+    rows: purchaseSummaryRows,
+    summary: [["Period", range.label], ["Total quantity bought", totalPurchaseQuantity], ["Total purchase cost", `UGX ${ugx(totalPurchaseCost)}`]],
   };
 
   const openCheck = (item: StockItem) => {
@@ -119,10 +150,26 @@ function Stock() {
 
   return (
     <AppLayout title="Stock">
-      <RangeBar range={range} title={`Stock purchases — ${range.label}`} sheets={[stockSheet]} baseName="smartcanteen-stock" />
+      <RangeBar range={range} title={`Stock purchases — ${range.label}`} sheets={[stockSheet, stockSummarySheet]} baseName="smartcanteen-stock" />
 
       <Card className="space-y-sm overflow-hidden">
-        <SectionTitle>Daily stock purchases</SectionTitle>
+        <div className="flex items-end justify-between gap-3">
+          <SectionTitle>Purchases by item</SectionTitle>
+          <div className="text-right text-xs text-on-surface-variant">
+            <p><strong className="text-on-surface">{totalPurchaseQuantity}</strong> units</p>
+            <p><strong className="text-on-surface">UGX {ugx(totalPurchaseCost)}</strong> total cost</p>
+          </div>
+        </div>
+        <DataTable
+          columns={["Item", "Total quantity", "Total cost (UGX)"]}
+          rows={purchaseSummaryRows}
+          pageSize={8}
+          empty="No stock purchases in this period."
+        />
+      </Card>
+
+      <Card className="space-y-sm overflow-hidden">
+        <SectionTitle>Purchase entries</SectionTitle>
         <DataTable columns={["Date", "Item", "Quantity", "Cost (UGX)"]} rows={purchaseRows} pageSize={8} />
         {purchases.some((t) => purchaseQuantity(t).estimated) && (
           <p className="text-xs text-on-surface-variant">
