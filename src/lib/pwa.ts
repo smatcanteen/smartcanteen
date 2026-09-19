@@ -30,7 +30,7 @@ async function unregisterAppWorker() {
   const regs = await navigator.serviceWorker.getRegistrations();
   await Promise.allSettled(
     regs
-      .filter((r) => (r.active?.scriptURL ?? r.installing?.scriptURL ?? "").endsWith("/sw.js"))
+      .filter((r) => /\/(?:sw|service-worker)\.js$/.test(r.active?.scriptURL ?? r.installing?.scriptURL ?? ""))
       .map((r) => r.unregister()),
   );
 }
@@ -43,7 +43,7 @@ export function registerAppServiceWorker() {
     return;
   }
   window.addEventListener("load", () => {
-    void navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {
+    void navigator.serviceWorker.register("/service-worker.js", { scope: "/" }).catch(() => {
       /* offline support is a bonus, never a blocker */
     });
   });
