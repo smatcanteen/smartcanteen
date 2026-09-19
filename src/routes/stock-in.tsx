@@ -83,6 +83,7 @@ function StockIn() {
       sell: Number(l.sell) || 0,
     };
   });
+  const totalUnits = parsed.reduce((a, l) => a + l.qty, 0);
   const cost = parsed.reduce((a, l) => a + l.buy, 0);
   const revenue = parsed.reduce((a, l) => a + l.qty * l.sell, 0);
   const profit = revenue - cost;
@@ -304,6 +305,7 @@ function StockIn() {
       </button>
 
       <Card className="space-y-2 bg-surface-low">
+        <Row label="Total quantity being saved" value={`${ugx(totalUnits)} sellable units`} />
         <Row label="Total spent" value={`UGX ${ugx(cost)}`} />
         <Row label="Expected revenue" value={`UGX ${ugx(revenue)}`} />
         <Row label="Expected profit" value={`UGX ${ugx(profit)}`} strong />
