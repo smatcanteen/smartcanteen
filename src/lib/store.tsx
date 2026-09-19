@@ -264,33 +264,64 @@ export const emptyState = (): State => ({
  */
 export function seedAccountBook(
   userId: string,
-  opts: { capital: number; termName: string; goal?: number },
+  opts: {
+    capital: number;
+    termName: string;
+    goal?: number;
+    stock?: { name: string; qty: number; buy: number; sell: number }[];
+  },
 ) {
   const base = emptyState();
   const capital = Math.max(0, Math.round(opts.capital || 0));
+  const now = Date.now();
+  const stock = (opts.stock ?? []).filter((item) => item.name.trim() && item.qty > 0);
+  const items: StockItem[] = stock.map((item) => ({
+    id: Math.random().toString(36).slice(2, 10),
+    name: item.name.trim(),
+    qty: item.qty,
+    stock: item.qty,
+    buy: item.buy,
+    sell: item.sell,
+    pack: "Unit",
+    unitsPerPack: 1,
+  }));
   const next: State = {
     ...base,
     termName: opts.termName,
     capital,
     savingsGoal: opts.goal || capital * 2,
     setupDone: capital > 0 && !!opts.termName,
-    txs: capital
-      ? [
-          {
-            id: Math.random().toString(36).slice(2, 10),
-            type: "capital",
-            label: "Opening term capital",
-            amount: capital,
-            ts: Date.now(),
-          },
-        ]
-      : [],
+    items,
+    savedItems: items.map((item) => ({
+      id: Math.random().toString(36).slice(2, 10),
+      name: item.name,
+      buy: item.qty > 0 ? Math.round(item.buy / item.qty) : 0,
+      sell: item.sell,
+      pack: "Unit",
+      unitsPerPack: 1,
+    })),
+    txs: [
+      ...(capital
+        ? [{ id: Math.random().toString(36).slice(2, 10), type: "capital" as TxType, label: "Opening term capital", amount: capital, ts: now }]
+        : []),
+      ...items.map((item) => ({
+        id: Math.random().toString(36).slice(2, 10),
+        type: "stock" as TxType,
+        label: `${item.name} opening stock`,
+        amount: item.buy,
+        itemId: item.id,
+        units: item.qty,
+        sell: item.sell,
+        ts: now,
+      })),
+    ],
   };
   try {
     localStorage.setItem(storeKeyFor(userId), JSON.stringify(next));
   } catch {
     /* ignore */
   }
+  return next;
 }
 
 /** Only the seeded demo operator sees the sample cash book. */
