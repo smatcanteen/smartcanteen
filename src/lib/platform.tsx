@@ -104,12 +104,15 @@ export type Ticket = {
   createdAt: number;
 };
 
+export type AnnouncementAudience = "operators" | "agents" | "both";
+
 export type Announcement = {
   id: string;
   title: string;
   body: string;
   active: boolean;
   ts: number;
+  audience?: AnnouncementAudience;
   segment: { zone?: string; category?: CategoryTemplate; agentId?: string };
 };
 
@@ -263,7 +266,12 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         tenants: saved.tenants.filter((tenant) => !isLegacyDemoId(tenant.accountId)),
         agents: saved.agents.filter((agent) => !isLegacyDemoId(agent.accountId)),
         commissions: saved.commissions.filter((commission) => !isLegacyDemoId(commission.accountId)),
+        leads: saved.leads.filter((lead) => saved.agents.some((agent) => !isLegacyDemoId(agent.accountId) && agent.id === lead.agentId)),
         tickets: saved.tickets.filter((ticket) => !isLegacyDemoId(ticket.accountId)),
+        announcements: saved.announcements.map((announcement) => ({
+          ...announcement,
+          audience: announcement.audience ?? "operators",
+        })),
       };
     };
     setS(clean(localState()));
@@ -410,6 +418,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         commissions: current.commissions.filter(
           (commission) => tenantIds.has(commission.accountId) && keptAgentIds.has(commission.agentId),
         ),
+        leads: current.leads.filter((lead) => keptAgentIds.has(lead.agentId)),
         tickets: current.tickets.filter((ticket) => tenantIds.has(ticket.accountId)),
       };
       if (
