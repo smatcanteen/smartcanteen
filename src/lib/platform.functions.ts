@@ -33,12 +33,17 @@ export const submitAgentLead = createServerFn({ method: "POST" })
   .inputValidator((data: LeadInput) => data)
   .handler(async ({ data, context }) => {
     const { supabaseAdmin, state } = await readSharedState();
+    const { data: roles } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", context.userId);
+    if (!(roles ?? []).some((row: any) => row.role === "agent")) {
+      return { ok: false as const, error: "This login is not connected to a Field Agent account." };
+    }
     const agents = Array.isArray(state.agents) ? state.agents : [];
-    const agent = agents.find((item: any) => item.id === data.agentId && item.accountId === context.userId && item.status === "certified");
-    if (!agent) return { ok: false as const, error: "Your certified Agent account was not found." };
+    const agent = agents.find((item: any) => item.accountId === context.userId);
+    if (!agent) return { ok: false as const, error: "This Field Agent login is not linked to the Admin agent list." };
+    if (agent.status === "suspended") return { ok: false as const, error: "This Field Agent account is suspended." };
     const leads = Array.isArray(state.leads) ? state.leads : [];
     if (!leads.some((lead: any) => lead.id === data.id)) {
-      leads.unshift({ ...data, notes: [], queued: false });
+      leads.unshift({ ...data, agentId: agent.id, notes: [], queued: false });
     }
     const { error } = await supabaseAdmin.from("platform_state").update({ data: { ...state, leads }, updated_at: new Date().toISOString() }).eq("id", "shared");
     return error ? { ok: false as const, error: error.message } : { ok: true as const };
