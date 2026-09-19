@@ -11,6 +11,7 @@ import { loginLink, whatsappLink } from "@/lib/invite";
 import {
   categoryLabels,
   checklistDone,
+  effectiveTenantStatus,
   fmtDate,
   statusLabels,
   tagLabels,
@@ -43,12 +44,12 @@ const filters: { key: TenantStatus | "all"; label: string }[] = [
   { key: "trial", label: "Trial" },
   { key: "past_due", label: "Past due" },
   { key: "suspended", label: "Suspended" },
+  { key: "churned", label: "Deactivated" },
 ];
 
 function Accounts() {
-  const { user, accounts, toggleAccount, removeAccount, resendOtp } = useAuth();
-  const { s, updateTenant, removeTenant, toggleTag, bulkStatus, addTenantNote, logAction } =
-    usePlatform();
+  const { user, accounts, toggleAccount, resendOtp } = useAuth();
+  const { s, updateTenant, toggleTag, addTenantNote, logAction } = usePlatform();
   type Progress = {
     accountId: string;
     entries: number;
@@ -98,9 +99,10 @@ function Accounts() {
         .filter((tenant) => existingOperatorIds.has(tenant.accountId))
         .map((t) => {
           const p = live[t.accountId];
-          return p
+          const merged = p
             ? { ...t, checklist: p.checklist, entries: p.entries, lastLoginAt: p.lastLoginAt }
             : t;
+          return { ...merged, status: effectiveTenantStatus(merged) };
         })
         .filter((t) => {
           const hay = `${t.canteenName} ${t.school} ${t.ownerName} ${t.phone}`.toLowerCase();
@@ -115,6 +117,29 @@ function Accounts() {
 
   const toggle = (id: string) =>
     setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
+
+  const renewalDate = (tenant: (typeof rows)[number]) => {
+    const from = new Date(Math.max(Date.now(), tenant.nextBillingAt));
+    from.setMonth(from.getMonth() + 4);
+    return from.getTime();
+  };
+
+  const renew = async (tenant: (typeof rows)[number]) => {
+    updateTenant(tenant.accountId, { status: "active", trialEndsAt: null, nextBillingAt: renewalDate(tenant) });
+    const account = accounts.find((item) => item.id === tenant.accountId);
+    if (account && !account.active) await toggleAccount(tenant.accountId);
+    logAction(user?.name ?? "admin", `Renewed ${tenant.canteenName} for 4 months`);
+  };
+
+  const deactivate = (tenant: (typeof rows)[number]) => {
+    updateTenant(tenant.accountId, { status: "churned", trialEndsAt: null, nextBillingAt: Date.now() });
+    logAction(user?.name ?? "admin", `Deactivated ${tenant.canteenName} subscription; past records remain read-only`);
+  };
+
+  const counts = rows.reduce(
+    (total, tenant) => ({ ...total, [tenant.status]: (total[tenant.status] ?? 0) + 1 }),
+    {} as Record<string, number>,
+  );
 
   return (
     <>
@@ -150,12 +175,27 @@ function Accounts() {
         </div>
       </div>
 
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+        {[
+          ["Active", counts.active ?? 0, "text-primary"],
+          ["Trial", counts.trial ?? 0, "text-on-surface"],
+          ["Expired", counts.past_due ?? 0, "text-secondary"],
+          ["Suspended", counts.suspended ?? 0, "text-tertiary"],
+          ["Deactivated", counts.churned ?? 0, "text-on-surface-variant"],
+        ].map(([label, value, tone]) => (
+          <Card key={String(label)} className="p-3">
+            <p className="text-xs font-bold text-on-surface-variant">{label}</p>
+            <p className={`text-2xl font-extrabold ${tone}`}>{value}</p>
+          </Card>
+        ))}
+      </div>
+
       {picked.length ? (
         <Card className="flex flex-wrap items-center gap-sm">
           <span className="text-sm font-bold text-on-surface">{picked.length} selected</span>
           <button
             onClick={() => {
-              bulkStatus(picked, "active");
+              rows.filter((tenant) => picked.includes(tenant.accountId)).forEach((tenant) => void renew(tenant));
               setPicked([]);
             }}
             className="min-h-11 rounded-full bg-primary px-4 text-sm font-bold text-on-primary"
@@ -165,12 +205,12 @@ function Accounts() {
           {can(user?.role, "suspend") ? (
             <button
               onClick={() => {
-                bulkStatus(picked, "suspended");
+                rows.filter((tenant) => picked.includes(tenant.accountId)).forEach(deactivate);
                 setPicked([]);
               }}
               className="min-h-11 rounded-full bg-tertiary px-4 text-sm font-bold text-on-tertiary"
             >
-              Suspend
+              Deactivate subscriptions
             </button>
           ) : null}
           <button onClick={() => setPicked([])} className="min-h-11 px-3 text-sm font-bold text-primary">
