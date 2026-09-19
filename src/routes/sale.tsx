@@ -2,7 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { AppLayout, Saved } from "@/components/AppLayout";
 import { Icon } from "@/components/Icon";
-import { Card, Field, Keypad, MicButton, PrimaryButton } from "@/components/ui-kit";
+import { Card, Field, Keypad, MicButton, PrimaryButton, SectionTitle } from "@/components/ui-kit";
+import { DataTable, RangeBar, useRange } from "@/components/RangeExport";
+import type { Sheet } from "@/lib/export";
 import { parseAmount } from "@/lib/voice";
 import { useDraft } from "@/lib/draft";
 import { dateInput, fromDateInput, ugx, useStore } from "@/lib/store";
@@ -52,6 +54,27 @@ function Sale() {
   const setPicked = (fn: (p: Record<string, number>) => Record<string, number>) =>
     draft.setValue((v) => ({ ...v, picked: fn(v.picked) }));
   const [saved, setSaved] = useState(false);
+  const range = useRange(state.termStartedAt);
+  const sales = state.txs.filter((t) => t.type === "sale" && range.has(t.ts));
+  const daily = Object.entries(
+    sales.reduce<Record<string, number>>((all, t) => {
+      const day = new Date(t.ts).toLocaleDateString("en-GB");
+      all[day] = (all[day] ?? 0) + t.amount;
+      return all;
+    }, {}),
+  );
+  const selectedTotal = sales.reduce((a, t) => a + t.amount, 0);
+  const previousTotal = state.txs
+    .filter((t) => t.type === "sale" && t.ts >= range.previous.start && t.ts <= range.previous.end)
+    .reduce((a, t) => a + t.amount, 0);
+  const difference = selectedTotal - previousTotal;
+  const change = previousTotal ? (difference / previousTotal) * 100 : selectedTotal ? 100 : 0;
+  const salesSheet: Sheet = {
+    name: "Daily sales",
+    columns: ["Date", "Total sold (UGX)"],
+    rows: daily,
+    summary: [["Period", range.label], ["Total sold", `UGX ${ugx(selectedTotal)}`], ["Previous period", `UGX ${ugx(previousTotal)}`]],
+  };
 
   const itemTotal = Object.entries(picked).reduce((a, [id, q]) => {
     const it = state.items.find((i) => i.id === id);
@@ -87,6 +110,15 @@ function Sale() {
 
   return (
     <AppLayout title="Cash Sale" back>
+      <RangeBar range={range} title={`Sales report — ${range.label}`} sheets={[salesSheet]} baseName="smartcanteen-sales" />
+      <Card className="space-y-sm">
+        <SectionTitle>Sales by day</SectionTitle>
+        <p className={`text-sm font-bold ${difference >= 0 ? "text-primary" : "text-tertiary"}`}>
+          {difference >= 0 ? "↑" : "↓"} {difference >= 0 ? "Up" : "Down"} {Math.abs(change).toFixed(0)}% from the preceding period · {difference >= 0 ? "+" : "−"}UGX {ugx(Math.abs(difference))}
+        </p>
+        <DataTable columns={["Date", "Total sold (UGX)"]} rows={daily} pageSize={7} empty="No sales in this period." />
+      </Card>
+
       <div className="flex items-center justify-between rounded-lg bg-surface-container p-1">
         {[
           { l: "Simple", v: false },
