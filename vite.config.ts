@@ -5,7 +5,6 @@
 //     React/TanStack dedupe, error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
-import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
   tanstackStart: {
@@ -13,38 +12,7 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
-  vite: {
-    plugins: [
-      VitePWA({
-        strategies: "generateSW",
-        registerType: "autoUpdate",
-        filename: "sw.js",
-        injectRegister: null,
-        devOptions: { enabled: false },
-        manifest: false,
-        workbox: {
-          globPatterns: ["**/*.{js,css,html,png,svg,woff2}"],
-          navigateFallbackDenylist: [/^\/~oauth/, /^\/api\//, /^\/_serverFn\//],
-          runtimeCaching: [
-            {
-              // HTML navigations must always try the network first.
-              urlPattern: ({ request }) => request.mode === "navigate",
-              handler: "NetworkFirst",
-              options: { cacheName: "smartcanteen-pages", networkTimeoutSeconds: 4 },
-            },
-            {
-              urlPattern: ({ request, url }) =>
-                url.origin === self.location.origin &&
-                ["script", "style", "font", "image"].includes(request.destination),
-              handler: "CacheFirst",
-              options: {
-                cacheName: "smartcanteen-assets",
-                expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
-              },
-            },
-          ],
-        },
-      }),
-    ],
-  },
+  // public/sw.js is deliberately hand-written: every offline navigation falls
+  // back to the cached app shell, including a page not opened before signal loss.
+  vite: {},
 });
