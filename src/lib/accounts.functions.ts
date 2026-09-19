@@ -303,6 +303,25 @@ export const listAccountProgress = createServerFn({ method: "POST" })
     return { ok: true as const, rows };
   });
 
+/** Saves the opening cash book created by staff so it is available on the operator's own device. */
+export const saveInitialAccountBook = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { userId: string; book: Record<string, unknown> }) => data)
+  .handler(async ({ data, context }) => {
+    await assertStaff(context as any);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: roles } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", data.userId);
+    if (!(roles ?? []).some((row: any) => row.role === "operator")) {
+      return { ok: false as const, error: "The selected account is not an operator." };
+    }
+    const { error } = await supabaseAdmin.from("canteen_books").upsert(
+      { user_id: data.userId, data: data.book, updated_at: new Date().toISOString() },
+      { onConflict: "user_id" },
+    );
+    if (error) return { ok: false as const, error: error.message };
+    return { ok: true as const };
+  });
+
 /** How many wrong PIN tries are allowed before the account is locked. */
 export const PIN_MAX_TRIES = 4;
 
