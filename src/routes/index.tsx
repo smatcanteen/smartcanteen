@@ -448,12 +448,3 @@ const tourSteps = (setTab: (id: string) => void): TourStep[] => {
 
 /** Tiles link to both static and dynamic routes, so params are passed loosely. */
 const TileLink = Link as unknown as React.ComponentType<Record<string, unknown>>;
-
-function Kpi({ label, value, tone = "text-on-surface" }: { label: string; value: string; tone?: string }) {
-  return (
-    <div>
-      <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">{label}</p>
-      <p className={`text-sm font-bold ${tone}`}>{value}</p>
-    </div>
-  );
-}
