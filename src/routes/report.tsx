@@ -1,10 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppLayout } from "@/components/AppLayout";
 import { Icon } from "@/components/Icon";
 import { Card, SectionTitle } from "@/components/ui-kit";
+import { RangeBar, useRange } from "@/components/RangeExport";
 import { ugx, useStore } from "@/lib/store";
-import { exportExcel, exportPdf, type Sheet } from "@/lib/export";
+import type { Sheet } from "@/lib/export";
 
 export const Route = createFileRoute("/report")({
   head: () => ({
@@ -20,23 +20,24 @@ export const Route = createFileRoute("/report")({
   component: Report,
 });
 
-const ranges = { Today: 1, Week: 7, Term: 3650 } as const;
-
 function Report() {
-  const { state, cashAtHand, totals } = useStore();
-  const [range, setRange] = useState<keyof typeof ranges>("Term");
-  const since = Date.now() - ranges[range] * 86400000;
-  const inRange = state.txs.filter((t) => t.ts >= since && t.type !== "capital");
+  const { state, totals } = useStore();
+  const range = useRange(state.termStartedAt);
+  const inRange = state.txs.filter((t) => range.has(t.ts) && t.type !== "capital");
 
   const sum = (type: string) =>
     inRange.filter((t) => t.type === type).reduce((a, t) => a + t.amount, 0);
   const sales = sum("sale");
   const stock = sum("stock");
   const expenses = sum("expense");
-  const closing = cashAtHand;
-  const opening = closing - sales + stock + expenses;
-  const expectedProfit = state.items.reduce((a, i) => a + (i.sell * i.qty - i.buy), 0);
-  const outstanding = state.debtors.filter((d) => !d.paid).reduce((a, d) => a + d.amount, 0);
+  const before = state.txs.filter((t) => t.ts < range.start);
+  const opening = state.capital + before.reduce((a, t) => a + (t.type === "sale" ? t.amount : t.type === "capital" ? 0 : -t.amount), 0);
+  const actualNet = sales - stock - expenses;
+  const closing = opening + actualNet;
+  const expectedProfit = inRange
+    .filter((t) => t.type === "stock")
+    .reduce((a, t) => a + (t.units ?? 0) * (t.sell ?? 0) - t.amount, 0);
+  const outstanding = state.debtors.reduce((a, d) => a + Math.max(0, d.amount - (d.payments ?? []).reduce((p, x) => p + x.amount, 0)), 0);
 
   const byCategory = Object.entries(
     inRange
@@ -50,7 +51,7 @@ function Report() {
 
   const sheets: Sheet[] = [
     {
-      name: `Balance sheet (${range})`,
+      name: `Balance sheet (${range.label})`,
       columns: ["Line", "Amount (UGX)"],
       rows: [
         ["Opening balance", opening],
@@ -61,7 +62,7 @@ function Report() {
       ],
       summary: [
         ["Term", state.termName],
-        ["Range", range],
+        ["Range", range.label],
         ["Outstanding credit", `UGX ${ugx(outstanding)}`],
       ],
     },
@@ -82,22 +83,10 @@ function Report() {
 
   return (
     <AppLayout title="Reports">
-      <div className="flex gap-2">
-        {(Object.keys(ranges) as (keyof typeof ranges)[]).map((r) => (
-          <button
-            key={r}
-            onClick={() => setRange(r)}
-            className={`h-10 flex-1 rounded-full text-sm font-bold ${
-              range === r ? "bg-primary text-on-primary" : "bg-surface-high text-on-surface-variant"
-            }`}
-          >
-            {r}
-          </button>
-        ))}
-      </div>
+      <RangeBar range={range} title={`Balance sheet — ${range.label}`} sheets={sheets} baseName="smartcanteen-report" />
 
       <Card className="space-y-2">
-        <SectionTitle>Balance sheet · {range}</SectionTitle>
+        <SectionTitle>Balance sheet · {range.label}</SectionTitle>
         <Line label="Opening balance" value={opening} />
         <Line label="Plus sales" value={sales} sign="+" tone="primary" />
         <Line label="Less stock purchases" value={stock} sign="-" tone="tertiary" />
@@ -116,7 +105,7 @@ function Report() {
         </Card>
         <Card>
           <p className="label-bold text-on-surface-variant">Actual net change</p>
-          <p className="price-display text-primary">UGX {ugx(totals.sales - totals.expenses - totals.stock)}</p>
+          <p className="price-display text-primary">UGX {ugx(actualNet)}</p>
         </Card>
       </div>
 
@@ -139,6 +128,16 @@ function Report() {
         ))}
       </Card>
 
+      <Card className="space-y-sm">
+        <SectionTitle>Reports & exports</SectionTitle>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <HubLink to="/debtors" icon="group" label="Credit" />
+          <HubLink to="/expense" icon="payments" label="Expenses" />
+          <HubLink to="/stock" icon="inventory_2" label="Stock" />
+          <HubLink to="/sale" icon="point_of_sale" label="Sales" />
+        </div>
+      </Card>
+
       <Card className="space-y-sm bg-surface-low">
         <SectionTitle>Term report card · {state.termName}</SectionTitle>
         <div className="grid grid-cols-2 gap-sm">
@@ -147,22 +146,16 @@ function Report() {
           <Mini label="Net profit" value={totals.sales - totals.expenses - totals.stock} />
           <Mini label="Outstanding credit" value={outstanding} />
         </div>
-        <div className="flex flex-wrap gap-sm">
-          <button
-            onClick={() => exportPdf(`${state.termName} — ${range} report`, `Generated for ${state.termName}`, sheets)}
-            className="flex h-12 min-h-12 flex-1 items-center justify-center gap-2 rounded-md bg-primary font-bold text-on-primary"
-          >
-            <Icon name="picture_as_pdf" /> Export PDF
-          </button>
-          <button
-            onClick={() => exportExcel("smartcanteen-report", sheets, `SmartCanteen — ${state.termName} (${range})`)}
-            className="flex h-12 min-h-12 flex-1 items-center justify-center gap-2 rounded-md bg-secondary-container font-bold text-on-secondary-container"
-          >
-            <Icon name="table_view" /> Export Excel
-          </button>
-        </div>
       </Card>
     </AppLayout>
+  );
+}
+
+function HubLink({ to, icon, label }: { to: "/debtors" | "/expense" | "/stock" | "/sale"; icon: string; label: string }) {
+  return (
+    <Link to={to} className="flex min-h-20 flex-col items-center justify-center gap-1 rounded-md bg-surface-low text-sm font-bold text-primary">
+      <Icon name={icon} /> {label}
+    </Link>
   );
 }
 
