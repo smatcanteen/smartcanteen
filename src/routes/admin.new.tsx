@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Icon } from "@/components/Icon";
 import { Card, Field, PrimaryButton, SectionTitle, SelectField } from "@/components/ui-kit";
 import { useAuth } from "@/lib/auth";
+import { saveInitialAccountBook } from "@/lib/accounts.functions";
 import { seedAccountBook } from "@/lib/store";
 import { emailLink, prettyPhone, fillTemplate, inviteMessage, loginLink, whatsappLink } from "@/lib/invite";
 import {
@@ -126,6 +127,7 @@ function NewAccount() {
     const trialDays = Number(f.trialDays) || 0;
     addTenant({
       accountId: res.account.id,
+      initialNote: f.notes,
       canteenName: f.canteenName.trim() || `${f.ownerName.trim()}'s canteen`,
       school: f.school,
       ownerName: f.ownerName,
@@ -150,12 +152,25 @@ function NewAccount() {
         status: "pending",
       });
     }
-    // Give the operator a clean book that already holds their opening capital.
-    seedAccountBook(res.account.id, {
+    const startingStock = f.csv
+      .split("\n")
+      .map((row) => {
+        const [name = "", qty = "", buy = "", sell = ""] = row.split(",").map((value) => value.trim());
+        return { name, qty: Number(qty), buy: Number(buy), sell: Number(sell) };
+      })
+      .filter((item) => item.name && item.qty > 0 && item.buy >= 0 && item.sell >= 0);
+    const book = seedAccountBook(res.account.id, {
       capital: Number(f.capital) || 0,
       termName: f.termName.trim(),
       goal: Number(f.goal) || 0,
+      stock: startingStock,
     });
+    const saved = await saveInitialAccountBook({ data: { userId: res.account.id, book } });
+    if (!saved.ok) {
+      setError(`Account created, but opening records were not saved: ${saved.error}`);
+      setBusy(false);
+      return;
+    }
 
     const details = {
       name: f.ownerName,
@@ -242,9 +257,9 @@ function NewAccount() {
           />
           <SelectField label="Assigned agent / source" value={f.agentId} onChange={(e) => set({ agentId: e.target.value })}>
             <option value="">Direct — no agent</option>
-            {s.agents.map((a) => (
+            {s.agents.filter((a) => a.certified && a.status === "certified").map((a) => (
               <option key={a.id} value={a.id}>
-                {a.name} · {a.territory} {a.certified ? "" : "(uncertified)"}
+                {a.name} · {a.territory}
               </option>
             ))}
           </SelectField>
