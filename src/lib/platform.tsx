@@ -114,7 +114,7 @@ export type Announcement = {
   active: boolean;
   ts: number;
   audience?: AnnouncementAudience;
-  segment: { zone?: string; category?: CategoryTemplate; agentId?: string };
+  segment: { zone?: string; category?: CategoryTemplate; agentId?: string; recipientIds?: string[] };
 };
 
 export type PlatformSettings = {
