@@ -371,9 +371,9 @@ const tourSteps = (setTab: (id: string) => void): TourStep[] => {
       before: on("for-you"),
     },
     {
-      id: "tile-Buy Stock",
-      title: "Buy Stock button",
-      body: "Use it when you pay a supplier. Enter the item, the pack size and what you paid — the money leaves your cash at hand and the items appear on your shelf list.",
+      id: "tile-Stock",
+      title: "Stock button",
+      body: "Open Stock to add purchased items, confirm what is physically left, and review quantities and buying costs in one place.",
       before: on("for-you"),
     },
     {
