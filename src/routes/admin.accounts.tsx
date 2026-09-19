@@ -261,6 +261,26 @@ function Accounts() {
               </div>
             </div>
 
+            <div className="grid gap-2 rounded-md border border-outline-variant bg-surface-lowest p-3 sm:grid-cols-[1fr_auto] sm:items-center">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-on-surface-variant">Subscription</p>
+                <p className="text-sm font-extrabold text-on-surface">{statusLabels[t.status]}</p>
+                <p className="text-xs text-on-surface-variant">
+                  {t.status === "active" || t.status === "trial" ? `Access ends ${fmtDate(t.nextBillingAt)}` : "Past records remain available; new entries are locked."}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                <button onClick={() => void renew(t)} className="min-h-10 rounded-full bg-primary px-4 text-xs font-bold text-on-primary">
+                  {t.status === "active" ? "Renew 4 months" : "Activate for 4 months"}
+                </button>
+                {t.status !== "churned" ? (
+                  <button onClick={() => deactivate(t)} className="min-h-10 rounded-full border-2 border-tertiary px-3 text-xs font-bold text-tertiary">
+                    Deactivate subscription
+                  </button>
+                ) : null}
+              </div>
+            </div>
+
             <div className="flex flex-wrap gap-1">
               {(["loggedIn", "capitalSet", "firstStock", "firstSale"] as const).map((k) => (
                 <Pill key={k} tone={t.checklist[k] ? "good" : "bad"}>
@@ -325,36 +345,19 @@ function Accounts() {
                       </button>
                     ))}
                     <button
-                      onClick={() => {
-                        const months = s.settings.months || 1;
-                        const from = new Date(Math.max(Date.now(), t.nextBillingAt));
-                        from.setMonth(from.getMonth() + months);
-                        updateTenant(t.accountId, {
-                          status: "active",
-                          trialEndsAt: null,
-                          nextBillingAt: from.getTime(),
-                        });
-                        logAction(
-                          user?.name ?? "admin",
-                          `Renewed ${t.canteenName} for ${months} months`,
-                        );
-                      }}
+                      onClick={() => void renew(t)}
                       className="min-h-11 rounded-full bg-primary px-4 text-xs font-bold text-on-primary"
                     >
-                      Renew {s.settings.months} months
+                      {t.status === "active" ? "Renew 4 months" : "Activate for 4 months"}
                     </button>
-                    <button
-                      onClick={() => updateTenant(t.accountId, { status: "past_due" })}
-                      className="min-h-11 rounded-full border-2 border-outline-variant px-3 text-xs font-bold text-on-surface-variant"
-                    >
-                      Mark past due
-                    </button>
-                    <button
-                      onClick={() => updateTenant(t.accountId, { status: "churned" })}
-                      className="min-h-11 rounded-full border-2 border-outline-variant px-3 text-xs font-bold text-on-surface-variant"
-                    >
-                      Mark churned
-                    </button>
+                    {t.status !== "churned" ? (
+                      <button
+                        onClick={() => deactivate(t)}
+                        className="min-h-11 rounded-full border-2 border-tertiary px-3 text-xs font-bold text-tertiary"
+                      >
+                        Deactivate subscription
+                      </button>
+                    ) : null}
                   </div>
                   <div className="grid gap-sm sm:grid-cols-3">
                     <SelectField
@@ -413,7 +416,7 @@ function Accounts() {
                       }}
                       className="min-h-11 rounded-full bg-tertiary px-4 text-sm font-bold text-on-tertiary disabled:opacity-50"
                     >
-                      {t.status === "suspended" ? "Restore access" : "Pause account"}
+                      {t.status === "suspended" ? "Restore login" : "Suspend login"}
                     </button>
                   ) : null}
                   {(() => {
