@@ -48,7 +48,14 @@ export function AppLayout({
   const { state, hydrated, cloudChecked } = useStore();
   const { s: platform } = usePlatform();
 
-  const banner = platform.announcements.find((a) => a.active);
+  const tenant = platform.tenants.find((item) => item.accountId === user?.id);
+  const banner = platform.announcements.find((announcement) => {
+    if (!announcement.active || !["operators", "both"].includes(announcement.audience ?? "operators")) return false;
+    if (announcement.segment.zone && announcement.segment.zone !== tenant?.zone) return false;
+    if (announcement.segment.category && announcement.segment.category !== tenant?.category) return false;
+    if (announcement.segment.agentId && announcement.segment.agentId !== tenant?.agentId) return false;
+    return true;
+  });
   const { logo } = useAccountLogo(user?.id);
 
 
