@@ -83,6 +83,13 @@ function AgentDashboard() {
 
   const me = useMemo(() => s.agents.find((a) => a.accountId === user?.id), [s.agents, user]);
 
+  useEffect(() => {
+    if (!online || !me) return;
+    s.leads
+      .filter((lead) => lead.agentId === me.id && lead.queued)
+      .forEach((lead) => setLeadStage(lead.id, lead.stage));
+  }, [online, me, s.leads, setLeadStage]);
+
   if (!user || user.role !== "agent") return null;
   if (!me) return <p className="p-8 text-sm">This login is not linked to an agent profile yet.</p>;
 
