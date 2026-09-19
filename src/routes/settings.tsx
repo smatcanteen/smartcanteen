@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { AppLayout, Saved } from "@/components/AppLayout";
 import { AccountAvatar, useAccountLogo } from "@/components/Brand";
@@ -76,7 +76,24 @@ function SettingsPage() {
   };
 
   return (
-    <AppLayout title="Settings" back>
+    <AppLayout title="More" back>
+      <div>
+        <SectionTitle>Occasional tasks</SectionTitle>
+        <Card className="grid grid-cols-2 gap-2 p-3 sm:grid-cols-4">
+          {[
+            { to: "/term-capital", icon: "account_balance", label: "Term Capital" },
+            { to: "/term-transition", icon: "event_repeat", label: "Close Term" },
+            { to: "/subscription", icon: "card_membership", label: "Subscription" },
+            { to: "/support", icon: "support_agent", label: "Help" },
+          ].map((item) => (
+            <Link key={item.to} to={item.to} className="flex min-h-20 flex-col items-center justify-center gap-1 rounded-md bg-surface-low text-center text-sm font-bold text-on-surface">
+              <Icon name={item.icon} className="text-primary" />
+              {item.label}
+            </Link>
+          ))}
+        </Card>
+      </div>
+
       <div>
         <SectionTitle>Canteen logo</SectionTitle>
         <Card className="flex flex-wrap items-center gap-sm">
