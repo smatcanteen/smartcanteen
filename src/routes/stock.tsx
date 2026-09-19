@@ -159,7 +159,7 @@ function Stock() {
         <section className="space-y-sm rounded-lg border border-outline-variant bg-surface-lowest p-sm">
           <div>
             <SectionTitle>Add purchased stock</SectionTitle>
-            <p className="text-sm text-on-surface-variant">Enter the packages bought, their cost, and the selling price.</p>
+            <p className="text-sm text-on-surface-variant">Enter the total quantity bought, its cost, and the selling price per unit.</p>
           </div>
           <StockPurchaseForm onSaved={() => setAddingItem(false)} />
         </section>
