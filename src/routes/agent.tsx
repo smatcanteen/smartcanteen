@@ -111,6 +111,7 @@ function AgentDashboard() {
   const announcement = s.announcements.find((item) =>
     item.active &&
     ["agents", "both"].includes(item.audience ?? "operators") &&
+    (!item.segment.recipientIds?.length || item.segment.recipientIds.includes(`agent:${me.id}`)) &&
     (!item.segment.agentId || item.segment.agentId === me.id),
   );
 
