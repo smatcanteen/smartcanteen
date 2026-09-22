@@ -6,7 +6,7 @@ import { Pill, statusTone } from "@/components/AdminShell";
 import { useAuth } from "@/lib/auth";
 import { ugx } from "@/lib/store";
 import { agentChurnRate, fmtDate, stageLabels, statusLabels, usePlatform, zones, type Lead } from "@/lib/platform";
-import { listAgentAdminData, setAgentCertification } from "@/lib/platform.functions";
+import { assignSchoolToAgent, listAgentAdminData, setAgentCertification } from "@/lib/platform.functions";
 import { supabase } from "@/integrations/supabase/client";
 
 function Stat({ label, value }: { label: string; value: string }) {
@@ -40,13 +40,15 @@ function Agents() {
   const [openId, setOpenId] = useState<string | null>(null);
   const { user, createAccount } = useAuth();
   const canManageAgents = user?.role === "admin";
+  // accounts is used below when merging directory agents
   const [f, setF] = useState({ name: "", phone: "", email: "", territory: zones[0]! });
   const [msg, setMsg] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [otp, setOtp] = useState<{ phone: string; code: string } | null>(null);
-  const [agentData, setAgentData] = useState<Record<string, { admin: any; leads: Lead[] }>>({});
+  const [agentData, setAgentData] = useState<Record<string, { admin: any; leads: Lead[]; schools: any[]; name?: string; phone?: string; email?: string }>>({});
   const [savingAgent, setSavingAgent] = useState<string | null>(null);
+  const { accounts } = useAuth();
 
   useEffect(() => {
     let active = true;
@@ -56,12 +58,31 @@ function Agents() {
       if (!accessToken) return;
       const result = await listAgentAdminData({ data: { accessToken } });
       if (!active || !result.ok) return;
-      setAgentData(Object.fromEntries(result.agents.map((item: any) => [item.accountId, { admin: item.admin, leads: item.leads ?? [] }])));
+      setAgentData(Object.fromEntries(result.agents.map((item: any) => [item.accountId, { admin: item.admin, leads: item.leads ?? [], schools: item.schools ?? [], name: item.name, phone: item.phone, email: item.email }])));
+
+      // Keep already-attached schools linked in the live records so counts survive reloads.
+      for (const agent of s.agents) {
+        if (!agent.accountId) continue;
+        const mine = s.tenants.filter((t) => t.agentId === agent.id);
+        for (const tenant of mine) {
+          void assignSchoolToAgent({
+            data: {
+              accessToken,
+              operatorAccountId: tenant.accountId,
+              agentAccountId: agent.accountId,
+              agentId: agent.id,
+              canteenName: tenant.canteenName,
+              school: tenant.school,
+              status: tenant.status,
+            },
+          });
+        }
+      }
     };
     void load();
     const timer = window.setInterval(() => void load(), 5000);
     return () => { active = false; window.clearInterval(timer); };
-  }, []);
+  }, [s.agents, s.tenants]);
 
   const certify = async (agent: (typeof s.agents)[number]) => {
     if (!agent.accountId || savingAgent) return;
@@ -197,12 +218,48 @@ function Agents() {
       </Card>
 
       <div className="space-y-sm">
-        {s.agents.map((a) => {
-          const mine = s.tenants.filter((t) => t.agentId === a.id);
+        {(() => {
+          const byAccount = new Map<string, (typeof s.agents)[number]>();
+          s.agents.forEach((agent) => { if (agent.accountId) byAccount.set(agent.accountId, agent); });
+          accounts.filter((account) => account.role === "agent").forEach((account) => {
+            if (byAccount.has(account.id)) return;
+            byAccount.set(account.id, {
+              id: account.id,
+              accountId: account.id,
+              name: account.name,
+              phone: account.phone ?? "",
+              email: account.email,
+              territory: account.school || zones[0]!,
+              status: "pending",
+              certified: false,
+              trainedAt: null,
+            } as any);
+          });
+          Object.entries(agentData).forEach(([accountId, remote]) => {
+            if (byAccount.has(accountId)) return;
+            byAccount.set(accountId, {
+              id: accountId,
+              accountId,
+              name: remote.name ?? "Field agent",
+              phone: remote.phone ?? "",
+              email: remote.email ?? "",
+              territory: zones[0]!,
+              status: remote.admin?.status ?? "pending",
+              certified: !!remote.admin?.certified,
+              trainedAt: remote.admin?.trainedAt ?? null,
+            } as any);
+          });
+          return [...byAccount.values()];
+        })().map((a) => {
+          const mine = s.tenants.filter((t) => t.agentId === a.id || (a.accountId && t.agentId === a.accountId));
           const remote = a.accountId ? agentData[a.accountId] : undefined;
+          const liveSchools = remote?.schools ?? [];
           const remoteLeads = remote?.leads ?? [];
-          const recordedSchools = new Set(remoteLeads.filter((lead) => lead.stage !== "lost").map((lead) => lead.school.trim().toLowerCase()).filter(Boolean)).size;
-          const onboardedCount = Math.max(mine.length, recordedSchools);
+          const schoolKeys = new Set([
+            ...mine.map((t) => t.accountId),
+            ...liveSchools.map((school: any) => school.accountId),
+          ]);
+          const onboardedCount = schoolKeys.size;
           const isCertified = remote?.admin?.certified ?? a.certified;
           const agentStatus = remote?.admin?.status ?? a.status;
           const trainedAt = remote?.admin?.trainedAt ?? a.trainedAt;
@@ -218,9 +275,13 @@ function Agents() {
             .filter((c) => c.status === "paid")
             .reduce((x, c) => x + c.amount, 0);
           const myLeads = remoteLeads.length ? remoteLeads : s.leads.filter((l) => l.agentId === a.id);
-          const active = mine.filter((t) => t.status === "active").length;
-          const trial = mine.filter((t) => t.status === "trial").length;
-          const activated = mine.filter((t) => t.checklist.firstSale).length;
+          const schoolRows = [
+            ...mine.map((t) => ({ accountId: t.accountId, canteenName: t.canteenName, school: t.school, status: t.status, checklist: t.checklist, createdAt: t.createdAt })),
+            ...liveSchools.filter((school: any) => !mine.some((t) => t.accountId === school.accountId)),
+          ];
+          const active = schoolRows.filter((t) => t.status === "active").length;
+          const trial = schoolRows.filter((t) => t.status === "trial").length;
+          const activated = schoolRows.filter((t) => t.checklist?.firstSale).length;
           const open = openId === a.id;
           return (
             <Card key={a.id} className="space-y-sm">
@@ -303,13 +364,13 @@ function Agents() {
 
                   <div>
                     <p className="mb-1 text-sm font-bold text-on-surface">Schools this agent brought in</p>
-                    {mine.length === 0 ? (
+                    {schoolRows.length === 0 ? (
                       <p className="text-xs text-on-surface-variant">
                         None yet. Attach a school to this agent from the Accounts page.
                       </p>
                     ) : (
                       <ul className="space-y-1">
-                        {mine.map((t) => (
+                        {schoolRows.map((t) => (
                           <li key={t.accountId} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-surface px-3 py-2">
                             <span className="min-w-0">
                               <span className="block truncate text-sm font-semibold text-on-surface">{t.canteenName}</span>
@@ -317,7 +378,7 @@ function Agents() {
                                 {t.school || "—"} · joined {fmtDate(t.createdAt)}
                               </span>
                             </span>
-                            <Pill tone={statusTone(t.status)}>{statusLabels[t.status]}</Pill>
+                            <Pill tone={statusTone(t.status)}>{statusLabels[t.status] ?? t.status}</Pill>
                           </li>
                         ))}
                       </ul>
