@@ -58,13 +58,13 @@ function Login() {
   const navigate = useNavigate();
   const { login, loginWithPin, requestHelp, user, ready } = useAuth();
 
-  const [tab, setTab] = useState<"pin" | "password">("pin");
+  const [tab, setTab] = useState<"pin" | "password">("password");
   const [phone, setPhone] = useState("");
   const [saved, setSaved] = useState<string | null>(null);
   const [pin, setPin] = useState("");
   const [showPin, setShowPin] = useState(false);
-  const [mode, setMode] = useState<"phone" | "email">("phone");
-  const [email, setEmail] = useState("");
+  const [mode, setMode] = useState<"phone" | "email">("email");
+  const [email, setEmail] = useState("admin@smartcanteen.app");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [error, setError] = useState("");
@@ -274,7 +274,10 @@ function Login() {
               <div className="text-center">
                 <h1 className="text-2xl font-bold text-on-surface sm:text-3xl">Welcome back</h1>
                 <p className="mt-1 text-sm text-on-surface-variant">
-                  Operators, field agents and admin sign in here.
+                  Operators and agents use phone + PIN. Admin uses email + password.
+                </p>
+                <p className="mt-1 text-xs font-semibold text-primary">
+                  Admin: Phone/Email + password → email → admin@smartcanteen.app
                 </p>
               </div>
 
