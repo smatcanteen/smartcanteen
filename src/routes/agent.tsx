@@ -12,6 +12,8 @@ import {
   usePlatform,
   type LeadStage,
 } from "@/lib/platform";
+import { markAgentQuizPassed } from "@/lib/platform.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { BrandLock } from "@/components/Brand";
 
 export const Route = createFileRoute("/agent")({
@@ -58,7 +60,8 @@ const stages: LeadStage[] = ["contacted", "demo", "trial", "subscribed", "lost"]
 
 function AgentDashboard() {
   const { user, ready, logout } = useAuth();
-  const { s, addLead, setLeadStage, certifyAgent, requestPayout } = usePlatform();
+  const { s, addLead, setLeadStage, requestPayout } = usePlatform();
+  const [quizMsg, setQuizMsg] = useState("");
   const navigate = useNavigate();
   const [tab, setTab] = useState<"leads" | "accounts" | "earnings" | "training">("leads");
   const [lead, setLead] = useState({ school: "", contactName: "", phone: "" });
@@ -83,7 +86,23 @@ function AgentDashboard() {
     else if (user.role !== "agent") navigate({ to: homeForRole(user.role) });
   }, [ready, user, navigate]);
 
-  const me = useMemo(() => s.agents.find((a) => a.accountId === user?.id), [s.agents, user]);
+  const me = useMemo(() => {
+    const found = s.agents.find((a) => a.accountId === user?.id || a.id === user?.id);
+    if (found) return found;
+    if (!user) return null;
+    // Stable fallback: agent id is always the login id.
+    return {
+      id: user.id,
+      accountId: user.id,
+      name: user.name,
+      phone: user.phone ?? "",
+      email: user.email,
+      status: "pending" as const,
+      territory: user.school || "Kampala Central",
+      trainedAt: null,
+      certified: false,
+    };
+  }, [s.agents, user]);
 
   useEffect(() => {
     if (!online || !me) return;
@@ -95,9 +114,9 @@ function AgentDashboard() {
   if (!user || user.role !== "agent") return null;
   if (!me) return <p className="p-8 text-sm">This login is not linked to an agent profile yet.</p>;
 
-  const myLeads = s.leads.filter((l) => l.agentId === me.id);
-  const myAccounts = s.tenants.filter((t) => t.agentId === me.id);
-  const myComms = s.commissions.filter((c) => c.agentId === me.id);
+  const myLeads = s.leads.filter((l) => l.agentId === me.id || l.agentId === me.accountId || (l as any).agentAccountId === me.accountId);
+  const myAccounts = s.tenants.filter((t) => t.agentId === me.id || t.agentId === me.accountId);
+  const myComms = s.commissions.filter((c) => c.agentId === me.id || c.agentId === me.accountId);
   const total = (status: string) =>
     myComms.filter((c) => c.status === status).reduce((a, c) => a + c.amount, 0);
   const owed = total("approved");
@@ -198,7 +217,7 @@ function AgentDashboard() {
                     contactName: lead.contactName.trim(),
                     phone: lead.phone.trim(),
                     stage: "contacted",
-                    agentId: me.id,
+                    agentId: me.accountId ?? me.id,
                   });
                   setLeadSaving(false);
                   if (!result.ok) {
@@ -351,12 +370,22 @@ function AgentDashboard() {
             <p className="text-sm font-semibold text-on-surface-variant">
               Score: {score}/{quiz.length}
             </p>
+            {quizMsg ? <p className="text-sm font-bold text-primary">{quizMsg}</p> : null}
             <PrimaryButton
               tone="cta"
               disabled={me.certified || score < quiz.length}
-              onClick={() => certifyAgent(me.id)}
+              onClick={async () => {
+                const { data } = await supabase.auth.getSession();
+                const accessToken = data.session?.access_token;
+                if (!accessToken) return setQuizMsg("Your login expired. Log in again.");
+                const result = await markAgentQuizPassed({ data: { accessToken } });
+                if (!result.ok) return setQuizMsg(result.error);
+                setQuizMsg(me.certified
+                  ? "Training recorded. You are already certified by Admin."
+                  : "Training passed. Waiting for Admin to Approve & certify.");
+              }}
             >
-              {me.certified ? "Certified ✓" : "Submit quiz and get certified"}
+              {me.certified ? "Certified by Admin ✓" : "Submit quiz (Admin still certifies)"}
             </PrimaryButton>
           </Card>
         )}
