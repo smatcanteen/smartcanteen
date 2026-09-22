@@ -38,9 +38,8 @@ export const Route = createFileRoute("/admin/agents")({
 function Agents() {
   const { s, addAgent, updateAgent, certifyAgent, updateSettings, requestPayout } = usePlatform();
   const [openId, setOpenId] = useState<string | null>(null);
-  const { user, createAccount } = useAuth();
+  const { user, createAccount, accounts } = useAuth();
   const canManageAgents = user?.role === "admin";
-  // accounts is used below when merging directory agents
   const [f, setF] = useState({ name: "", phone: "", email: "", territory: zones[0]! });
   const [msg, setMsg] = useState("");
   const [error, setError] = useState("");
@@ -48,7 +47,6 @@ function Agents() {
   const [otp, setOtp] = useState<{ phone: string; code: string } | null>(null);
   const [agentData, setAgentData] = useState<Record<string, { admin: any; leads: Lead[]; schools: any[]; name?: string; phone?: string; email?: string }>>({});
   const [savingAgent, setSavingAgent] = useState<string | null>(null);
-  const { accounts } = useAuth();
 
   useEffect(() => {
     let active = true;
