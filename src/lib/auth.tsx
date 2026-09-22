@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   deleteAccount as deleteAccountFn,
   ensureBootstrap,
+  repairAdminLogin,
   normalisePhone,
   phoneEmail,
   provisionAccount,
@@ -216,6 +217,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setReady(true);
       try {
         await ensureBootstrap();
+        // Ensure Super Admin email login always works (admin@smartcanteen.app).
+        await repairAdminLogin();
       } catch {
         /* bootstrap is best-effort */
       }
