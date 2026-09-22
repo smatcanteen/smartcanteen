@@ -2,6 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { listAccountProgress } from "@/lib/accounts.functions";
+import { assignSchoolToAgent } from "@/lib/platform.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { Icon } from "@/components/Icon";
 import { Card, Field, PrimaryButton, SectionTitle, SelectField } from "@/components/ui-kit";
 import { Pill, can, statusTone } from "@/components/AdminShell";
@@ -397,7 +399,26 @@ function Accounts() {
                     <SelectField
                       label="Field agent"
                       value={t.agentId ?? ""}
-                      onChange={(e) => updateTenant(t.accountId, { agentId: e.target.value || null })}
+                      onChange={(e) => {
+                        const agentId = e.target.value || null;
+                        updateTenant(t.accountId, { agentId });
+                        const agent = s.agents.find((item) => item.id === agentId);
+                        void supabase.auth.getSession().then(({ data }) => {
+                          const accessToken = data.session?.access_token;
+                          if (!accessToken) return;
+                          void assignSchoolToAgent({
+                            data: {
+                              accessToken,
+                              operatorAccountId: t.accountId,
+                              agentAccountId: agent?.accountId ?? null,
+                              agentId,
+                              canteenName: t.canteenName,
+                              school: t.school,
+                              status: t.status,
+                            },
+                          });
+                        });
+                      }}
                     >
                       <option value="">No agent</option>
                       {s.agents.map((a) => (
