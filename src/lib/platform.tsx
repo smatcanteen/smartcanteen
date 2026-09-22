@@ -11,7 +11,16 @@ import {
 import { useAuth } from "./auth";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
-import { submitAgentLead, submitSupportTicket, updateSupportTicket } from "./platform.functions";
+import {
+  loadLivePlatform,
+  markAgentQuizPassed,
+  savePlatformHub,
+  submitAgentLead,
+  submitSupportTicket,
+  updateAgentLeadStage,
+  updateSupportTicket,
+  upsertTenantMeta,
+} from "./platform.functions";
 
 /* ------------------------------------------------------------------ types */
 
@@ -167,11 +176,49 @@ export function effectiveTenantStatus(tenant: Pick<Tenant, "status" | "nextBilli
   return end <= now ? "past_due" : tenant.status;
 }
 
-async function syncAgentLead(lead: Pick<Lead, "id" | "school" | "contactName" | "phone" | "stage" | "agentId" | "createdAt">) {
+async function sessionToken() {
   const { data: sessionData } = await supabase.auth.getSession();
-  const accessToken = sessionData.session?.access_token;
+  return sessionData.session?.access_token ?? null;
+}
+
+async function syncAgentLead(lead: Pick<Lead, "id" | "school" | "contactName" | "phone" | "stage" | "agentId" | "createdAt">) {
+  const accessToken = await sessionToken();
   if (!accessToken) return { ok: false as const, error: "Your login expired. Log in again and retry." };
-  return submitAgentLead({ data: { ...lead, accessToken } });
+  return submitAgentLead({ data: { ...lead, accessToken, agentId: lead.agentId } });
+}
+
+async function persistHub(s: PlatformState) {
+  const accessToken = await sessionToken();
+  if (!accessToken) return;
+  const tenantMeta: Record<string, any> = {};
+  s.tenants.forEach((t) => {
+    tenantMeta[t.accountId] = {
+      canteenName: t.canteenName,
+      school: t.school,
+      category: t.category,
+      zone: t.zone,
+      agentAccountId: t.agentId,
+      agentId: t.agentId,
+      status: t.status,
+      createdAt: t.createdAt,
+      trialEndsAt: t.trialEndsAt,
+      nextBillingAt: t.nextBillingAt,
+      tags: t.tags,
+      notes: t.notes,
+      termStart: t.termStart,
+      termEnd: t.termEnd,
+    };
+  });
+  await savePlatformHub({
+    data: {
+      accessToken,
+      settings: s.settings,
+      commissions: s.commissions,
+      payouts: s.payouts,
+      announcements: s.announcements,
+      tenantMeta,
+    },
+  });
 }
 
 export const stageLabels: Record<LeadStage, string> = {
