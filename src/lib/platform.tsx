@@ -413,11 +413,16 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
             ],
           };
         }),
-      updateTenant: (accountId, upd) =>
+      updateTenant: (accountId, upd) => {
         patch((p) => ({
           ...p,
           tenants: p.tenants.map((t) => (t.accountId === accountId ? { ...t, ...upd } : t)),
-        })),
+        }));
+        void sessionToken().then((accessToken) => {
+          if (!accessToken) return;
+          void upsertTenantMeta({ data: { accessToken, accountId, patch: upd } });
+        });
+      },
       removeTenant: (accountId) =>
         patch((p) => ({
           ...p,
@@ -450,21 +455,33 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
           tenants: p.tenants.map((t) => (ids.includes(t.accountId) ? { ...t, status } : t)),
         })),
       addAgent: (a) => {
-        const agent: Agent = { ...a, id: uid(), status: "pending", trainedAt: null, certified: false };
-        patch((p) => ({ ...p, agents: [...p.agents, agent] }));
+        // Agent id is always the login account id when one exists.
+        const id = a.accountId || uid();
+        const agent: Agent = { ...a, id, accountId: a.accountId ?? id, status: "pending", trainedAt: null, certified: false };
+        patch((p) => ({ ...p, agents: [...p.agents.filter((x) => x.id !== id && x.accountId !== id), agent] }));
         return agent;
       },
       updateAgent: (id, upd) =>
         patch((p) => ({ ...p, agents: p.agents.map((a) => (a.id === id ? { ...a, ...upd } : a)) })),
-      certifyAgent: (id) =>
+      certifyAgent: (id) => {
         patch((p) => ({
           ...p,
           agents: p.agents.map((a) =>
             a.id === id ? { ...a, certified: true, status: "certified", trainedAt: Date.now() } : a,
           ),
-        })),
+        }));
+        const agent = s.agents.find((a) => a.id === id);
+        const accountId = agent?.accountId ?? id;
+        void sessionToken().then((accessToken) => {
+          if (!accessToken) return;
+          void import("./platform.functions").then(({ setAgentCertification }) =>
+            setAgentCertification({ data: { accessToken, agentAccountId: accountId, certified: true } }),
+          );
+        });
+      },
       addLead: async (l) => {
-        const lead = { ...l, id: uid(), createdAt: Date.now(), notes: [], queued: true };
+        const agentId = user?.id ?? l.agentId;
+        const lead = { ...l, agentId, id: uid(), createdAt: Date.now(), notes: [], queued: true };
         patch((p) => ({ ...p, leads: [lead, ...p.leads.filter((item) => item.id !== lead.id)] }));
         try {
           const result = await syncAgentLead({
@@ -473,7 +490,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
             contactName: lead.contactName,
             phone: lead.phone,
             stage: lead.stage,
-            agentId: lead.agentId,
+            agentId,
             createdAt: lead.createdAt,
           });
           if (!result.ok) return { ok: false, error: result.error };
@@ -484,8 +501,21 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
           return { ok: false, error: navigator.onLine ? detail : "Saved on this device. Reconnect and try again." };
         }
       },
-      setLeadStage: (id, stage) =>
-        patch((p) => ({ ...p, leads: p.leads.map((l) => (l.id === id ? { ...l, stage, queued: false } : l)) })),
+      setLeadStage: (id, stage) => {
+        const lead = s.leads.find((item) => item.id === id);
+        patch((p) => ({ ...p, leads: p.leads.map((l) => (l.id === id ? { ...l, stage, queued: false } : l)) }));
+        void sessionToken().then((accessToken) => {
+          if (!accessToken || !lead) return;
+          void updateAgentLeadStage({
+            data: {
+              accessToken,
+              agentAccountId: (lead as any).agentAccountId ?? lead.agentId,
+              leadId: id,
+              stage,
+            },
+          });
+        });
+      },
       addLeadNote: (id, text) =>
         patch((p) => ({
           ...p,
