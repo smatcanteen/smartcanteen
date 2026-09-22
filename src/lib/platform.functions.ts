@@ -130,14 +130,88 @@ export const listAgentAdminData = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     try {
       const { supabaseAdmin } = await requireStaff(data.accessToken);
-      const { data: agentRoles } = await supabaseAdmin.from("user_roles").select("user_id").eq("role", "agent");
-      const ids = (agentRoles ?? []).map((row: any) => row.user_id);
-      if (!ids.length) return { ok: true as const, agents: [] };
-      const { data: books, error } = await supabaseAdmin.from("canteen_books").select("user_id, data").in("user_id", ids);
-      if (error) return { ok: false as const, error: error.message, agents: [] };
-      return { ok: true as const, agents: (books ?? []).map((book: any) => ({ accountId: book.user_id, admin: book.data?.agentAdmin ?? null, leads: book.data?.agentLeads ?? [] })) };
+      const [{ data: agentRoles }, { data: operatorRoles }, { data: books }, { data: profiles }] = await Promise.all([
+        supabaseAdmin.from("user_roles").select("user_id").eq("role", "agent"),
+        supabaseAdmin.from("user_roles").select("user_id").eq("role", "operator"),
+        supabaseAdmin.from("canteen_books").select("user_id, data"),
+        supabaseAdmin.from("profiles").select("id, full_name, school, phone, email, last_login_at, active"),
+      ]);
+      const agentIds = (agentRoles ?? []).map((row: any) => row.user_id);
+      const operatorIds = new Set((operatorRoles ?? []).map((row: any) => row.user_id));
+      const bookByUser = new Map((books ?? []).map((book: any) => [book.user_id, book.data ?? {}]));
+      const profileById = new Map((profiles ?? []).map((profile: any) => [profile.id, profile]));
+
+      const schoolsByAgent = new Map<string, any[]>();
+      operatorIds.forEach((operatorId) => {
+        const book = bookByUser.get(operatorId) ?? {};
+        const meta = book.operatorMeta ?? {};
+        const agentAccountId = meta.agentAccountId as string | undefined;
+        if (!agentAccountId) return;
+        const profile = profileById.get(operatorId);
+        const list = schoolsByAgent.get(agentAccountId) ?? [];
+        list.push({
+          accountId: operatorId,
+          canteenName: meta.canteenName || profile?.full_name || "Canteen",
+          school: meta.school || profile?.school || "",
+          status: meta.status || "trial",
+          checklist: {
+            loggedIn: !!profile?.last_login_at,
+            capitalSet: Number(book.capital ?? 0) > 0 || (Array.isArray(book.txs) && book.txs.some((t: any) => t.type === "capital")),
+            firstStock: Array.isArray(book.txs) && book.txs.some((t: any) => t.type === "stock"),
+            firstSale: Array.isArray(book.txs) && book.txs.some((t: any) => t.type === "sale"),
+          },
+          createdAt: meta.createdAt || Date.now(),
+        });
+        schoolsByAgent.set(agentAccountId, list);
+      });
+
+      const agents = agentIds.map((accountId) => {
+        const book = bookByUser.get(accountId) ?? {};
+        const profile = profileById.get(accountId);
+        return {
+          accountId,
+          name: profile?.full_name ?? "Field agent",
+          phone: profile?.phone ?? "",
+          email: profile?.email ?? "",
+          admin: book.agentAdmin ?? null,
+          leads: Array.isArray(book.agentLeads) ? book.agentLeads : [],
+          schools: schoolsByAgent.get(accountId) ?? [],
+        };
+      });
+      return { ok: true as const, agents };
     } catch (error) {
       return { ok: false as const, error: error instanceof Error ? error.message : "Could not load Agent records.", agents: [] };
+    }
+  });
+
+export const assignSchoolToAgent = createServerFn({ method: "POST" })
+  .inputValidator((data: { accessToken: string; operatorAccountId: string; agentAccountId: string | null; agentId?: string | null; canteenName?: string; school?: string; status?: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      const { supabaseAdmin } = await requireStaff(data.accessToken);
+      const { data: book, error } = await supabaseAdmin.from("canteen_books").select("data, revision").eq("user_id", data.operatorAccountId).maybeSingle();
+      if (error) return { ok: false as const, error: error.message };
+      const current = (book?.data ?? {}) as any;
+      const operatorMeta = data.agentAccountId
+        ? {
+            ...(current.operatorMeta ?? {}),
+            agentAccountId: data.agentAccountId,
+            agentId: data.agentId ?? null,
+            canteenName: data.canteenName ?? current.operatorMeta?.canteenName ?? "",
+            school: data.school ?? current.operatorMeta?.school ?? "",
+            status: data.status ?? current.operatorMeta?.status ?? "trial",
+            createdAt: current.operatorMeta?.createdAt ?? Date.now(),
+          }
+        : { ...(current.operatorMeta ?? {}), agentAccountId: null, agentId: null };
+      const { error: saveError } = await supabaseAdmin.from("canteen_books").upsert({
+        user_id: data.operatorAccountId,
+        data: { ...current, operatorMeta },
+        revision: (book?.revision ?? 0) + 1,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "user_id" });
+      return saveError ? { ok: false as const, error: saveError.message } : { ok: true as const };
+    } catch (error) {
+      return { ok: false as const, error: error instanceof Error ? error.message : "Could not link the school." };
     }
   });
 
