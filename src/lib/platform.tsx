@@ -607,7 +607,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       logAction: (who, action) =>
         patch((p) => ({ ...p, auditLog: [{ id: uid(), who, action, ts: Date.now() }, ...p.auditLog] })),
     };
-  }, [s, hydrated, patch]);
+  }, [s, hydrated, patch, user?.id]);
 
   return <PlatformContext.Provider value={value}>{children}</PlatformContext.Provider>;
 }
