@@ -395,23 +395,46 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     return {
       s,
       hydrated,
-      addTenant: (t) =>
-        patch((p) => {
-          const { initialNote, ...tenant } = t;
-          return {
-            ...p,
-            tenants: [
-              ...p.tenants,
-              {
-                ...tenant,
-                createdAt: Date.now(),
-                notes: initialNote?.trim() ? [note(initialNote.trim())] : [],
-                lastLoginAt: null,
-                entries: 0,
+      addTenant: (t) => {
+        const { initialNote, ...tenant } = t;
+        const createdAt = Date.now();
+        const row = {
+          ...tenant,
+          createdAt,
+          notes: initialNote?.trim() ? [note(initialNote.trim())] : [],
+          lastLoginAt: null,
+          entries: 0,
+        };
+        patch((p) => ({
+          ...p,
+          tenants: [...p.tenants.filter((x) => x.accountId !== row.accountId), row],
+        }));
+        void sessionToken().then((accessToken) => {
+          if (!accessToken) return;
+          void upsertTenantMeta({
+            data: {
+              accessToken,
+              accountId: row.accountId,
+              patch: {
+                canteenName: row.canteenName,
+                school: row.school,
+                category: row.category,
+                zone: row.zone,
+                agentAccountId: row.agentId,
+                agentId: row.agentId,
+                status: row.status,
+                createdAt,
+                trialEndsAt: row.trialEndsAt,
+                nextBillingAt: row.nextBillingAt,
+                termStart: row.termStart,
+                termEnd: row.termEnd,
+                notes: row.notes,
+                tags: row.tags,
               },
-            ],
-          };
-        }),
+            },
+          });
+        });
+      },
       updateTenant: (accountId, upd) => {
         patch((p) => ({
           ...p,
