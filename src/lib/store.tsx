@@ -154,7 +154,7 @@ const STORAGE_BASE = "smartcanteen.v2";
 export const storeKeyFor = (userId: string | null | undefined) =>
   userId ? `${STORAGE_BASE}.${userId}` : STORAGE_BASE;
 
-const RESERVED_SHARED_KEYS = ["agentLeads", "agentAdmin", "supportTickets", "operatorMeta"] as const;
+const RESERVED_SHARED_KEYS = ["agentLeads", "agentAdmin", "supportTickets", "operatorMeta", "platformHub"] as const;
 
 async function saveCashBookWithoutErasingSharedRecords(userId: string, state: State, updatedAt: number) {
   const { data: existing } = await supabase.from("canteen_books").select("data").eq("user_id", userId).maybeSingle();
