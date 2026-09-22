@@ -219,7 +219,7 @@ export const ensureBootstrap = createServerFn({ method: "POST" }).handler(async 
   if ((count ?? 0) > 0) return { ok: true as const, created: false };
 
   const seeds = [
-    { email: "admin@smartcanteen.app", password: "admin1234", name: "Shadai Barbra", role: "admin", school: "SmartCanteen HQ", phone: "256700000001" },
+    { email: "admin@smartcanteen.app", password: "admin1234", name: "Shadai Barbra", role: "admin", school: "SmartCanteen HQ", phone: "256783113352" },
     { email: "support@smartcanteen.app", password: "support1234", name: "Joan Atim", role: "support", school: "SmartCanteen HQ", phone: "256700000010" },
     { email: "finance@smartcanteen.app", password: "finance1234", name: "Denis Mugisha", role: "finance", school: "SmartCanteen HQ", phone: "256700000011" },
   ] as const;
@@ -244,6 +244,67 @@ export const ensureBootstrap = createServerFn({ method: "POST" }).handler(async 
     await supabaseAdmin.from("user_roles").insert({ user_id: id, role: s.role });
   }
   return { ok: true as const, created: true };
+});
+
+/**
+ * One-shot recovery for the Super Admin login only.
+ * Keeps the email admin@smartcanteen.app and sets a known working password
+ * when the phone-number path was used by mistake.
+ */
+export const repairAdminLogin = createServerFn({ method: "POST" }).handler(async () => {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const email = "admin@smartcanteen.app";
+  const password = "admin1234";
+  const phone = "256783113352";
+
+  const { data: listed } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
+  const existing = (listed?.users ?? []).find((u) => (u.email ?? "").toLowerCase() === email);
+
+  if (existing?.id) {
+    await supabaseAdmin.auth.admin.updateUserById(existing.id, {
+      email,
+      password,
+      email_confirm: true,
+      ban_duration: "none",
+      user_metadata: { ...(existing.user_metadata ?? {}), full_name: existing.user_metadata?.full_name ?? "Shadai Barbra", phone },
+    });
+    await supabaseAdmin.from("profiles").upsert({
+      id: existing.id,
+      full_name: existing.user_metadata?.full_name ?? "Shadai Barbra",
+      phone,
+      email,
+      school: "SmartCanteen HQ",
+      active: true,
+      otp_pending: false,
+      pin_locked: false,
+      pin_fail_count: 0,
+    }, { onConflict: "id" });
+    const { data: roles } = await supabaseAdmin.from("user_roles").select("role").eq("user_id", existing.id);
+    if (!(roles ?? []).some((r: any) => r.role === "admin")) {
+      await supabaseAdmin.from("user_roles").insert({ user_id: existing.id, role: "admin" });
+    }
+    return { ok: true as const, repaired: true as const, email, password };
+  }
+
+  const created = await supabaseAdmin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { full_name: "Shadai Barbra", phone },
+  });
+  const id = created.data.user?.id;
+  if (!id) return { ok: false as const, error: created.error?.message ?? "Could not create admin." };
+  await supabaseAdmin.from("profiles").insert({
+    id,
+    full_name: "Shadai Barbra",
+    phone,
+    email,
+    school: "SmartCanteen HQ",
+    otp_pending: false,
+    active: true,
+  });
+  await supabaseAdmin.from("user_roles").insert({ user_id: id, role: "admin" });
+  return { ok: true as const, repaired: true as const, email, password };
 });
 
 /**
