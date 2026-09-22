@@ -4,6 +4,8 @@ import { Icon } from "@/components/Icon";
 import { Card, Field, PrimaryButton, SectionTitle, SelectField } from "@/components/ui-kit";
 import { useAuth } from "@/lib/auth";
 import { saveInitialAccountBook } from "@/lib/accounts.functions";
+import { assignSchoolToAgent } from "@/lib/platform.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { seedAccountBook } from "@/lib/store";
 import { emailLink, prettyPhone, fillTemplate, inviteMessage, loginLink, whatsappLink } from "@/lib/invite";
 import {
@@ -151,6 +153,22 @@ function NewAccount() {
         amount: s.settings.signupBonus,
         status: "pending",
       });
+      const agent = s.agents.find((item) => item.id === f.agentId);
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (accessToken && agent?.accountId) {
+        await assignSchoolToAgent({
+          data: {
+            accessToken,
+            operatorAccountId: res.account.id,
+            agentAccountId: agent.accountId,
+            agentId: f.agentId,
+            canteenName: f.canteenName.trim() || `${f.ownerName.trim()}'s canteen`,
+            school: f.school,
+            status: trialDays > 0 ? "trial" : "active",
+          },
+        });
+      }
     }
     const startingStock = f.csv
       .split("\n")
