@@ -314,8 +314,21 @@ export const saveInitialAccountBook = createServerFn({ method: "POST" })
     if (!(roles ?? []).some((row: any) => row.role === "operator")) {
       return { ok: false as const, error: "The selected account is not an operator." };
     }
+    const { data: existing } = await supabaseAdmin.from("canteen_books").select("data, revision").eq("user_id", data.userId).maybeSingle();
+    const previous = (existing?.data ?? {}) as Record<string, unknown>;
+    const incoming = (data.book ?? {}) as Record<string, unknown>;
+    const reserved = ["agentLeads", "agentAdmin", "supportTickets", "operatorMeta", "platformHub"] as const;
+    const merged: Record<string, unknown> = { ...incoming };
+    reserved.forEach((key) => {
+      if (previous[key] !== undefined && merged[key] === undefined) merged[key] = previous[key];
+    });
     const { error } = await supabaseAdmin.from("canteen_books").upsert(
-      { user_id: data.userId, data: data.book as any, updated_at: new Date().toISOString() },
+      {
+        user_id: data.userId,
+        data: merged as any,
+        revision: (existing?.revision ?? 0) + 1,
+        updated_at: new Date().toISOString(),
+      },
       { onConflict: "user_id" },
     );
     if (error) return { ok: false as const, error: error.message };
