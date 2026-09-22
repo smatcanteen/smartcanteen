@@ -303,81 +303,37 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   const pendingRef = useRef(false);
 
   useEffect(() => {
-    if (!accountsReady) return;
+    if (!accountsReady || !user) {
+      if (accountsReady && !user) setHydrated(true);
+      return;
+    }
     let alive = true;
-    const localState = () => {
-      try {
-        const raw = localStorage.getItem(KEY);
-        if (raw) return { ...seed, ...(JSON.parse(raw) as PlatformState) };
-      } catch {
-        /* use empty state */
+    const load = async () => {
+      const accessToken = await sessionToken();
+      if (!accessToken) {
+        if (alive) setHydrated(true);
+        return;
       }
-      return seed;
+      const result = await loadLivePlatform({ data: { accessToken } });
+      if (!alive) return;
+      if (result.ok && result.platform) {
+        setS({
+          ...seed,
+          ...result.platform,
+          settings: { ...defaultSettings, ...(result.platform.settings as PlatformSettings) },
+          announcements: (result.platform.announcements ?? []).map((a: Announcement) => ({
+            ...a,
+            audience: a.audience ?? "operators",
+          })),
+        });
+      }
+      setHydrated(true);
     };
-    const clean = (saved: PlatformState) => {
-      const isLegacyDemoId = (id: string | null) => !!id && id.startsWith("acc-");
-      return {
-        ...saved,
-        tenants: saved.tenants.filter((tenant) => !isLegacyDemoId(tenant.accountId)),
-        agents: saved.agents.filter((agent) => !isLegacyDemoId(agent.accountId)),
-        commissions: saved.commissions.filter((commission) => !isLegacyDemoId(commission.accountId)),
-        leads: saved.leads.filter((lead) => saved.agents.some((agent) => !isLegacyDemoId(agent.accountId) && agent.id === lead.agentId)),
-        tickets: saved.tickets.filter((ticket) => !isLegacyDemoId(ticket.accountId)),
-        announcements: saved.announcements.map((announcement) => ({
-          ...announcement,
-          audience: announcement.audience ?? "operators",
-        })),
-      };
-    };
-    setS(clean(localState()));
-    void supabase
-      .from("platform_state")
-      .select("data")
-      .eq("id", "shared")
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (!alive) return;
-        if (!error && data?.data && Object.keys(data.data as object).length) {
-          const shared = clean({ ...seed, ...(data.data as unknown as PlatformState) });
-          if (user?.role === "operator") {
-            const ownTenant = shared.tenants.find((tenant) => tenant.accountId === user.id);
-            setS((local) => ({
-              ...local,
-              announcements: shared.announcements,
-              tickets: shared.tickets.filter((ticket) => ticket.accountId === user.id),
-              tenants: ownTenant
-                ? [...local.tenants.filter((tenant) => tenant.accountId !== user.id), ownTenant]
-                : local.tenants,
-            }));
-          } else if (user?.role === "agent") {
-            const ownAgent = shared.agents.find((agent) => agent.accountId === user.id);
-            const localOwnLeads = ownAgent
-              ? clean(localState()).leads.filter((lead) => lead.agentId === ownAgent.id)
-              : [];
-            const sharedIds = new Set(shared.leads.map((lead) => lead.id));
-            const unsynced = localOwnLeads.filter((lead) => !sharedIds.has(lead.id));
-            setS({ ...shared, leads: [...unsynced, ...shared.leads] });
-            unsynced.forEach((lead) => {
-              void syncAgentLead({
-                id: lead.id,
-                school: lead.school,
-                contactName: lead.contactName,
-                phone: lead.phone,
-                stage: lead.stage,
-                agentId: lead.agentId,
-                createdAt: lead.createdAt,
-              });
-            });
-          } else {
-            setS(shared);
-          }
-        }
-        setHydrated(true);
-      });
-    const fallback = window.setTimeout(() => alive && setHydrated(true), 3000);
+    void load();
+    const timer = window.setInterval(() => void load(), 8000);
     return () => {
       alive = false;
-      window.clearTimeout(fallback);
+      window.clearInterval(timer);
     };
   }, [accountsReady, user?.id, user?.role]);
 
@@ -388,179 +344,33 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     } catch {
       /* ignore */
     }
-    const mayShare = user?.role === "agent" || user?.role === "admin" || user?.role === "support" || user?.role === "finance";
-    if (!mayShare || !navigator.onLine) {
-      if (mayShare) pendingRef.current = true;
+  }, [s, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated || !user) return;
+    if (!["admin", "support", "finance"].includes(user.role)) return;
+    if (!navigator.onLine) {
+      pendingRef.current = true;
       return;
     }
     const timer = window.setTimeout(() => {
-      void supabase
-        .from("platform_state")
-        .update({ data: s as unknown as Json, updated_at: new Date().toISOString() })
-        .eq("id", "shared")
-        .then(({ error }) => {
-          pendingRef.current = !!error;
-        });
-    }, 700);
-    return () => window.clearTimeout(timer);
-  }, [s, hydrated, user?.role]);
-
-  useEffect(() => {
-    if (!hydrated || user?.role !== "agent" || !navigator.onLine || !s.leads.length) return;
-    let active = true;
-    const syncSavedLeads = () => {
-      s.leads.forEach((lead) => {
-        void syncAgentLead({
-          id: lead.id,
-          school: lead.school,
-          contactName: lead.contactName,
-          phone: lead.phone,
-          stage: lead.stage,
-          agentId: lead.agentId,
-          createdAt: lead.createdAt,
-        }).then((result) => {
-          if (!active || !result.ok) return;
-          setS((current) => ({
-            ...current,
-            leads: current.leads.map((item) => item.id === lead.id ? { ...item, queued: false } : item),
-          }));
-        });
+      void persistHub(s).then(() => {
+        pendingRef.current = false;
       });
-    };
-    syncSavedLeads();
-    const timer = window.setInterval(syncSavedLeads, 5000);
-    return () => { active = false; window.clearInterval(timer); };
-  }, [hydrated, user?.role, s.leads]);
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [s.settings, s.commissions, s.payouts, s.announcements, s.tenants, hydrated, user?.role]);
 
   useEffect(() => {
     const flush = () => {
-      if (!pendingRef.current || !user || user.role === "operator") return;
-      void supabase
-        .from("platform_state")
-        .update({ data: s as unknown as Json, updated_at: new Date().toISOString() })
-        .eq("id", "shared")
-        .then(({ error }) => {
-          pendingRef.current = !!error;
-        });
+      if (!pendingRef.current || !user || !["admin", "support", "finance"].includes(user.role)) return;
+      void persistHub(s).then(() => {
+        pendingRef.current = false;
+      });
     };
     window.addEventListener("online", flush);
     return () => window.removeEventListener("online", flush);
   }, [s, user]);
-
-  useEffect(() => {
-    if (!hydrated || !accountsReady) return;
-    const operatorIds = new Set(
-      accounts.filter((account) => account.role === "operator").map((account) => account.id),
-    );
-    const agentIds = new Set(
-      accounts.filter((account) => account.role === "agent").map((account) => account.id),
-    );
-    setS((current) => {
-      const tenants = current.tenants.filter((tenant) => operatorIds.has(tenant.accountId));
-      const agents = current.agents.filter(
-        (agent) => !!agent.accountId && agentIds.has(agent.accountId),
-      );
-
-      // Accounts registered on another device (or before this browser had a
-      // local copy) must still show up in the admin console, so build the
-      // missing rows straight from the backend account directory.
-      const day = 86400000;
-      const iso = (ts: number) => new Date(ts).toISOString().slice(0, 10);
-      const knownTenants = new Set(tenants.map((t) => t.accountId));
-      const knownAgents = new Set(agents.map((a) => a.accountId));
-      let added = 0;
-
-      accounts.forEach((account) => {
-        if (account.role === "operator" && !knownTenants.has(account.id)) {
-          added += 1;
-          tenants.push({
-            accountId: account.id,
-            canteenName: account.school || account.name,
-            school: account.school,
-            ownerName: account.name,
-            phone: account.phone ?? "",
-            category: "day",
-            zone: zones.includes(account.school) ? account.school : zones[0]!,
-            agentId: null,
-            status: "trial",
-            createdAt: account.createdAt,
-            trialEndsAt: account.createdAt + 30 * day,
-            nextBillingAt: account.createdAt + 30 * day,
-            lastLoginAt: null,
-            entries: 0,
-            tags: [],
-            notes: [],
-            checklist: { loggedIn: false, capitalSet: false, firstStock: false, firstSale: false },
-            termStart: iso(account.createdAt),
-            termEnd: iso(account.createdAt + 120 * day),
-          });
-        }
-        if (account.role === "agent" && !knownAgents.has(account.id)) {
-          added += 1;
-          agents.push({
-            id: uid(),
-            accountId: account.id,
-            name: account.name,
-            phone: account.phone ?? "",
-            email: account.email,
-            status: "pending",
-            territory: zones.includes(account.school) ? account.school : zones[0]!,
-            trainedAt: null,
-            certified: false,
-          });
-        }
-      });
-
-      const tenantIds = new Set(tenants.map((tenant) => tenant.accountId));
-      const keptAgentIds = new Set(agents.map((agent) => agent.id));
-      const next = {
-        ...current,
-        tenants,
-        agents,
-        commissions: current.commissions.filter(
-          (commission) => tenantIds.has(commission.accountId) && keptAgentIds.has(commission.agentId),
-        ),
-        leads: current.leads.filter((lead) => keptAgentIds.has(lead.agentId)),
-        tickets: current.tickets.filter((ticket) => tenantIds.has(ticket.accountId)),
-      };
-      if (
-        added === 0 &&
-        next.tenants.length === current.tenants.length &&
-        next.agents.length === current.agents.length &&
-        next.commissions.length === current.commissions.length &&
-        next.leads.length === current.leads.length &&
-        next.tickets.length === current.tickets.length
-      ) {
-        return current;
-      }
-      return next;
-    });
-  }, [accounts, accountsReady, hydrated]);
-
-
-  useEffect(() => {
-    if (!hydrated || !user || ["operator", "agent"].includes(user.role)) return;
-    const applyShared = (data?: PlatformState) => {
-      if (data) setS(clean({ ...seed, ...data }));
-    };
-    const channel = supabase
-      .channel("admin-platform-state")
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "platform_state", filter: "id=eq.shared" },
-        (payload) => applyShared((payload.new as { data?: PlatformState }).data),
-      )
-      .subscribe();
-    const poll = window.setInterval(() => {
-      void supabase.from("platform_state").select("data").eq("id", "shared").single().then(({ data }) => {
-        applyShared(data?.data as unknown as PlatformState | undefined);
-      });
-    }, 10_000);
-    return () => {
-      window.clearInterval(poll);
-      void supabase.removeChannel(channel);
-    };
-  }, [hydrated, user]);
 
   useEffect(() => {
     if (!hydrated || user?.role !== "admin") return;
