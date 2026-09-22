@@ -12,7 +12,6 @@ import { useAuth } from "./auth";
 import { supabase } from "@/integrations/supabase/client";
 import {
   loadLivePlatform,
-  markAgentQuizPassed,
   savePlatformHub,
   submitAgentLead,
   submitSupportTicket,
