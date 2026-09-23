@@ -1,8 +1,8 @@
 ---
 deployment:
   tasks:
-    - export DEPLOYPATH=/home/smaroppc/repositories/smatcanteen-src/
-    - /bin/bash -c "source /home/smaroppc/nodevenv/repositories/smatcanteen-src/24/bin/activate && cd $DEPLOYPATH && npm install --include=dev"
-    - /bin/bash -c "source /home/smaroppc/nodevenv/repositories/smatcanteen-src/24/bin/activate && cd $DEPLOYPATH && RAYON_NUM_THREADS=1 NITRO_PRESET=node-server npm run build"
+    - export DEPLOYPATH=/home/iltcqudo/repositories/smatcanteen-src/
+    - /bin/bash -c "source /home/iltcqudo/nodevenv/repositories/smatcanteen-src/22/bin/activate && cd $DEPLOYPATH && npm install --include=dev"
+    - /bin/bash -c "source /home/iltcqudo/nodevenv/repositories/smatcanteen-src/22/bin/activate && cd $DEPLOYPATH && RAYON_NUM_THREADS=1 NITRO_PRESET=node-server npm run build"
     - /bin/mkdir -p $DEPLOYPATH/tmp
     - /bin/touch $DEPLOYPATH/tmp/restart.txt
