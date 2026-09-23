@@ -1,59 +1,70 @@
-// @lovable.dev/vite-tanstack-config already includes the following — do NOT add them manually
-// or the app will break with duplicate plugins:
-//   - TanStack devtools (dev-only, first), tanstackStart, viteReact, tailwindcss, tsConfigPaths,
-//     nitro (build-only using cloudflare as a default target), VITE_* env injection, @ path alias,
-//     React/TanStack dedupe, error logger plugins, and sandbox detection (port/host/strictPort).
-// You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
-import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+ // Standalone config for cPanel / Node hosting (no private @lovable.dev package).
+import { defineConfig } from "vite";
+import { tanstackStart } from "@tanstack/react-start/plugin/vite";
+import viteReact from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+import tsConfigPaths from "vite-tsconfig-paths";
+import { nitro } from "nitro/vite";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
-  tanstackStart: {
-    // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
-    // nitro/vite builds from this
-    server: { entry: "server" },
+  server: {
+    port: 3000,
   },
-  vite: {
-    plugins: [
-      VitePWA({
-        strategies: "generateSW",
-        registerType: "autoUpdate",
-        filename: "service-worker.js",
-        injectRegister: null,
-        devOptions: { enabled: false },
-        manifest: false,
-        workbox: {
-          // Cache every compiled page file, not only pages already visited.
-          globPatterns: ["**/*.{js,css,html,png,svg,woff2}"],
-          additionalManifestEntries: [
-            { url: "/", revision: null },
-            { url: "/manifest.webmanifest", revision: null },
-          ],
-          navigateFallback: "/",
-          navigateFallbackDenylist: [/^\/~oauth/, /^\/api\//, /^\/_serverFn\//],
-          cleanupOutdatedCaches: true,
-          runtimeCaching: [
-            {
-              urlPattern: ({ request, url }) =>
-                url.origin === self.location.origin &&
-                ["script", "style", "font", "image"].includes(request.destination),
-              handler: "CacheFirst",
-              options: {
-                cacheName: "smartcanteen-assets",
-                expiration: { maxEntries: 250, maxAgeSeconds: 60 * 60 * 24 * 30 },
-              },
-            },
-            {
-              urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\//,
-              handler: "StaleWhileRevalidate",
-              options: {
-                cacheName: "smartcanteen-fonts",
-                expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 },
-              },
-            },
-          ],
-        },
-      }),
-    ],
+  resolve: {
+    alias: {
+      "@": new URL("./src", import.meta.url).pathname,
+    },
   },
+  plugins: [
+    tsConfigPaths({ projects: ["./tsconfig.json"] }),
+    tailwindcss(),
+    tanstackStart({
+      // Use our SSR error wrapper at src/server.ts
+      server: { entry: "server" },
+    }),
+    nitro({
+      // Node HTTP server for cPanel Passenger / Node.js Selector
+      preset: process.env.NITRO_PRESET || "node-server",
+    }),
+    viteReact(),
+    VitePWA({
+      strategies: "generateSW",
+      registerType: "autoUpdate",
+      filename: "service-worker.js",
+      injectRegister: null,
+      devOptions: { enabled: false },
+      manifest: false,
+      workbox: {
+        globPatterns: ["**/*.{js,css,html,png,svg,woff2}"],
+        additionalManifestEntries: [
+          { url: "/", revision: null },
+          { url: "/manifest.webmanifest", revision: null },
+        ],
+        navigateFallback: "/",
+        navigateFallbackDenylist: [/^\/~oauth/, /^\/api\//, /^\/_serverFn\//],
+        cleanupOutdatedCaches: true,
+        runtimeCaching: [
+          {
+            urlPattern: ({ request, url }) =>
+              url.origin === self.location.origin &&
+              ["script", "style", "font", "image"].includes(request.destination),
+            handler: "CacheFirst",
+            options: {
+              cacheName: "smartcanteen-assets",
+              expiration: { maxEntries: 250, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            },
+          },
+          {
+            urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\//,
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "smartcanteen-fonts",
+              expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 },
+            },
+          },
+        ],
+      },
+    }),
+  ],
 });
