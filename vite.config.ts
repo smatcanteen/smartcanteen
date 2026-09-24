@@ -1,33 +1,11 @@
- // Standalone config for cPanel / Node hosting (no private @lovable.dev package).
-import { defineConfig } from "vite";
-import { tanstackStart } from "@tanstack/react-start/plugin/vite";
-import viteReact from "@vitejs/plugin-react";
-import tailwindcss from "@tailwindcss/vite";
-import tsConfigPaths from "vite-tsconfig-paths";
-import { nitro } from "nitro/vite";
+import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
-  server: {
-    port: 3000,
-  },
-  resolve: {
-    alias: {
-      "@": new URL("./src", import.meta.url).pathname,
-    },
+  tanstackStart: {
+    server: { entry: "server" },
   },
   plugins: [
-    tsConfigPaths({ projects: ["./tsconfig.json"] }),
-    tailwindcss(),
-    tanstackStart({
-      // Use our SSR error wrapper at src/server.ts
-      server: { entry: "server" },
-    }),
-    nitro({
-      // Node HTTP server for cPanel Passenger / Node.js Selector
-      preset: process.env.NITRO_PRESET || "node-server",
-    }),
-    viteReact(),
     VitePWA({
       strategies: "generateSW",
       registerType: "autoUpdate",
