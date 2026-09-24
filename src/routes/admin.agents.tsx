@@ -376,7 +376,7 @@ function Agents() {
                                 {t.school || "—"} · joined {fmtDate(t.createdAt)}
                               </span>
                             </span>
-                            <Pill tone={statusTone(t.status)}>{statusLabels[t.status as TenantStatus] ?? t.status}</Pill>
+                            <Pill tone={statusTone(t.status)}>{statusLabels[t.status as keyof typeof statusLabels] ?? t.status}</Pill>
                           </li>
                         ))}
                       </ul>
