@@ -109,13 +109,13 @@ function Stock() {
     name: "Stock purchases",
     columns: ["Date", "Item", "Quantity", "Cost (UGX)"],
     rows: purchaseRows,
-    summary: [["Period", range.label], ["Recorded quantity bought", totalPurchaseQuantity], ["Total purchase cost", `UGX ${ugx(totalPurchaseCost)}`]],
+    summary: [["Period", range.label], ["Recorded quantity bought", String(totalPurchaseQuantity)], ["Total purchase cost", `UGX ${ugx(totalPurchaseCost)}`]],
   };
   const stockSummarySheet: Sheet = {
     name: "Purchases by item",
     columns: ["Item", "Total quantity", "Total cost (UGX)"],
     rows: purchaseSummaryRows,
-    summary: [["Period", range.label], ["Recorded quantity bought", totalPurchaseQuantity], ["Total purchase cost", `UGX ${ugx(totalPurchaseCost)}`]],
+    summary: [["Period", range.label], ["Recorded quantity bought", String(totalPurchaseQuantity)], ["Total purchase cost", `UGX ${ugx(totalPurchaseCost)}`]],
   };
 
   const openCheck = (item: StockItem) => {

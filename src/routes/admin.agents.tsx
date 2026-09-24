@@ -92,7 +92,7 @@ function Agents() {
     const result = await setAgentCertification({ data: { accessToken, agentAccountId: agent.accountId, certified: true } });
     if (result.ok) {
       certifyAgent(agent.id);
-      setAgentData((current) => ({ ...current, [agent.accountId!]: { admin: result.agentAdmin, leads: current[agent.accountId!]?.leads ?? [] } }));
+      setAgentData((current) => ({ ...current, [agent.accountId!]: { admin: result.agentAdmin, leads: current[agent.accountId!]?.leads ?? [], schools: current[agent.accountId!]?.schools ?? [] } }));
     } else setError(result.error);
     setSavingAgent(null);
   };
@@ -376,7 +376,7 @@ function Agents() {
                                 {t.school || "—"} · joined {fmtDate(t.createdAt)}
                               </span>
                             </span>
-                            <Pill tone={statusTone(t.status)}>{statusLabels[t.status] ?? t.status}</Pill>
+                            <Pill tone={statusTone(t.status)}>{statusLabels[t.status as keyof typeof statusLabels] ?? t.status}</Pill>
                           </li>
                         ))}
                       </ul>
