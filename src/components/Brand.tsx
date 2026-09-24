@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import markLight from "@/assets/mark-light.png";
-import markDark from "@/assets/mark-dark.png";
+// mark-dark.png was ~158KB; the light mark is ~29KB and works on green with a white disc.
 
 
 
@@ -33,14 +33,17 @@ export function BrandMark({
   return (
     <span
       className={`inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ${
-        dark ? "bg-transparent" : "bg-transparent"
+        dark ? "bg-white" : "bg-transparent"
       } ${box[size]} ${className}`}
     >
       <img
-        src={dark ? markDark : markLight}
+        src={markLight}
         alt=""
         aria-hidden
-        className={`h-full w-full object-contain ${dark ? "scale-110" : ""}`}
+        className="h-full w-full object-contain p-0.5"
+        width={56}
+        height={56}
+        decoding="async"
       />
     </span>
   );
