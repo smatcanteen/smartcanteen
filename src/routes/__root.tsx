@@ -105,13 +105,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "stylesheet", href: appCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      // One request: text fonts + only the icons this app uses (not the full 3–4 MB set).
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap",
-      },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=account_balance,account_balance_wallet,add,arrow_back,arrow_forward,badge,bar_chart,calendar_today,cancel,card_membership,check,chevron_left,chevron_right,close,content_copy,delete,download,edit,email,error,event_repeat,expand_more,filter_list,group,handshake,history,home,home_work,info,inventory,inventory_2,lightbulb,local_taxi,lock,logout,menu,more_horiz,notifications,payments,person,phone,point_of_sale,print,receipt_long,refresh,savings,school,search,sell,settings,share,shopping_cart,smartphone,store,support_agent,swap_vert,task_alt,tips_and_updates,trending_down,trending_up,upload,visibility,visibility_off,warning,wifi&display=swap",
       },
       { rel: "icon", href: "/favicon.png", type: "image/png" },
       { rel: "manifest", href: "/manifest.webmanifest" },
@@ -151,8 +148,7 @@ const criticalCss = `
 function RootShell({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
 
-  // Hide the splash once the web fonts are in, so the first thing people see
-  // is the finished layout rather than a jumbled one.
+  // Don't block the UI on webfonts — show the app fast; fonts swap in.
   useEffect(() => {
     let done = false;
     const finish = () => {
@@ -160,10 +156,7 @@ function RootShell({ children }: { children: ReactNode }) {
       done = true;
       setReady(true);
     };
-    if (typeof document !== "undefined" && document.fonts?.ready) {
-      void document.fonts.ready.then(finish);
-    }
-    const t = setTimeout(finish, 2500);
+    const t = setTimeout(finish, 400);
     return () => clearTimeout(t);
   }, []);
 
