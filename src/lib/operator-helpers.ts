@@ -386,28 +386,24 @@ export function morningGreeting(hour = localHour()): string {
   return "Good evening";
 }
 
-/** Most recent physical stock check across all items (ms), or 0 if never. */
-export function lastStockCheckAt(items: StockItem[]): number {
-  let max = 0;
+export type StockCheckLike = { ts: number };
+
+/** Latest physical count time from checks list or item.lastCheckedAt. */
+export function lastStockCheckAt(checks: StockCheckLike[] | undefined, items: StockItem[]): number {
+  let max = (checks ?? []).reduce((m, c) => Math.max(m, c.ts), 0);
   for (const i of items) {
-    // lastKnownQuantity set means a check happened; we don't store check ts on item,
-    // so use stockChecks if present on state — callers pass optional checks.
-    void i;
+    if (i.lastCheckedAt && i.lastCheckedAt > max) max = i.lastCheckedAt;
   }
   return max;
 }
 
-export type StockCheckLike = { ts: number };
-
 /** Days since last physical count. null = never checked. */
 export function daysSinceStockCheck(checks: StockCheckLike[] | undefined, items: StockItem[]): number | null {
-  const fromChecks = (checks ?? []).reduce((m, c) => Math.max(m, c.ts), 0);
-  // Fallback: any item with a counted qty counts as "has been checked" but without a date we treat as stale.
+  const at = lastStockCheckAt(checks, items);
+  if (at > 0) return Math.floor((Date.now() - at) / dayMs);
   const anyCounted = items.some((i) => i.lastKnownQuantity != null);
-  if (fromChecks > 0) return Math.floor((Date.now() - fromChecks) / dayMs);
-  if (anyCounted) return 7; // unknown date → nudge weekly
-  if (items.length === 0) return null;
-  return null; // never checked
+  if (anyCounted) return 7;
+  return null;
 }
 
 /** True when shelf should be re-counted (weekly). */
