@@ -3,8 +3,9 @@ import { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Icon } from "@/components/Icon";
 import { Card, Field, PrimaryButton, SectionTitle } from "@/components/ui-kit";
-import { buildDayDigest, dayKeyOf, openWhatsApp } from "@/lib/operator-helpers";
+import { buildDayDigest, closeStreak, dayKeyOf, openWhatsApp } from "@/lib/operator-helpers";
 import { ugx, useStore } from "@/lib/store";
+import { Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/close-out")({
   head: () => ({
@@ -30,6 +31,7 @@ function CloseOut() {
   const [phone, setPhone] = useState(state.digestPhone ?? "");
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
+  const [streakAfter, setStreakAfter] = useState(0);
 
   const counted = notes.reduce((a, n) => a + n * (Number(counts[n]) || 0), 0);
   const diff = counted - cashAtHand;
@@ -72,6 +74,11 @@ function CloseOut() {
       net: today.net,
       digestSent,
     });
+    // Streak includes today once the close is written; +1 covers the just-saved day
+    // before React re-reads state.
+    const prior = closeStreak(state.dayCloses);
+    const hadToday = (state.dayCloses ?? []).some((c) => c.dayKey === todayKey);
+    setStreakAfter(hadToday ? Math.max(prior, 1) : prior + 1);
     setDone(true);
   };
 
@@ -178,13 +185,26 @@ function CloseOut() {
       {error ? <p className="text-sm font-semibold text-tertiary">{error}</p> : null}
 
       {done ? (
-        <Card className="space-y-2 bg-primary/10 text-primary">
-          <p className="font-bold">Day closed and saved.</p>
-          <p className="text-sm">
+        <Card className="space-y-3 bg-primary/10 text-primary">
+          <p className="font-bold text-lg">Day closed. Well done.</p>
+          <p className="text-sm text-on-surface">
             Counted UGX {ugx(counted)} · app UGX {ugx(cashAtHand)} ·{" "}
-            {diff === 0 ? "balanced" : diff > 0 ? `surplus UGX ${ugx(diff)}` : `short UGX ${ugx(Math.abs(diff))}`}.
+            {diff === 0 ? "till balanced" : diff > 0 ? `surplus UGX ${ugx(diff)}` : `short UGX ${ugx(Math.abs(diff))}`}.
           </p>
-          {digest ? <p className="text-sm">WhatsApp opened with your daily digest.</p> : null}
+          {streakAfter > 0 && (
+            <p className="flex items-center gap-2 text-sm font-bold">
+              <Icon name="local_fire_department" className="text-[20px]" />
+              {streakAfter} day{streakAfter === 1 ? "" : "s"} closed in a row
+              {streakAfter >= 7 ? " — full week!" : streakAfter >= 3 ? " — keep it going" : ""}
+            </p>
+          )}
+          {digest ? <p className="text-sm text-on-surface">WhatsApp opened with your daily digest.</p> : null}
+          <Link
+            to="/"
+            className="flex min-h-12 items-center justify-center rounded-md bg-primary text-sm font-bold text-on-primary"
+          >
+            Back to Home
+          </Link>
         </Card>
       ) : (
         <PrimaryButton onClick={finish}>
