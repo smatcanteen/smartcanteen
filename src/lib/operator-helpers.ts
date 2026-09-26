@@ -434,3 +434,38 @@ export function openTillMismatch(closes: DayCloseLike[] | undefined): DayCloseLi
   if (latest.diff === 0) return null;
   return latest;
 }
+
+export function isOnHoliday(holidayUntil?: number | null, now = Date.now()): boolean {
+  return !!holidayUntil && holidayUntil > now;
+}
+
+export function daysUntil(ts: number, now = Date.now()): number {
+  return Math.ceil((ts - now) / dayMs);
+}
+
+/** Renewal urgency buckets for Home auto-nudge: 14, 7, 1, 0 (due/overdue). */
+export function renewalNudgeTier(daysLeft: number | null): 14 | 7 | 1 | 0 | null {
+  if (daysLeft == null) return null;
+  if (daysLeft <= 0) return 0;
+  if (daysLeft <= 1) return 1;
+  if (daysLeft <= 7) return 7;
+  if (daysLeft <= 14) return 14;
+  return null;
+}
+
+export function holidayPauseMessage(opts: {
+  termName: string;
+  untilLabel: string;
+  nextTermLabel?: string;
+}) {
+  return [
+    `SmartCanteen · ${opts.termName}`,
+    "School holiday pause",
+    "",
+    `Paused until ${opts.untilLabel}.`,
+    opts.nextTermLabel ? `Next term opens around ${opts.nextTermLabel}.` : "",
+    "Your books stay safe. Open the app when school resumes.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
