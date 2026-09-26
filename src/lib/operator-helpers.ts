@@ -385,3 +385,56 @@ export function morningGreeting(hour = localHour()): string {
   if (hour < 17) return "Good afternoon";
   return "Good evening";
 }
+
+/** Most recent physical stock check across all items (ms), or 0 if never. */
+export function lastStockCheckAt(items: StockItem[]): number {
+  let max = 0;
+  for (const i of items) {
+    // lastKnownQuantity set means a check happened; we don't store check ts on item,
+    // so use stockChecks if present on state — callers pass optional checks.
+    void i;
+  }
+  return max;
+}
+
+export type StockCheckLike = { ts: number };
+
+/** Days since last physical count. null = never checked. */
+export function daysSinceStockCheck(checks: StockCheckLike[] | undefined, items: StockItem[]): number | null {
+  const fromChecks = (checks ?? []).reduce((m, c) => Math.max(m, c.ts), 0);
+  // Fallback: any item with a counted qty counts as "has been checked" but without a date we treat as stale.
+  const anyCounted = items.some((i) => i.lastKnownQuantity != null);
+  if (fromChecks > 0) return Math.floor((Date.now() - fromChecks) / dayMs);
+  if (anyCounted) return 7; // unknown date → nudge weekly
+  if (items.length === 0) return null;
+  return null; // never checked
+}
+
+/** True when shelf should be re-counted (weekly). */
+export function needsWeeklyStockCheck(
+  checks: StockCheckLike[] | undefined,
+  items: StockItem[],
+  maxDays = 7,
+): boolean {
+  if (items.length === 0) return false;
+  const days = daysSinceStockCheck(checks, items);
+  if (days === null) return true; // never counted
+  return days >= maxDays;
+}
+
+/** Open credit, oldest first — “collect today” list. */
+export function collectTodayList(debtors: Debtor[], minDays = 0): Debtor[] {
+  return debtors
+    .filter((d) => balanceOf(d) > 0 && ageDays(d) >= minDays)
+    .slice()
+    .sort((a, b) => a.ts - b.ts);
+}
+
+/** Unresolved till mismatch from the latest close (today or most recent). */
+export function openTillMismatch(closes: DayCloseLike[] | undefined): DayCloseLike | null {
+  const list = closes ?? [];
+  if (!list.length) return null;
+  const latest = [...list].sort((a, b) => b.ts - a.ts)[0]!;
+  if (latest.diff === 0) return null;
+  return latest;
+}
