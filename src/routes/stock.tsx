@@ -6,6 +6,7 @@ import { Card, Field, PrimaryButton, SectionTitle } from "@/components/ui-kit";
 import { DataTable, RangeBar, useRange } from "@/components/RangeExport";
 import type { Sheet } from "@/lib/export";
 import { dateInput, fromDateInput, ugx, useStore, type StockItem } from "@/lib/store";
+import { lowStockItems, shelfQty } from "@/lib/operator-helpers";
 import { StockPurchaseForm } from "./stock-in";
 
 export const Route = createFileRoute("/stock")({
@@ -48,12 +49,12 @@ function Stock() {
   const [itemPage, setItemPage] = useState(0);
   const [addingItem, setAddingItem] = useState(false);
   const [showPurchaseTables, setShowPurchaseTables] = useState(false);
-  const checked = state.items.filter((i) => i.lastKnownQuantity != null);
-  const atCost = checked.reduce(
-    (a, i) => a + (i.qty ? (i.buy / i.qty) * (i.lastKnownQuantity ?? 0) : 0),
+  const atCost = state.items.reduce(
+    (a, i) => a + (i.qty ? (i.buy / i.qty) * shelfQty(i) : 0),
     0,
   );
-  const atRetail = checked.reduce((a, i) => a + i.sell * (i.lastKnownQuantity ?? 0), 0);
+  const atRetail = state.items.reduce((a, i) => a + i.sell * shelfQty(i), 0);
+  const low = lowStockItems(state.items);
   const filteredItems = state.items.filter((i) =>
     i.name.toLowerCase().includes(itemSearch.trim().toLowerCase()),
   );
@@ -212,9 +213,20 @@ function Stock() {
         </div>
       )}
 
+      {low.length > 0 && (
+        <div className="rounded-lg border border-tertiary/20 bg-tertiary/10 p-sm">
+          <p className="label-bold flex items-center gap-2 text-tertiary">
+            <Icon name="warning" className="text-[18px]" /> Restock list
+          </p>
+          <p className="mt-1 text-sm text-on-surface">
+            {low.map((i) => `${i.name} (${shelfQty(i)} left)`).join(", ")}
+          </p>
+        </div>
+      )}
+
       <div className="grid gap-sm sm:grid-cols-2">
         <Card>
-          <p className="label-bold text-on-surface-variant">Total Stocked · checked at cost</p>
+          <p className="label-bold text-on-surface-variant">Total Stocked · at cost</p>
           <p className="price-display text-on-surface">UGX {ugx(atCost)}</p>
           <p className="mt-1 text-xs text-on-surface-variant">Only items physically checked are included.</p>
         </Card>
@@ -267,7 +279,7 @@ function Stock() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="truncate font-bold text-on-surface">{item.name}</p>
-                    <p className="text-xs text-on-surface-variant">{item.qty} bought · {isChecked ? `${item.lastKnownQuantity} left` : "count not checked"}</p>
+                    <p className="text-xs text-on-surface-variant">{item.qty} bought · {shelfQty(item)} left{isChecked ? "" : " (est.)"}</p>
                   </div>
                   <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
                     <span className="rounded-full bg-primary/10 px-2 py-1 text-[11px] font-bold text-primary">

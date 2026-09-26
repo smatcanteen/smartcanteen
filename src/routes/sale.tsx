@@ -6,6 +6,7 @@ import { Card, Field, Keypad, MicButton, PrimaryButton, SectionTitle } from "@/c
 import { DataTable, RangeBar, useRange } from "@/components/RangeExport";
 import type { Sheet } from "@/lib/export";
 import { parseAmount } from "@/lib/voice";
+import { parseVoiceDrafts, shelfQty, type VoiceDraft } from "@/lib/operator-helpers";
 import { useDraft } from "@/lib/draft";
 import { dateInput, fromDateInput, ugx, useStore } from "@/lib/store";
 
@@ -33,7 +34,8 @@ type SaleDraft = {
 };
 
 function Sale() {
-  const { state, addTx, addDebtor, sellItems, undoLast, cashAtHand } = useStore();
+  const { state, addTx, addDebtor, sellItems, undoLast, cashAtHand, addStockItems } = useStore();
+  const [voiceDrafts, setVoiceDrafts] = useState<VoiceDraft[] | null>(null);
   // Work in progress is kept on the device until the sale is actually saved.
   const draft = useDraft<SaleDraft>("sale", {
     amount: "",
@@ -153,6 +155,15 @@ function Sale() {
         </p>
       </Card>
 
+      {!itemize && state.items.length > 0 && (
+        <Card className="border border-secondary/30 bg-secondary/10 text-sm text-on-surface">
+          <p className="font-bold text-secondary">Simple sale does not change shelf counts.</p>
+          <p className="mt-1 text-on-surface-variant">
+            Use <button type="button" className="font-bold text-primary underline" onClick={() => setItemize(true)}>Itemize</button> if you want stock levels to drop with each sale.
+          </p>
+        </Card>
+      )}
+
       {itemize ? (
         <div className="space-y-sm">
           {state.items.length === 0 && (
@@ -163,7 +174,7 @@ function Sale() {
               <div className="min-w-0">
                 <p className="truncate font-semibold text-on-surface">{it.name}</p>
                 <p className="text-xs text-on-surface-variant">
-                  UGX {ugx(it.sell)} each · {it.stock} in stock
+                  UGX {ugx(it.sell)} each · {shelfQty(it)} in stock
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
@@ -177,9 +188,9 @@ function Sale() {
                 <span className="w-6 text-center font-bold">{picked[it.id] ?? 0}</span>
                 <button
                   onClick={() =>
-                    setPicked((p) => ({ ...p, [it.id]: Math.min(it.stock, (p[it.id] ?? 0) + 1) }))
+                    setPicked((p) => ({ ...p, [it.id]: Math.min(shelfQty(it), (p[it.id] ?? 0) + 1) }))
                   }
-                  disabled={(picked[it.id] ?? 0) >= it.stock}
+                  disabled={(picked[it.id] ?? 0) >= shelfQty(it)}
                   className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-on-primary disabled:opacity-40"
                   aria-label={`Add one ${it.name}`}
                 >
@@ -196,7 +207,12 @@ function Sale() {
           </div>
           <MicButton
             onResult={(t) => {
-              const n = parseAmount(t);
+              const drafts = parseVoiceDrafts(t, state.expenseCategories, state.items);
+              if (drafts.length > 1 || drafts.some((d) => d.kind !== "sale")) {
+                setVoiceDrafts(drafts.length ? drafts : null);
+                return;
+              }
+              const n = drafts[0]?.kind === "sale" ? drafts[0].amount : parseAmount(t);
               if (n > 0) setAmount(String(n));
             }}
           />
@@ -223,6 +239,45 @@ function Sale() {
           </div>
         )}
       </Card>
+
+      {voiceDrafts && voiceDrafts.length > 0 && (
+        <Card className="space-y-sm border border-primary/30">
+          <SectionTitle>Confirm what you said</SectionTitle>
+          <p className="text-xs text-on-surface-variant">Nothing is saved until you confirm.</p>
+          {voiceDrafts.map((d, i) => (
+            <div key={i} className="rounded-md bg-surface-low p-sm text-sm">
+              {d.kind === "sale" && <p>Sale · UGX {ugx(d.amount)} <span className="text-xs text-outline">“{d.raw}”</span></p>}
+              {d.kind === "expense" && <p>Expense · {d.category ?? "Miscellaneous"} · UGX {ugx(d.amount)}</p>}
+              {d.kind === "stock" && <p>Stock · {d.name} ×{d.qty} · cost UGX {ugx(d.buy)}</p>}
+            </div>
+          ))}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setVoiceDrafts(null)}
+              className="min-h-11 rounded-md border border-outline-variant font-bold"
+            >
+              Cancel
+            </button>
+            <PrimaryButton
+              onClick={() => {
+                for (const d of voiceDrafts) {
+                  if (d.kind === "sale" && d.amount > 0) addTx({ type: "sale", label: "Cash sale", amount: d.amount });
+                  if (d.kind === "expense" && d.amount > 0)
+                    addTx({ type: "expense", label: d.category ?? "Expense", category: d.category, amount: d.amount });
+                  if (d.kind === "stock" && d.qty > 0)
+                    addStockItems([{ name: d.name, qty: d.qty, buy: d.buy, sell: d.sell || 0 }]);
+                }
+                setVoiceDrafts(null);
+                setSaved(true);
+                setTimeout(() => setSaved(false), 4000);
+              }}
+            >
+              Confirm & save
+            </PrimaryButton>
+          </div>
+        </Card>
+      )}
 
       <PrimaryButton tone="cta" onClick={handleSave} disabled={total <= 0}>
         <Icon name="check" /> Save sale

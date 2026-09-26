@@ -5,6 +5,8 @@ import { Card, SectionTitle } from "@/components/ui-kit";
 import { RangeBar, useRange } from "@/components/RangeExport";
 import { ugx, useStore } from "@/lib/store";
 import type { Sheet } from "@/lib/export";
+import { exportTermReportCard } from "@/lib/operator-helpers";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/report")({
   head: () => ({
@@ -21,7 +23,8 @@ export const Route = createFileRoute("/report")({
 });
 
 function Report() {
-  const { state, totals } = useStore();
+  const { state, totals, cashAtHand } = useStore();
+  const { user } = useAuth();
   const range = useRange(state.termStartedAt);
   const inRange = state.txs.filter((t) => range.has(t.ts) && t.type !== "capital");
 
@@ -155,6 +158,28 @@ function Report() {
           <Mini label="Net profit" value={totals.sales - totals.expenses - totals.stock} />
           <Mini label="Outstanding credit" value={outstanding} />
         </div>
+        <button
+          type="button"
+          onClick={() =>
+            exportTermReportCard({
+              termName: state.termName,
+              school: user?.school,
+              sales: totals.sales,
+              stock: totals.stock,
+              expenses: totals.expenses,
+              net: totals.sales - totals.expenses - totals.stock,
+              expectedProfit,
+              outstanding,
+              cashAtHand,
+              goal: state.savingsGoal,
+              startedAt: state.termStartedAt,
+            })
+          }
+          className="flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-primary font-bold text-on-primary"
+        >
+          <Icon name="picture_as_pdf" /> Share term report card (PDF)
+        </button>
+        <p className="text-xs text-on-surface-variant">Opens a clean one-page card — use Print → Save as PDF to share.</p>
       </Card>
     </AppLayout>
   );

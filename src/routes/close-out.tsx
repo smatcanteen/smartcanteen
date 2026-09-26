@@ -3,6 +3,7 @@ import { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Icon } from "@/components/Icon";
 import { Card, Field, PrimaryButton, SectionTitle } from "@/components/ui-kit";
+import { buildDayDigest, dayKeyOf, openWhatsApp } from "@/lib/operator-helpers";
 import { ugx, useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/close-out")({
@@ -23,16 +24,56 @@ export const Route = createFileRoute("/close-out")({
 const notes = [50000, 20000, 10000, 5000, 2000, 1000, 500, 200, 100, 50];
 
 function CloseOut() {
-  const { state, today, cashAtHand } = useStore();
+  const { state, today, cashAtHand, closeDay, setDigestPhone } = useStore();
   const [counts, setCounts] = useState<Record<number, string>>({});
   const [digest, setDigest] = useState(true);
+  const [phone, setPhone] = useState(state.digestPhone ?? "");
   const [done, setDone] = useState(false);
+  const [error, setError] = useState("");
 
   const counted = notes.reduce((a, n) => a + n * (Number(counts[n]) || 0), 0);
   const diff = counted - cashAtHand;
   const todays = state.txs.filter(
     (t) => new Date(t.ts).toDateString() === new Date().toDateString(),
   );
+  const todayKey = dayKeyOf();
+  const already = (state.dayCloses ?? []).find((c) => c.dayKey === todayKey);
+
+  const finish = () => {
+    if (counted <= 0 && todays.length === 0) {
+      setError("Count the cash in the till, or log today's sales first.");
+      return;
+    }
+    setError("");
+    if (phone.trim()) setDigestPhone(phone.trim());
+
+    const digestText = buildDayDigest({
+      termName: state.termName || "Canteen",
+      sales: today.sales,
+      expenses: today.expenses,
+      net: today.net,
+      expected: cashAtHand,
+      counted,
+      diff,
+      dayKey: todayKey,
+    });
+
+    let digestSent = false;
+    if (digest) {
+      openWhatsApp(digestText, phone.trim() || undefined);
+      digestSent = true;
+    }
+
+    closeDay({
+      counted,
+      expected: cashAtHand,
+      sales: today.sales,
+      expenses: today.expenses,
+      net: today.net,
+      digestSent,
+    });
+    setDone(true);
+  };
 
   return (
     <AppLayout title="Close-Out">
@@ -50,6 +91,14 @@ function CloseOut() {
           <p className="font-bold text-on-surface">UGX {ugx(today.net)}</p>
         </div>
       </Card>
+
+      {already && !done && (
+        <Card className="bg-primary/10 text-sm text-primary">
+          Day already closed at{" "}
+          {new Date(already.ts).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}.
+          Closing again replaces that record.
+        </Card>
+      )}
 
       <section>
         <SectionTitle>Today's entries</SectionTitle>
@@ -102,11 +151,9 @@ function CloseOut() {
         </div>
       </Card>
 
-      <Card>
+      <Card className="space-y-sm">
         <label className="flex items-center justify-between">
-          <span className="text-sm font-bold text-on-surface-variant">
-            Send WhatsApp daily digest
-          </span>
+          <span className="text-sm font-bold text-on-surface-variant">Send WhatsApp daily digest</span>
           <input
             type="checkbox"
             checked={digest}
@@ -114,11 +161,58 @@ function CloseOut() {
             className="h-6 w-6 accent-[#135230]"
           />
         </label>
+        {digest && (
+          <>
+            <Field
+              label="WhatsApp number (optional)"
+              inputMode="tel"
+              placeholder="07xx… or leave blank to choose in WhatsApp"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              hint="Opens WhatsApp with today's sales, outgoings and till count ready to send."
+            />
+          </>
+        )}
       </Card>
 
-      <PrimaryButton onClick={() => setDone(true)}>
-        <Icon name="task_alt" /> {done ? "Day closed" : "Close the day"}
-      </PrimaryButton>
+      {error ? <p className="text-sm font-semibold text-tertiary">{error}</p> : null}
+
+      {done ? (
+        <Card className="space-y-2 bg-primary/10 text-primary">
+          <p className="font-bold">Day closed and saved.</p>
+          <p className="text-sm">
+            Counted UGX {ugx(counted)} · app UGX {ugx(cashAtHand)} ·{" "}
+            {diff === 0 ? "balanced" : diff > 0 ? `surplus UGX ${ugx(diff)}` : `short UGX ${ugx(Math.abs(diff))}`}.
+          </p>
+          {digest ? <p className="text-sm">WhatsApp opened with your daily digest.</p> : null}
+        </Card>
+      ) : (
+        <PrimaryButton onClick={finish}>
+          <Icon name="task_alt" /> Close the day
+        </PrimaryButton>
+      )}
+
+      {(state.dayCloses ?? []).length > 0 && (
+        <section>
+          <SectionTitle>Recent closes</SectionTitle>
+          <Card className="space-y-2 p-sm">
+            {[...(state.dayCloses ?? [])]
+              .slice(-5)
+              .reverse()
+              .map((c) => (
+                <div key={c.id} className="flex justify-between text-sm">
+                  <span>
+                    {c.dayKey}
+                    {c.digestSent ? " · WhatsApp" : ""}
+                  </span>
+                  <span className={c.diff === 0 ? "text-primary" : "text-tertiary"}>
+                    {c.diff === 0 ? "OK" : c.diff > 0 ? `+${ugx(c.diff)}` : `−${ugx(Math.abs(c.diff))}`}
+                  </span>
+                </div>
+              ))}
+          </Card>
+        </section>
+      )}
     </AppLayout>
   );
 }
