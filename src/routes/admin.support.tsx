@@ -4,7 +4,8 @@ import { Icon } from "@/components/Icon";
 import { Card, Field, SectionTitle, SelectField } from "@/components/ui-kit";
 import { Pill } from "@/components/AdminShell";
 import { useAuth } from "@/lib/auth";
-import { fmtDate, type Ticket } from "@/lib/platform";
+import { whatsappLink } from "@/lib/invite";
+import { fmtDate, usePlatform, type Ticket } from "@/lib/platform";
 import { listSupportTickets, updateSupportTicket } from "@/lib/platform.functions";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -29,6 +30,7 @@ const tone = (s: Ticket["status"]) => (s === "resolved" ? "good" : s === "open" 
 
 function Support() {
   const { user, accounts } = useAuth();
+  const { s } = usePlatform();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loadError, setLoadError] = useState("");
   const [draft, setDraft] = useState<Record<string, string>>({});
@@ -108,6 +110,26 @@ function Support() {
                 {t.accountName} · opened {fmtDate(t.createdAt)}
                 {t.assignedTo ? ` · assigned to ${t.assignedTo}` : ""}
               </p>
+              {(() => {
+                const tenant = s.tenants.find((x) => x.accountId === t.accountId);
+                const phone = tenant?.phone ?? "";
+                if (!phone) return null;
+                const digits = phone.replace(/\D/g, "");
+                const tel = digits.startsWith("0") ? `+256${digits.slice(1)}` : digits.startsWith("256") ? `+${digits}` : phone.startsWith("+") ? phone : `+${digits}`;
+                const wa = whatsappLink(phone, `Hello ${tenant?.ownerName || t.accountName}, this is SmartCanteen support about: ${t.subject}`);
+                return (
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    <a href={`tel:${tel}`} className="inline-flex min-h-9 items-center gap-1 rounded-full border border-outline-variant px-3 text-xs font-bold text-on-surface">
+                      <Icon name="call" className="text-[16px]" /> Call
+                    </a>
+                    {wa ? (
+                      <a href={wa} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center gap-1 rounded-full border border-primary px-3 text-xs font-bold text-primary">
+                        <Icon name="chat" className="text-[16px]" /> WhatsApp
+                      </a>
+                    ) : null}
+                  </div>
+                );
+              })()}
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2">
               <Pill tone={tone(t.status)}>{t.status === "open" ? "new" : t.status.replace("_", " ")}</Pill>
