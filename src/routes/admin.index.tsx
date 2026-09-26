@@ -6,7 +6,8 @@ import { Card, SectionTitle } from "@/components/ui-kit";
 import { Kpi, Pill, can, statusTone } from "@/components/AdminShell";
 import { useAuth } from "@/lib/auth";
 import { ugx } from "@/lib/store";
-import { fmtDate, isActivated, isStalled, statusLabels, usePlatform } from "@/lib/platform";
+import { whatsappLink } from "@/lib/invite";
+import { fmtDate, isActivated, isStalled, statusLabels, ugxDisplay, usePlatform } from "@/lib/platform";
 
 export const Route = createFileRoute("/admin/")({
   head: () => ({
@@ -34,8 +35,16 @@ function Dashboard() {
   const trial = t.filter((x) => x.status === "trial");
   const pastDue = t.filter((x) => x.status === "past_due");
   const churned = t.filter((x) => x.status === "churned");
-  const monthlyRecurring = active.length * (s.settings.priceUGX / Math.max(1, s.settings.months));
   const [progress, setProgress] = useState<Record<string, { entries: number; lastLoginAt: number | null; checklist: { loggedIn: boolean; capitalSet: boolean; firstStock: boolean; firstSale: boolean } }>>({});
+  const paidThisMonth = (s.payments ?? []).filter((p) => {
+    const d = new Date(p.ts);
+    const now = new Date();
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  });
+  const cashIn = paidThisMonth.reduce((a, p) => a + p.amount, 0);
+  const pendingClaims = (s.paymentClaims ?? []).filter((c) => c.status === "pending").length;
+  const chaseMsg = (name: string, school: string) =>
+    `Hello ${name}, this is SmartCanteen. Your canteen access for ${school || "your school"} is due for renewal soon. Pay UGX ${ugxDisplay(s.settings.priceUGX)} for ${s.settings.months} months to either +256 758 727269 or +256 783 113352, then send us the confirmation. Thank you.`;
 
   useEffect(() => {
     let alive = true;
@@ -46,8 +55,10 @@ function Dashboard() {
     return () => { alive = false; };
   }, []);
 
-  const week = Date.now() + 7 * 86400000;
-  const renewals = t.filter((x) => x.nextBillingAt <= week && x.status !== "churned");
+  const fortnight = Date.now() + 14 * 86400000;
+  const renewals = t
+    .filter((x) => x.nextBillingAt <= fortnight && x.nextBillingAt > Date.now() && x.status !== "churned" && x.status !== "suspended")
+    .sort((a, b) => a.nextBillingAt - b.nextBillingAt);
   const recent = [...t].sort((a, b) => b.createdAt - a.createdAt).slice(0, 6);
 
   const liveTenant = (tenant: (typeof t)[number]) => {
@@ -87,9 +98,9 @@ function Dashboard() {
         <Kpi label="Active subscribers" value={String(active.length)} icon="verified" />
         {can(user?.role, "revenue") ? (
           <Kpi
-            label="Monthly subscription value"
-            value={`UGX ${ugx(monthlyRecurring)}`}
-            sub={`${active.length} active × ${ugx(s.settings.priceUGX)} every ${s.settings.months} month${s.settings.months === 1 ? "" : "s"}`}
+            label="Cash in this month"
+            value={`UGX ${ugxDisplay(cashIn)}`}
+            sub={`${paidThisMonth.length} confirmed payments · ${pendingClaims} claim${pendingClaims === 1 ? "" : "s"} waiting`}
             icon="payments"
           />
         ) : null}
@@ -113,16 +124,46 @@ function Dashboard() {
 
       <div className="grid min-w-0 gap-md md:grid-cols-2">
         <Card className="min-w-0 space-y-sm">
-          <SectionTitle>Renewals due in 7 days</SectionTitle>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <SectionTitle>Renewals due in 14 days</SectionTitle>
+            {renewals.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => {
+                  renewals.forEach((r, i) => {
+                    const href = whatsappLink(r.phone, chaseMsg(r.ownerName || r.canteenName, r.school));
+                    if (!href) return;
+                    window.setTimeout(() => window.open(href, "_blank"), i * 450);
+                  });
+                }}
+                className="min-h-9 rounded-full border border-primary px-3 text-xs font-bold text-primary"
+              >
+                WhatsApp all ({renewals.length})
+              </button>
+            ) : null}
+          </div>
           {renewals.length === 0 ? (
-            <p className="text-sm text-on-surface-variant">Nothing due this week.</p>
+            <p className="text-sm text-on-surface-variant">Nothing due in the next two weeks.</p>
           ) : (
-            renewals.map((r) => (
-              <div key={r.accountId} className="flex items-center justify-between gap-2 rounded-md bg-surface-lowest p-3">
-                <span className="min-w-0 truncate text-sm font-bold text-on-surface">{r.canteenName}</span>
-                <span className="shrink-0 text-xs text-on-surface-variant">{fmtDate(r.nextBillingAt)}</span>
-              </div>
-            ))
+            renewals.map((r) => {
+              const href = whatsappLink(r.phone, chaseMsg(r.ownerName || r.canteenName, r.school));
+              return (
+                <div key={r.accountId} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-surface-lowest p-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-on-surface">{r.canteenName}</p>
+                    <p className="text-xs text-on-surface-variant">{r.phone || "No phone"}</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className="text-xs text-on-surface-variant">{fmtDate(r.nextBillingAt)}</span>
+                    {href ? (
+                      <a href={href} target="_blank" rel="noreferrer" className="text-xs font-bold text-primary underline">
+                        WhatsApp
+                      </a>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })
           )}
         </Card>
 
