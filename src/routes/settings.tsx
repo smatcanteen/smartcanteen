@@ -8,7 +8,6 @@ import { useAuth } from "@/lib/auth";
 import { setMyPin } from "@/lib/accounts.functions";
 import { useStore, type State } from "@/lib/store";
 
-
 export const Route = createFileRoute("/settings")({
   head: () => ({
     meta: [
@@ -16,12 +15,12 @@ export const Route = createFileRoute("/settings")({
       {
         name: "description",
         content:
-          "Set a privacy PIN with auto-lock, download a backup of your cash book, restore from a file, or clear all data.",
+          "Set a privacy PIN with auto-lock, add helper PINs, download a backup of your cash book, restore from a file, or clear all data.",
       },
       { property: "og:title", content: "Settings — SmartCanteen" },
       {
         property: "og:description",
-        content: "Privacy lock, backup and restore for your canteen cash book.",
+        content: "Privacy lock, helper PINs, backup and restore for your canteen cash book.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -58,7 +57,6 @@ function SettingsPage() {
   const logoRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const { logo, setLogo } = useAccountLogo(user?.id);
-
 
   const flash = () => {
     setSaved(true);
@@ -170,18 +168,15 @@ function SettingsPage() {
       </div>
 
       <div>
-
         <SectionTitle>PIN lock (hide money)</SectionTitle>
         <Card className="space-y-sm">
           <p className="text-sm text-on-surface-variant">
             {state.pin ? (
-              <>
-                A PIN is set. Your money is hidden until it&apos;s entered.
-              </>
+              <>A PIN is set. Your money is hidden until it is entered.</>
             ) : (
               <>
-                <span className="font-bold text-secondary">No PIN set.</span> Add one to hide your
-                money from prying eyes.
+                <span className="font-bold text-secondary">No PIN set.</span> Add one to hide your money from
+                prying eyes.
               </>
             )}
           </p>
@@ -243,7 +238,94 @@ function SettingsPage() {
       </div>
 
       <div>
-        <SectionTitle>Appearance &amp; accessibility</SectionTitle>
+        <SectionTitle>People who work here</SectionTitle>
+        <Card className="space-y-sm">
+          <p className="text-sm text-on-surface-variant">
+            More than one person runs the canteen? Give each a name and PIN. Sales show who logged them.
+            {activeStaff ? (
+              <>
+                {" "}
+                <span className="font-bold text-primary">Now working: {activeStaff.name}</span>
+              </>
+            ) : null}
+          </p>
+
+          {(state.staff ?? []).length === 0 ? (
+            <p className="text-xs text-on-surface-variant">
+              Set your owner PIN above first — then add helpers here.
+            </p>
+          ) : (
+            <ul className="divide-y divide-outline-variant/50">
+              {(state.staff ?? []).map((m) => (
+                <li key={m.id} className="flex items-center justify-between gap-2 py-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-on-surface">
+                      {m.name}
+                      {m.role === "owner" ? (
+                        <span className="ml-1 text-[11px] font-semibold text-primary">· owner</span>
+                      ) : (
+                        <span className="ml-1 text-[11px] font-semibold text-on-surface-variant">· helper</span>
+                      )}
+                    </p>
+                    <p className="text-[11px] text-on-surface-variant">PIN ···{m.pin.slice(-2)}</p>
+                  </div>
+                  {m.role !== "owner" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (confirm(`Remove ${m.name}?`)) {
+                          removeStaff(m.id);
+                          flash();
+                        }
+                      }}
+                      className="min-h-10 shrink-0 rounded-md px-3 text-xs font-bold text-tertiary"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="grid gap-sm sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+            <Field
+              label="Helper name"
+              value={staffName}
+              onChange={(e) => setStaffName(e.target.value)}
+              placeholder="e.g. Sarah"
+            />
+            <Field
+              label="Their PIN (4–6 digits)"
+              type="password"
+              inputMode="numeric"
+              maxLength={6}
+              value={staffPin}
+              onChange={(e) => setStaffPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            />
+            <PrimaryButton
+              disabled={staffName.trim().length < 2 || staffPin.length < 4}
+              onClick={() => {
+                const res = upsertStaff({ name: staffName, pin: staffPin, role: "helper" });
+                if (!res.ok) {
+                  setStaffMsg(res.error ?? "Could not add.");
+                  return;
+                }
+                setStaffName("");
+                setStaffPin("");
+                setStaffMsg("Helper added — they unlock with their PIN on Home.");
+                flash();
+              }}
+            >
+              <Icon name="person_add" /> Add
+            </PrimaryButton>
+          </div>
+          {staffMsg ? <p className="text-sm font-semibold text-primary">{staffMsg}</p> : null}
+        </Card>
+      </div>
+
+      <div>
+        <SectionTitle>Look and text size</SectionTitle>
         <Card className="space-y-sm">
           <div className="flex items-center justify-between gap-3">
             <span className="text-sm font-bold text-on-surface-variant">Dark mode</span>
@@ -311,13 +393,23 @@ function SettingsPage() {
               placeholder="e.g. Airtime"
             />
             <SelectField label="Icon" value={newIcon} onChange={(e) => setNewIcon(e.target.value)}>
-              {["smartphone", "wifi", "local_shipping", "bolt", "water_drop", "restaurant", "handyman", "home_work", "badge", "shopping_bag", "more_horiz"].map(
-                (i) => (
-                  <option key={i} value={i}>
-                    {i.replace(/_/g, " ")}
-                  </option>
-                ),
-              )}
+              {[
+                "smartphone",
+                "wifi",
+                "local_shipping",
+                "bolt",
+                "water_drop",
+                "restaurant",
+                "handyman",
+                "home_work",
+                "badge",
+                "shopping_bag",
+                "more_horiz",
+              ].map((i) => (
+                <option key={i} value={i}>
+                  {i.replace(/_/g, " ")}
+                </option>
+              ))}
             </SelectField>
             <PrimaryButton
               disabled={!newCat.trim()}
@@ -337,7 +429,7 @@ function SettingsPage() {
       </div>
 
       <div>
-        <SectionTitle>Backup &amp; restore</SectionTitle>
+        <SectionTitle>Save a copy / restore</SectionTitle>
         <Card className="space-y-sm">
           <button
             type="button"
