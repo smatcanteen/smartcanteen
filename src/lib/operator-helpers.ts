@@ -2,6 +2,7 @@
 
 import type { Debtor, State, StockItem, Tx } from "./store";
 import { ugx } from "./store";
+import { parseAmount, parseExpense, parseStock } from "./voice";
 
 /** Live plan: one prepay of UGX 35,000 covers four months. */
 export const PLAN_PRICE_UGX = 35_000;
@@ -126,7 +127,7 @@ export function buildInsights(state: State, termProfit: number): string[] {
 
   const due = (state.recurringExpenses ?? []).filter((r) => r.nextDue <= now);
   for (const r of due.slice(0, 2)) {
-    tips.push(`${r.category} of UGX ${ugx(r.amount)} is due — tap to log it.`);
+    tips.push(`${r.category} of UGX ${ugx(r.amount)} is due — open Expenses to log it.`);
   }
 
   return tips.slice(0, 4);
@@ -240,7 +241,11 @@ export function exportTermReportCard(opts: {
     year: "numeric",
   });
   const esc = (s: string) =>
-    s.replace(/[<>&"']/g, (c) => ({ "<": "<", ">": ">", "&": "&", '"': "&quot;", "'": "&#39;" })[c]!);
+    String(s ?? "")
+      .replace(/&/g, "&")
+      .replace(/</g, "<")
+      .replace(/>/g, ">")
+      .replace(/"/g, "&quot;");
   win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Term report — ${esc(opts.termName)}</title>
   <style>
     @page { size: A4; margin: 14mm; }
@@ -293,7 +298,7 @@ export function parseVoiceDrafts(
   knownItems: { name: string }[],
 ): VoiceDraft[] {
   const chunks = text
-    .split(/\b(?:and then|then|also|plus|,|\.)\b/i)
+    .split(/\b(?:and then|then|also|plus)\b/i)
     .map((c) => c.trim())
     .filter(Boolean);
   const out: VoiceDraft[] = [];
@@ -305,7 +310,6 @@ export function parseVoiceDrafts(
       );
     const isStock = /\b(stock|bought|restock|crate|pieces?|packet)\b/i.test(lower);
     if (isStock) {
-      const { parseStock } = requireVoice();
       const s = parseStock(chunk, knownItems);
       if (s.qty > 0 || s.buy > 0) {
         out.push({ kind: "stock", name: s.name || "Item", qty: s.qty, buy: s.buy, sell: s.sell, raw: chunk });
@@ -313,24 +317,16 @@ export function parseVoiceDrafts(
       }
     }
     if (isExpense) {
-      const { parseExpense } = requireVoice();
       const e = parseExpense(chunk, categories);
       if (e.amount > 0) {
         out.push({ kind: "expense", amount: e.amount, category: e.category, raw: chunk });
         continue;
       }
     }
-    const { parseAmount } = requireVoice();
     const amount = parseAmount(chunk);
     if (amount > 0) out.push({ kind: "sale", amount, raw: chunk });
   }
   return out;
-}
-
-// Lazy import avoids circular init with store consumers; voice.ts has no store dep.
-function requireVoice() {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  return require("./voice") as typeof import("./voice");
 }
 
 export function txsToday(txs: Tx[]): Tx[] {
