@@ -124,6 +124,49 @@ export type Announcement = {
   segment: { zone?: string; category?: CategoryTemplate; agentId?: string; recipientIds?: string[] };
 };
 
+/** Confirmed subscription payment (admin-approved). */
+export type PaymentRecord = {
+  id: string;
+  accountId: string;
+  amount: number;
+  ref: string;
+  note?: string;
+  /** When access was extended to. */
+  accessUntil: number;
+  who: string;
+  ts: number;
+  /** Matched operator self-reported payment id, if any. */
+  claimId?: string;
+};
+
+/** Operator self-reported payment waiting for admin match. */
+export type PaymentClaim = {
+  id: string;
+  accountId: string;
+  canteenName: string;
+  school: string;
+  ownerName: string;
+  phone: string;
+  amount: number;
+  note: string;
+  ts: number;
+  status: "pending" | "matched" | "dismissed";
+};
+
+/** Operator referral free-month request. */
+export type ReferralClaim = {
+  id: string;
+  accountId: string;
+  canteenName: string;
+  code: string;
+  referredByCode?: string;
+  credits: number;
+  status: "pending" | "granted" | "dismissed";
+  ts: number;
+};
+
+export type AuditEntry = { id: string; who: string; action: string; ts: number };
+
 export type PlatformSettings = {
   priceUGX: number;
   months: number;
@@ -143,8 +186,11 @@ export type PlatformState = {
   tickets: Ticket[];
   announcements: Announcement[];
   settings: PlatformSettings;
-  /** Audit log of read-only "view as operator" sessions and other support actions. */
-  auditLog: { id: string; who: string; action: string; ts: number }[];
+  payments: PaymentRecord[];
+  paymentClaims: PaymentClaim[];
+  referralClaims: ReferralClaim[];
+  /** Audit log of support and billing actions. */
+  auditLog: AuditEntry[];
 };
 
 /* ------------------------------------------------------------------- seed */
