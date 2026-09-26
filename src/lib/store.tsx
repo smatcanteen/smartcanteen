@@ -1235,28 +1235,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const pin = member.pin.replace(/\D/g, "").slice(0, 6);
     if (name.length < 2) return { ok: false, error: "Enter the person's name." };
     if (pin.length < 4) return { ok: false, error: "PIN must be 4–6 digits." };
-    let id = member.id ?? "";
+
+    // Read current staff from the latest state snapshot via functional update + outer flag.
+    let result: { ok: boolean; error?: string; id?: string } = { ok: true };
     setState((s) => {
       const list = [...(s.staff ?? [])];
-      if (member.id) {
-        const i = list.findIndex((m) => m.id === member.id);
-        if (i < 0) return s;
-        // Don't demote owner via this path
-        const role = list[i]!.role === "owner" ? "owner" : member.role ?? "helper";
-        list[i] = { ...list[i]!, name, pin, role };
-        id = member.id;
-        return { ...s, staff: list };
-      }
-      // Unique PIN among staff
-      if (list.some((m) => m.pin === pin)) {
+      const pinTaken = list.some((m) => m.pin === pin && m.id !== member.id);
+      if (pinTaken) {
+        result = { ok: false, error: "That PIN is already used by someone else." };
         return s;
       }
-      id = uid();
+      if (member.id) {
+        const i = list.findIndex((m) => m.id === member.id);
+        if (i < 0) {
+          result = { ok: false, error: "Person not found." };
+          return s;
+        }
+        const role = list[i]!.role === "owner" ? "owner" : member.role ?? "helper";
+        list[i] = { ...list[i]!, name, pin, role };
+        result = { ok: true, id: member.id };
+        return { ...s, staff: list };
+      }
+      const id = uid();
       list.push({ id, name, pin, role: member.role ?? "helper" });
+      result = { ok: true, id };
       return { ...s, staff: list };
     });
-    // Re-check unique pin after setState is tricky; do a sync guard:
-    return { ok: true, id };
+    return result;
   }, []);
 
   const removeStaff = useCallback<Ctx["removeStaff"]>((id) => {
