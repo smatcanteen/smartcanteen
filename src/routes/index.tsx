@@ -9,13 +9,17 @@ import {
   buildInsights,
   closeForDay,
   closeStreak,
+  collectTodayList,
   dayKeyOf,
   dayTotals,
+  daysSinceStockCheck,
   eveningCloseMessage,
   localHour,
   lowStockItems,
   morningGreeting,
   needsEveningClose,
+  needsWeeklyStockCheck,
+  openTillMismatch,
   openWhatsApp,
   overdueDebtors,
   shelfQty,
@@ -70,8 +74,12 @@ function Home() {
   const recent = [...state.txs].sort((a, b) => b.ts - a.ts).slice(0, 5);
   const insights = buildInsights(state, termProfit);
   const overdue = overdueDebtors(state.debtors, 7);
+  const collectList = collectTodayList(state.debtors, 3);
   const low = lowStockItems(state.items);
   const dueRecurring = (state.recurringExpenses ?? []).filter((r) => r.nextDue <= Date.now());
+  const stockDue = needsWeeklyStockCheck(state.stockChecks, state.items, 7);
+  const stockDays = daysSinceStockCheck(state.stockChecks, state.items);
+  const tillMismatch = openTillMismatch(state.dayCloses);
 
   const todayKey = dayKeyOf();
   const yKey = yesterdayKey();
@@ -246,16 +254,38 @@ function Home() {
           </div>
         )}
 
-        {todayClose && todayClose.diff !== 0 && (
+        {tillMismatch && (
           <Link
             to="/close-out"
-            className="card block border border-tertiary/30 bg-tertiary/10 p-sm text-sm"
+            className="card block border border-tertiary/40 bg-tertiary/10 p-sm text-sm"
           >
             <span className="font-bold text-tertiary">
-              {todayClose.diff > 0 ? "Surplus" : "Shortfall"} UGX {ugx(Math.abs(todayClose.diff))}
+              Till {tillMismatch.diff > 0 ? "surplus" : "shortfall"} UGX {ugx(Math.abs(tillMismatch.diff))}
             </span>
             {" "}
-            on today’s close — re-count if something looks off.
+            from {tillMismatch.dayKey} close — stays here until the next balanced close.
+          </Link>
+        )}
+
+        {collectList.length > 0 && (
+          <Link to="/debtors" className="card block border border-secondary/30 bg-secondary/10 p-sm text-sm">
+            <span className="font-bold text-secondary">Collect today</span>
+            {": "}
+            {collectList
+              .slice(0, 3)
+              .map((d) => `${d.name} (UGX ${ugx(balanceOf(d))})`)
+              .join(", ")}
+            {collectList.length > 3 ? ` +${collectList.length - 3} more` : ""}
+          </Link>
+        )}
+
+        {stockDue && (
+          <Link to="/stock" className="card block border border-primary/25 bg-primary/5 p-sm text-sm">
+            <span className="font-bold text-primary">Weekly shelf count due</span>
+            {" · "}
+            {stockDays === null
+              ? "No physical count yet — count once so the book stays honest."
+              : `Last count ${stockDays} day${stockDays === 1 ? "" : "s"} ago. Sales do not change shelf — you count.`}
           </Link>
         )}
       </section>
