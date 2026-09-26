@@ -73,7 +73,7 @@ function CanteenSetup() {
         <Card className="space-y-sm">
           <p className="text-sm text-on-surface-variant">
             Your account is empty on purpose — everything you see from now on is your own money.
-            Start by telling us what you have in hand today.
+            Start with the cash you have today — then log sales every day like buying airtime.
           </p>
           <Field
             label="Term name"
@@ -83,7 +83,7 @@ function CanteenSetup() {
             hint="Reports and profit are grouped by term."
           />
           <Field
-            label="Opening cash for this term (UGX)"
+            label="Money you start with (UGX)"
             inputMode="numeric"
             placeholder="e.g. 500000"
             value={opening}
@@ -91,7 +91,7 @@ function CanteenSetup() {
             hint="Money you or your boss is putting into the shop now."
           />
           <Field
-            label="Cash carried forward from last term (UGX)"
+            label="Money left from last term (UGX)"
             inputMode="numeric"
             placeholder="0"
             value={carry}
@@ -99,7 +99,7 @@ function CanteenSetup() {
             hint="Leave at 0 if this is your first term on SmartCanteen."
           />
           <Field
-            label="Target to reach by term end (UGX)"
+            label="Goal by term end (UGX)"
             inputMode="numeric"
             placeholder="optional"
             value={goal}
@@ -110,7 +110,7 @@ function CanteenSetup() {
 
         <Card className="flex items-center justify-between gap-3">
           <div>
-            <p className="label-bold text-on-surface-variant">Opening Cash at Hand</p>
+            <p className="label-bold text-on-surface-variant">Money in hand to start</p>
             <p className="price-display text-primary">UGX {ugx(total)}</p>
           </div>
           <Icon name="account_balance_wallet" className="text-[32px] text-primary" />
