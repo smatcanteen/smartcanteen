@@ -78,20 +78,30 @@ function SettingsPage() {
   return (
     <AppLayout title="More" back>
       <div>
-        <SectionTitle>Occasional tasks</SectionTitle>
-        <Card className="grid grid-cols-2 gap-2 p-3 sm:grid-cols-4">
+        <SectionTitle>Daily is on Home — this is everything else</SectionTitle>
+        <Card className="grid grid-cols-2 gap-2 p-3 sm:grid-cols-3">
           {[
-            { to: "/term-capital", icon: "account_balance", label: "Term Capital" },
-            { to: "/term-transition", icon: "event_repeat", label: "Close Term" },
-            { to: "/subscription", icon: "card_membership", label: "Subscription" },
+            { to: "/debtors", icon: "group", label: "Student credit" },
+            { to: "/report", icon: "bar_chart", label: "Reports" },
+            { to: "/history", icon: "history", label: "History" },
+            { to: "/term-capital", icon: "account_balance", label: "Opening money" },
+            { to: "/term-transition", icon: "event_repeat", label: "Close term" },
+            { to: "/subscription", icon: "card_membership", label: "Plan & pay" },
             { to: "/support", icon: "support_agent", label: "Help" },
           ].map((item) => (
-            <Link key={item.to} to={item.to} className="flex min-h-20 flex-col items-center justify-center gap-1 rounded-md bg-surface-low text-center text-sm font-bold text-on-surface">
+            <Link
+              key={item.to}
+              to={item.to}
+              className="flex min-h-20 flex-col items-center justify-center gap-1 rounded-md bg-surface-low text-center text-sm font-bold text-on-surface"
+            >
               <Icon name={item.icon} className="text-primary" />
               {item.label}
             </Link>
           ))}
         </Card>
+        <p className="mt-2 text-xs text-on-surface-variant">
+          Sale, Stock, Expense and Close stay on Home so the daily path stays short.
+        </p>
       </div>
 
       <div>
