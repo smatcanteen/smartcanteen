@@ -47,9 +47,6 @@ function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [savingPin, setSavingPin] = useState(false);
   const [error, setError] = useState("");
-  const [staffName, setStaffName] = useState("");
-  const [staffPin, setStaffPin] = useState("");
-  const [staffMsg, setStaffMsg] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const logoRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
