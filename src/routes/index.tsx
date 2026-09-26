@@ -491,7 +491,7 @@ function Home() {
           to="/history"
           className="card flex min-h-11 items-center justify-center gap-1 p-2 text-xs font-bold text-on-surface"
         >
-          <Icon name="history" className="text-[16px] text-primary" /> History
+          <Icon name="edit_note" className="text-[16px] text-primary" /> Fix
         </Link>
       </section>
 
