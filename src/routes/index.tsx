@@ -130,13 +130,13 @@ function Home() {
         </span>
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-semibold text-on-surface-variant">
+            <p className="cash-hero-meta text-on-surface-variant">
               {morningGreeting(hour)}
               {user?.name ? ` · ${user.name.split(" ")[0]}` : ""}
               {" · "}
               {state.termName}
             </p>
-            <p className="price-display truncate text-primary">
+            <p className="cash-hero-amount mt-0.5 truncate text-primary">
               {hide ? "UGX ••••••" : `UGX ${ugx(cashAtHand)}`}
             </p>
           </div>
@@ -153,21 +153,21 @@ function Home() {
 
         <div className="mt-sm flex flex-wrap items-center gap-2">
           <span
-            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold ${
+            className={`cash-hero-chip inline-flex items-center gap-1 rounded-full px-2.5 py-1 ${
               streak > 0
                 ? "bg-primary/15 text-primary"
                 : "bg-surface-high text-on-surface-variant"
             }`}
             data-tour="streak"
           >
-            <Icon name="local_fire_department" className="text-[14px]" />
+            <Icon name="local_fire_department" className="text-[18px]" />
             {streak > 0
               ? `${streak} day${streak === 1 ? "" : "s"} closed in a row`
               : "Close today to start a streak"}
           </span>
           {todayClose && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary">
-              <Icon name="check_circle" className="text-[14px]" /> Today closed
+            <span className="cash-hero-chip inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-primary">
+              <Icon name="check_circle" className="text-[18px]" /> Today closed
             </span>
           )}
         </div>
@@ -177,7 +177,7 @@ function Home() {
             <div className="h-2 w-full overflow-hidden rounded-full bg-surface-high">
               <div className="h-full rounded-full bg-secondary-container" style={{ width: `${goalPct}%` }} />
             </div>
-            <p className="mt-1 text-[11px] text-on-surface-variant">
+            <p className="cash-hero-goal mt-1 text-on-surface-variant">
               Savings goal {goalPct}% · net profit UGX {ugx(termProfit)} of UGX {ugx(state.savingsGoal)}
             </p>
           </div>
