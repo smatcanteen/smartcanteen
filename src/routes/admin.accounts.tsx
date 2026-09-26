@@ -124,12 +124,6 @@ function Accounts() {
   const toggle = (id: string) =>
     setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
 
-  const renewalDate = (tenant: (typeof rows)[number]) => {
-    const from = new Date(Math.max(Date.now(), tenant.nextBillingAt));
-    from.setMonth(from.getMonth() + 4);
-    return from.getTime();
-  };
-
   const openRenew = (accountId: string) => {
     setRenewForId(accountId);
     setRenewAmount(String(s.settings.priceUGX));
@@ -256,12 +250,16 @@ function Accounts() {
           <span className="text-sm font-bold text-on-surface">{picked.length} selected</span>
           <button
             onClick={() => {
-              rows.filter((tenant) => picked.includes(tenant.accountId)).forEach((tenant) => void renew(tenant));
+              if (picked.length !== 1) {
+                setActionError("Renew one account at a time — each needs a mobile-money reference.");
+                return;
+              }
+              openRenew(picked[0]!);
               setPicked([]);
             }}
             className="min-h-11 rounded-full bg-primary px-4 text-sm font-bold text-on-primary"
           >
-            Renew / activate
+            Renew selected (with proof)
           </button>
           {can(user?.role, "suspend") ? (
             <button
