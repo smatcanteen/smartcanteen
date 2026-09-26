@@ -159,22 +159,6 @@ function Home() {
         </div>
 
         <div className="mt-sm flex flex-wrap items-center gap-2">
-          {(state.staff ?? []).length > 0 && (
-            <button
-              type="button"
-              onClick={() => {
-                setStaffOpen(true);
-                setPickId(activeStaff?.id ?? null);
-                setPickPin("");
-                setStaffErr("");
-              }}
-              className="cash-hero-chip inline-flex items-center gap-1 rounded-full bg-surface-high px-2.5 py-1 text-on-surface"
-            >
-              <Icon name="badge" className="text-[16px] text-primary" />
-              {activeStaff ? activeStaff.name : "Who is working?"}
-              <Icon name="swap_horiz" className="text-[16px]" />
-            </button>
-          )}
           <span
             className={`cash-hero-chip inline-flex items-center gap-1 rounded-full px-2.5 py-1 ${
               streak > 0
@@ -230,66 +214,6 @@ function Home() {
   return (
     <AppLayout title="SmartCanteen" hero={hero}>
       <Tour steps={steps} open={tour.open} onClose={tour.finish} />
-
-      {staffOpen && (
-        <div className="card space-y-sm border border-primary/30 p-sm">
-          <p className="text-sm font-bold text-on-surface">Switch who is working</p>
-          <p className="text-xs text-on-surface-variant">Pick a person and enter their PIN.</p>
-          <div className="flex flex-wrap gap-2">
-            {(state.staff ?? []).map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => {
-                  setPickId(m.id);
-                  setPickPin("");
-                  setStaffErr("");
-                }}
-                className={`min-h-10 rounded-full px-3 text-sm font-bold ${
-                  pickId === m.id ? "bg-primary text-on-primary" : "bg-surface-high text-on-surface"
-                }`}
-              >
-                {m.name}
-              </button>
-            ))}
-          </div>
-          <input
-            type="password"
-            inputMode="numeric"
-            maxLength={6}
-            placeholder="PIN"
-            value={pickPin}
-            onChange={(e) => setPickPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            className="min-h-12 w-full rounded-md border border-outline-variant bg-surface-lowest px-3 text-base font-bold tracking-widest"
-          />
-          {staffErr ? <p className="text-sm font-semibold text-tertiary">{staffErr}</p> : null}
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setStaffOpen(false)}
-              className="min-h-11 rounded-md border border-outline-variant text-sm font-bold"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              disabled={!pickId || pickPin.length < 4}
-              onClick={() => {
-                const res = switchStaff(pickId, pickPin);
-                if (!res.ok) {
-                  setStaffErr(res.error ?? "Wrong PIN");
-                  return;
-                }
-                setStaffOpen(false);
-                setPickPin("");
-              }}
-              className="min-h-11 rounded-md bg-primary text-sm font-bold text-on-primary disabled:opacity-40"
-            >
-              Unlock
-            </button>
-          </div>
-        </div>
-      )}
 
       <section className="space-y-2" data-tour="habit">
         {onHoliday && (
@@ -618,7 +542,7 @@ function Home() {
                         hour: "2-digit",
                         minute: "2-digit",
                       })}
-                      {t.staffName ? ` · ${t.staffName}` : ""}
+
                     </span>
                   </div>
                 </div>
