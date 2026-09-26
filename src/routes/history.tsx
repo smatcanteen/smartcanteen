@@ -1,19 +1,29 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Icon } from "@/components/Icon";
 import { Card, Field, SectionTitle, SelectField } from "@/components/ui-kit";
 import { GroupedBars, TrendLine } from "@/components/Charts";
 import { exportCsv, exportExcel, exportPdf, type Sheet } from "@/lib/export";
-import { dateInput, ugx, useStore, type Tx } from "@/lib/store";
+import { dateInput, fromDateInput, ugx, useStore, type Tx } from "@/lib/store";
 
 export const Route = createFileRoute("/history")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    edit: typeof search.edit === "string" ? search.edit : undefined,
+  }),
   head: () => ({
     meta: [
-      { title: "Term Performance History — SmartCanteen" },
-      { name: "description", content: "Compare past terms, filter sales, stock and expenses by date or category, and download clean Excel or PDF reports." },
-      { property: "og:title", content: "Term Performance History — SmartCanteen" },
-      { property: "og:description", content: "Every term's sales, stock, expenses and profit in one filterable, exportable view." },
+      { title: "Fix entries — SmartCanteen" },
+      {
+        name: "description",
+        content:
+          "Correct a wrong date, amount or first stock buy. Cash at Hand moves by the difference only.",
+      },
+      { property: "og:title", content: "Fix entries — SmartCanteen" },
+      {
+        property: "og:description",
+        content: "Edit past sales, expenses and stock purchases — including dates and first item entries.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -22,6 +32,7 @@ export const Route = createFileRoute("/history")({
 });
 
 function History() {
+  const { edit: openEditId } = Route.useSearch();
   const { state, totals, cashAtHand } = useStore();
   const [termId, setTermId] = useState("current");
   const [type, setType] = useState("all");
@@ -88,7 +99,6 @@ function History() {
 
   const base = `smartcanteen-${termLabel.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
 
-  // Visual term-on-term comparison: sales, stock, expenses and profit side by side.
   const compareSeries = [
     { key: "sales", label: "Sales", color: "var(--color-primary)" },
     { key: "stock", label: "Stock", color: "var(--color-secondary)" },
@@ -114,7 +124,16 @@ function History() {
   ];
 
   return (
-    <AppLayout title="Past Terms" back>
+    <AppLayout title="Fix entries" back>
+      <Card className="border border-primary/20 bg-primary/5 p-sm text-sm text-on-surface">
+        <p className="font-bold text-primary">Made a mistake yesterday?</p>
+        <p className="mt-1 text-xs leading-4 text-on-surface-variant">
+          Tap the pencil on any line in the <span className="font-bold text-on-surface">running term</span>. You can
+          change the <span className="font-bold text-on-surface">date</span>, amount, and for stock also quantity and
+          selling price. Money in hand moves by the difference only.
+        </p>
+      </Card>
+
       <section className="space-y-sm">
         <SectionTitle>Term performance</SectionTitle>
         <div className="grid gap-sm sm:grid-cols-2">
@@ -146,7 +165,7 @@ function History() {
               </span>
             </div>
             <p className="text-sm text-on-surface-variant">
-              Cash at Hand UGX {ugx(cashAtHand)} · target UGX {ugx(state.savingsGoal)}
+              Money in hand UGX {ugx(cashAtHand)} · target UGX {ugx(state.savingsGoal)}
             </p>
             <div className="grid grid-cols-3 gap-2 pt-1 text-sm">
               <Mini label="Sales" value={totals.sales} />
@@ -167,13 +186,13 @@ function History() {
       </Card>
 
       <Card className="space-y-sm">
-        <SectionTitle>Filter entries</SectionTitle>
+        <SectionTitle>Find an entry</SectionTitle>
         <div className="grid gap-sm sm:grid-cols-2 lg:grid-cols-4">
           <SelectField label="Term" value={termId} onChange={(e) => setTermId(e.target.value)}>
-            <option value="current">{state.termName} (running)</option>
+            <option value="current">{state.termName} (running — can edit)</option>
             {state.terms.map((t) => (
               <option key={t.id} value={t.id}>
-                {t.name}
+                {t.name} (closed — view only)
               </option>
             ))}
           </SelectField>
@@ -182,7 +201,7 @@ function History() {
             <option value="sale">Sales</option>
             <option value="stock">Stock purchases</option>
             <option value="expense">Expenses</option>
-            <option value="capital">Capital</option>
+            <option value="capital">Opening money</option>
           </SelectField>
           <SelectField label="Category" value={category} onChange={(e) => setCategory(e.target.value)}>
             <option value="all">All categories</option>
@@ -210,57 +229,103 @@ function History() {
         </div>
       </Card>
 
+      <div className="mb-sm flex items-end justify-between px-1">
+        <h2 className="label-bold text-on-surface-variant">Entries ({rows.length})</h2>
+        {!term ? (
+          <p className="text-xs font-bold text-primary">Tap ✎ to correct</p>
+        ) : (
+          <p className="text-xs text-on-surface-variant">Closed term — view only</p>
+        )}
+      </div>
+
       <div className="card overflow-hidden p-0">
         {rows.length === 0 && <p className="p-md text-sm text-on-surface-variant">No entries match these filters.</p>}
         {rows.map((t) => (
-          <EntryRow key={t.id} tx={t} editable={!term} />
+          <EntryRow key={t.id} tx={t} editable={!term} startOpen={openEditId === t.id} />
         ))}
       </div>
     </AppLayout>
   );
 }
 
-/** One cash-book line, with a correction panel for entries in the running term. */
-function EntryRow({ tx, editable }: { tx: Tx; editable: boolean }) {
+/** One cash-book line with full correction panel (date, amount, stock qty/price). */
+function EntryRow({ tx, editable, startOpen }: { tx: Tx; editable: boolean; startOpen?: boolean }) {
   const { state, editTx, deleteTx } = useStore();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(!!startOpen);
   const [amount, setAmount] = useState(String(tx.amount));
   const [label, setLabel] = useState(tx.label);
   const [category, setCategory] = useState(tx.category ?? "");
   const [when, setWhen] = useState(dateInput(tx.ts));
+  const [units, setUnits] = useState(String(tx.units ?? ""));
+  const [sell, setSell] = useState(String(tx.sell ?? ""));
+  const [savedMsg, setSavedMsg] = useState("");
   const income = tx.type === "sale" || tx.type === "capital";
 
+  useEffect(() => {
+    if (startOpen) setOpen(true);
+  }, [startOpen]);
+
+  // Keep form in sync if the same row is re-opened after another edit.
+  useEffect(() => {
+    if (!open) return;
+    setAmount(String(tx.amount));
+    setLabel(tx.label);
+    setCategory(tx.category ?? "");
+    setWhen(dateInput(tx.ts));
+    setUnits(String(tx.units ?? ""));
+    setSell(String(tx.sell ?? ""));
+  }, [open, tx.id, tx.amount, tx.label, tx.category, tx.ts, tx.units, tx.sell]);
+
   const apply = () => {
-    editTx(tx.id, {
+    const patch: Parameters<typeof editTx>[1] = {
       amount: Number(amount) || 0,
-      label,
-      ...(tx.type === "expense" ? { category } : {}),
-      ts: new Date(`${when}T12:00:00`).getTime(),
-    });
+      label: label.trim() || tx.label,
+      ts: fromDateInput(when),
+    };
+    if (tx.type === "expense") patch.category = category;
+    if (tx.type === "stock") {
+      if (units !== "") patch.units = Number(units) || 0;
+      if (sell !== "") patch.sell = Number(sell) || 0;
+    }
+    editTx(tx.id, patch);
+    setSavedMsg("Saved. Money in hand updated by the difference.");
+    setTimeout(() => setSavedMsg(""), 3500);
     setOpen(false);
   };
 
+  const typeLabel =
+    tx.type === "sale"
+      ? "Sale"
+      : tx.type === "stock"
+        ? "Stock buy"
+        : tx.type === "expense"
+          ? "Expense"
+          : "Opening money";
+
   return (
-    <div className="border-b border-surface-variant last:border-0">
+    <div id={`entry-${tx.id}`} className="border-b border-surface-variant last:border-0">
       <div className="flex items-center justify-between gap-2 p-sm">
         <div className="min-w-0">
           <p className="truncate font-semibold text-on-surface">{tx.label}</p>
           <p className="text-xs text-on-surface-variant">
-            {new Date(tx.ts).toLocaleDateString("en-GB")} · {tx.category ?? tx.type}
-            {tx.edits?.length ? ` · edited ${tx.edits.length}×` : ""}
+            {new Date(tx.ts).toLocaleDateString("en-GB")} · {typeLabel}
+            {tx.category ? ` · ${tx.category}` : ""}
+            {tx.type === "stock" && tx.units != null ? ` · ${tx.units} units` : ""}
+            {tx.edits?.length ? ` · fixed ${tx.edits.length}×` : ""}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <span className={`font-bold ${income ? "text-primary" : "text-tertiary"}`}>
+        <div className="flex shrink-0 items-center gap-1">
+          <span className={`font-bold tabular-nums ${income ? "text-primary" : "text-tertiary"}`}>
             {income ? "+" : "-"}
             {ugx(tx.amount)}
           </span>
           {editable && (
             <button
+              type="button"
               onClick={() => setOpen((o) => !o)}
-              aria-label={`Edit ${tx.label}`}
+              aria-label={`Fix ${tx.label}`}
               aria-expanded={open}
-              className="flex h-10 w-10 items-center justify-center rounded-full text-primary hover:bg-surface-low"
+              className="flex h-11 w-11 items-center justify-center rounded-full text-primary hover:bg-surface-low"
             >
               <Icon name={open ? "close" : "edit"} />
             </button>
@@ -270,16 +335,23 @@ function EntryRow({ tx, editable }: { tx: Tx; editable: boolean }) {
 
       {open && (
         <div className="space-y-sm bg-surface-low p-sm">
+          <p className="text-xs font-bold text-on-surface-variant">Correct this {typeLabel.toLowerCase()}</p>
           <div className="grid gap-sm sm:grid-cols-2">
             <Field label="Description" value={label} onChange={(e) => setLabel(e.target.value)} />
             <Field
-              label="Amount (UGX)"
+              label={tx.type === "stock" ? "Total cost paid (UGX)" : "Amount (UGX)"}
               inputMode="numeric"
               value={amount}
               onChange={(e) => setAmount(e.target.value.replace(/\D/g, ""))}
-              hint="Cash at Hand moves by the difference only"
+              hint="Money in hand moves by the difference only"
             />
-            <Field label="Date" type="date" value={when} onChange={(e) => setWhen(e.target.value)} />
+            <Field
+              label="Date of entry"
+              type="date"
+              value={when}
+              onChange={(e) => setWhen(e.target.value)}
+              hint="Change this if you logged it on the wrong day"
+            />
             {tx.type === "expense" && (
               <SelectField label="Category" value={category} onChange={(e) => setCategory(e.target.value)}>
                 {state.expenseCategories.map((c) => (
@@ -289,15 +361,40 @@ function EntryRow({ tx, editable }: { tx: Tx; editable: boolean }) {
                 ))}
               </SelectField>
             )}
+            {tx.type === "stock" && (
+              <>
+                <Field
+                  label="Quantity bought (units)"
+                  inputMode="numeric"
+                  value={units}
+                  onChange={(e) => setUnits(e.target.value.replace(/\D/g, ""))}
+                  hint="First stock buy or restock count"
+                />
+                <Field
+                  label="Selling price per unit (UGX)"
+                  inputMode="numeric"
+                  value={sell}
+                  onChange={(e) => setSell(e.target.value.replace(/\D/g, ""))}
+                />
+              </>
+            )}
           </div>
+
           {tx.type === "stock" && (
-            <p className="text-xs text-on-surface-variant">
-              Stock entry: {tx.units ?? 0} units. Changing the price re-adjusts expected profit.
+            <p className="text-xs leading-4 text-on-surface-variant">
+              Shelf stock and expected profit re-adjust by the difference. Use this for wrong first entries (wrong qty,
+              cost, sell price or date).
             </p>
           )}
+          {tx.type === "capital" && (
+            <p className="text-xs leading-4 text-on-surface-variant">
+              Opening money change moves Money in hand by the difference.
+            </p>
+          )}
+
           {!!tx.edits?.length && (
             <div className="rounded-md bg-surface p-sm text-xs text-on-surface-variant">
-              <p className="mb-1 font-bold text-on-surface">Correction history</p>
+              <p className="mb-1 font-bold text-on-surface">Earlier corrections</p>
               {tx.edits.map((e, i) => (
                 <p key={i}>
                   {new Date(e.at).toLocaleString("en-GB")} — {e.note}
@@ -305,16 +402,23 @@ function EntryRow({ tx, editable }: { tx: Tx; editable: boolean }) {
               ))}
             </div>
           )}
+
+          {savedMsg ? <p className="text-sm font-semibold text-primary">{savedMsg}</p> : null}
+
           <div className="flex gap-sm">
             <button
+              type="button"
               onClick={apply}
-              className="flex h-11 min-h-11 flex-grow items-center justify-center gap-2 rounded-md bg-primary font-bold text-on-primary"
+              className="flex h-12 min-h-12 flex-grow items-center justify-center gap-2 rounded-md bg-primary font-bold text-on-primary"
             >
               <Icon name="check" /> Save correction
             </button>
             <button
-              onClick={() => deleteTx(tx.id)}
-              className="flex h-11 min-h-11 items-center justify-center gap-2 rounded-md bg-error-container px-4 font-bold text-on-error-container"
+              type="button"
+              onClick={() => {
+                if (confirm("Delete this entry? Money and stock will reverse.")) deleteTx(tx.id);
+              }}
+              className="flex h-12 min-h-12 items-center justify-center gap-2 rounded-md bg-error-container px-4 font-bold text-on-error-container"
             >
               <Icon name="delete" /> Delete
             </button>
@@ -329,7 +433,7 @@ function Mini({ label, value, accent }: { label: string; value: number; accent?:
   return (
     <div>
       <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">{label}</p>
-      <p className={`font-bold ${accent ? (value >= 0 ? "text-primary" : "text-tertiary") : "text-on-surface"}`}>
+      <p className={`font-bold tabular-nums ${accent ? (value >= 0 ? "text-primary" : "text-tertiary") : "text-on-surface"}`}>
         {ugx(value)}
       </p>
     </div>
@@ -339,6 +443,7 @@ function Mini({ label, value, accent }: { label: string; value: number; accent?:
 function ExportBtn({ icon, label, onClick }: { icon: string; label: string; onClick: () => void }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       className="flex h-12 min-h-12 items-center justify-center gap-2 rounded-md bg-primary font-bold text-on-primary hover:bg-primary-container"
     >
