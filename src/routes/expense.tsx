@@ -24,8 +24,9 @@ export const Route = createFileRoute("/expense")({
 });
 
 function Expense() {
-  const { state, addTx, undoLast, cashAtHand } = useStore();
+  const { state, addTx, undoLast, cashAtHand, scheduleRecurring, logRecurringDue } = useStore();
   const cats = state.expenseCategories;
+  const dueRecurring = (state.recurringExpenses ?? []).filter((r) => r.nextDue <= Date.now());
   // Half-typed expenses survive an interruption until they are saved.
   const draft = useDraft("expense", {
     category: cats[0]?.label ?? "Transport",
@@ -68,8 +69,11 @@ function Expense() {
         ? `Allowance — ${who.trim()}`
         : category + (recurring ? " (recurring)" : "");
     addTx({ type: "expense", label, category, amount: value, ts: fromDateInput(when) });
+    if (recurring && category === "Rent") {
+      scheduleRecurring({ category, label, amount: value, everyDays: 30 });
+    }
     draft.clearDraft();
-    draft.setValue((d) => ({ ...d, amount: "", who: "" }));
+    draft.setValue((d) => ({ ...d, amount: "", who: "", recurring: false }));
     setSaved(true);
     setTimeout(() => setSaved(false), 4000);
   };
@@ -77,6 +81,24 @@ function Expense() {
   return (
     <AppLayout title="Expense" back>
       <RangeBar range={range} title={`Expense report — ${range.label}`} sheets={[expenseSheet]} baseName="smartcanteen-expenses" />
+
+      {dueRecurring.length > 0 && (
+        <Card className="space-y-2 border border-secondary/30 bg-secondary/10">
+          <SectionTitle>Due recurring costs</SectionTitle>
+          {dueRecurring.map((r) => (
+            <div key={r.id} className="flex items-center justify-between gap-2">
+              <p className="text-sm font-semibold">{r.category} · UGX {ugx(r.amount)}</p>
+              <button
+                type="button"
+                onClick={() => logRecurringDue(r.id)}
+                className="min-h-10 rounded-md bg-primary px-3 text-xs font-bold text-on-primary"
+              >
+                Log now
+              </button>
+            </div>
+          ))}
+        </Card>
+      )}
 
       <Card className="space-y-sm">
         <div className="flex items-end justify-between gap-2">
@@ -151,13 +173,18 @@ function Expense() {
         </div>
 
         {category === "Rent" && (
-          <label className="flex min-h-11 items-center justify-between">
-            <span className="text-sm font-bold text-on-surface-variant">Recurring each period</span>
+          <label className="flex min-h-11 items-center justify-between gap-3">
+            <span className="text-sm font-bold text-on-surface-variant">
+              Recurring every 30 days
+              <span className="mt-0.5 block text-xs font-normal text-on-surface-variant">
+                Saves this amount now and reminds you next month to log it again.
+              </span>
+            </span>
             <input
               type="checkbox"
               checked={recurring}
               onChange={(e) => setRecurring(e.target.checked)}
-              className="h-6 w-6 accent-[#822912]"
+              className="h-6 w-6 shrink-0 accent-[#822912]"
             />
           </label>
         )}
