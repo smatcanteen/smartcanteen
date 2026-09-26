@@ -1,15 +1,25 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Tour, useTour, type TourStep } from "@/components/Tour";
 import { useAuth } from "@/lib/auth";
 import { Icon } from "@/components/Icon";
 import {
-  buildInsights,
-  lowStockItems,
-  overdueDebtors,
   balanceOf,
+  buildInsights,
+  closeForDay,
+  closeStreak,
+  dayKeyOf,
+  dayTotals,
+  eveningCloseMessage,
+  localHour,
+  lowStockItems,
+  morningGreeting,
+  needsEveningClose,
+  openWhatsApp,
+  overdueDebtors,
   shelfQty,
+  yesterdayKey,
 } from "@/lib/operator-helpers";
 import { ugx, shortUgx, useStore } from "@/lib/store";
 
@@ -34,37 +44,48 @@ export const Route = createFileRoute("/")({
   component: Home,
 });
 
-type Tile = { to: string; icon: string; label: string; params?: Record<string, string> };
-
-const dailyActions: Tile[] = [
+/** Only the four daily moves — everything else lives under More / Reports. */
+const dailyActions = [
   { to: "/sale", icon: "point_of_sale", label: "Sale" },
   { to: "/stock", icon: "inventory_2", label: "Stock" },
   { to: "/expense", icon: "receipt_long", label: "Expense" },
-  { to: "/debtors", icon: "group", label: "Credit" },
-  { to: "/close-out", icon: "task_alt", label: "Close Day" },
-  { to: "/report", icon: "bar_chart", label: "Reports" },
-];
+  { to: "/close-out", icon: "task_alt", label: "Close" },
+] as const;
 
 function Home() {
   const { state, cashAtHand, today, termProfit, logRecurringDue } = useStore();
   const [hide, setHide] = useState(false);
-
+  const [hour, setHour] = useState(() => localHour());
   const { user } = useAuth();
-  // Progress tracks net profit toward the term savings goal (not cash in hand).
+
+  useEffect(() => {
+    const id = window.setInterval(() => setHour(localHour()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+
   const goalPct = Math.max(
     0,
     Math.min(100, Math.round((termProfit / Math.max(1, state.savingsGoal)) * 100)),
   );
-  const recent = [...state.txs].sort((a, b) => b.ts - a.ts).slice(0, 6);
-  const expectedItemProfit = state.items.reduce((sum, item) => sum + item.qty * item.sell - item.buy, 0);
-  const realizedItemProfit = state.items.reduce((sum, item) => sum + (item.realizedProfit ?? 0), 0);
+  const recent = [...state.txs].sort((a, b) => b.ts - a.ts).slice(0, 5);
   const insights = buildInsights(state, termProfit);
   const overdue = overdueDebtors(state.debtors, 7);
   const low = lowStockItems(state.items);
   const dueRecurring = (state.recurringExpenses ?? []).filter((r) => r.nextDue <= Date.now());
-  const tour = useTour("operator-home-v2", user?.id, true);
-  const steps = React.useMemo(() => tourSteps(), []);
 
+  const todayKey = dayKeyOf();
+  const yKey = yesterdayKey();
+  const todayClose = closeForDay(state.dayCloses, todayKey);
+  const yClose = closeForDay(state.dayCloses, yKey);
+  const yTotals = dayTotals(state.txs, yKey);
+  const missedYesterday = !yClose && yTotals.count > 0;
+  const streak = closeStreak(state.dayCloses);
+  const eveningDue = needsEveningClose(state.dayCloses);
+  const morning = hour < 12;
+  const openClean = today.sales === 0 && today.expenses === 0 && !todayClose;
+
+  const tour = useTour("operator-home-v3", user?.id, true);
+  const steps = React.useMemo(() => tourSteps(), []);
 
   const hero = (
     <div className="card p-0" data-tour="balance">
@@ -74,12 +95,18 @@ function Home() {
         </span>
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-semibold text-on-surface-variant">{state.termName}</p>
+            <p className="text-xs font-semibold text-on-surface-variant">
+              {morningGreeting(hour)}
+              {user?.name ? ` · ${user.name.split(" ")[0]}` : ""}
+              {" · "}
+              {state.termName}
+            </p>
             <p className="price-display truncate text-primary">
               {hide ? "UGX ••••••" : `UGX ${ugx(cashAtHand)}`}
             </p>
           </div>
           <button
+            type="button"
             onClick={() => setHide((h) => !h)}
             aria-label={hide ? "Show balance" : "Hide balance"}
             data-tour="eye"
@@ -87,7 +114,27 @@ function Home() {
           >
             <Icon name={hide ? "visibility" : "visibility_off"} />
           </button>
+        </div>
 
+        <div className="mt-sm flex flex-wrap items-center gap-2">
+          <span
+            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold ${
+              streak > 0
+                ? "bg-primary/15 text-primary"
+                : "bg-surface-high text-on-surface-variant"
+            }`}
+            data-tour="streak"
+          >
+            <Icon name="local_fire_department" className="text-[14px]" />
+            {streak > 0
+              ? `${streak} day${streak === 1 ? "" : "s"} closed in a row`
+              : "Close today to start a streak"}
+          </span>
+          {todayClose && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary">
+              <Icon name="check_circle" className="text-[14px]" /> Today closed
+            </span>
+          )}
         </div>
 
         {state.savingsGoal > 0 ? (
@@ -100,21 +147,24 @@ function Home() {
             </p>
           </div>
         ) : null}
-
       </div>
 
       <div className="grid grid-cols-2 border-t border-outline-variant/50">
-        <Link to="/close-out" data-tour="close-day" className="flex min-h-11 items-center justify-center gap-2 py-3 text-sm font-bold text-primary hover:bg-surface-low">
-          <Icon name="task_alt" className="text-[20px]" /> Close Day
+        <Link
+          to="/sale"
+          data-tour="quick-sale"
+          className="flex min-h-12 items-center justify-center gap-2 bg-secondary-container/30 py-3 text-sm font-bold text-on-secondary-container hover:bg-secondary-container/50"
+        >
+          <Icon name="bolt" className="text-[20px]" /> Quick sale
         </Link>
         <Link
-          to="/report"
-          data-tour="statements"
-          className="flex min-h-11 items-center justify-center gap-2 border-l border-outline-variant/50 py-3 text-sm font-bold text-primary hover:bg-surface-low"
+          to="/close-out"
+          data-tour="close-day"
+          className="flex min-h-12 items-center justify-center gap-2 border-l border-outline-variant/50 py-3 text-sm font-bold text-primary hover:bg-surface-low"
         >
-          <Icon name="swap_vert" className="text-[20px]" /> Statements
+          <Icon name="task_alt" className="text-[20px]" />
+          {todayClose ? "Re-close day" : eveningDue ? "Close now" : "Close Day"}
         </Link>
-
       </div>
     </div>
   );
@@ -123,7 +173,94 @@ function Home() {
     <AppLayout title="SmartCanteen" hero={hero}>
       <Tour steps={steps} open={tour.open} onClose={tour.finish} />
 
-      {(insights.length > 0 || overdue.length > 0 || low.length > 0 || dueRecurring.length > 0) && (
+      <section className="space-y-2" data-tour="habit">
+        {missedYesterday && (
+          <Link
+            to="/close-out"
+            className="card flex items-start gap-3 border border-tertiary/40 bg-tertiary/10 p-sm"
+          >
+            <Icon name="warning" className="mt-0.5 shrink-0 text-tertiary" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-tertiary">Yesterday was not closed</p>
+              <p className="text-xs leading-4 text-on-surface">
+                {yTotals.count} entries · sales UGX {ugx(yTotals.sales)} · net UGX {ugx(yTotals.net)}.
+                Close Day keeps your streak and the till honest.
+              </p>
+            </div>
+            <span className="shrink-0 self-center text-xs font-bold text-primary">Close →</span>
+          </Link>
+        )}
+
+        {!missedYesterday && yClose && morning && openClean && (
+          <div className="card space-y-1 border border-primary/20 bg-primary/5 p-sm">
+            <p className="text-sm font-bold text-primary">
+              {morningGreeting(hour)} — till is ready
+            </p>
+            <p className="text-xs leading-4 text-on-surface-variant">
+              Yesterday net UGX {ugx(yClose.net)}
+              {yClose.diff === 0
+                ? " · till balanced"
+                : yClose.diff > 0
+                  ? ` · surplus UGX ${ugx(yClose.diff)}`
+                  : ` · short UGX ${ugx(Math.abs(yClose.diff))}`}
+              . Tap <span className="font-bold text-on-surface">Quick sale</span> when the first customer pays.
+            </p>
+          </div>
+        )}
+
+        {eveningDue && (
+          <div className="card space-y-2 border border-secondary/40 bg-secondary/10 p-sm">
+            <div className="flex items-start gap-2">
+              <Icon name="wb_twilight" className="mt-0.5 shrink-0 text-secondary" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-secondary">Time to close the day</p>
+                <p className="text-xs leading-4 text-on-surface">
+                  Sales UGX {ugx(today.sales)} · net UGX {ugx(today.net)}. Count the till — about two minutes.
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Link
+                to="/close-out"
+                className="flex min-h-11 items-center justify-center rounded-md bg-primary text-sm font-bold text-on-primary"
+              >
+                Close Day
+              </Link>
+              <button
+                type="button"
+                onClick={() =>
+                  openWhatsApp(
+                    eveningCloseMessage({
+                      termName: state.termName || "Canteen",
+                      sales: today.sales,
+                      net: today.net,
+                    }),
+                    state.digestPhone,
+                  )
+                }
+                className="flex min-h-11 items-center justify-center gap-1 rounded-md border border-outline-variant text-sm font-bold text-on-surface"
+              >
+                <Icon name="chat" className="text-[18px]" /> Remind me
+              </button>
+            </div>
+          </div>
+        )}
+
+        {todayClose && todayClose.diff !== 0 && (
+          <Link
+            to="/close-out"
+            className="card block border border-tertiary/30 bg-tertiary/10 p-sm text-sm"
+          >
+            <span className="font-bold text-tertiary">
+              {todayClose.diff > 0 ? "Surplus" : "Shortfall"} UGX {ugx(Math.abs(todayClose.diff))}
+            </span>
+            {" "}
+            on today’s close — re-count if something looks off.
+          </Link>
+        )}
+      </section>
+
+      {(dueRecurring.length > 0 || overdue.length > 0 || low.length > 0) && (
         <section className="space-y-2">
           {dueRecurring.map((r) => (
             <div
@@ -134,6 +271,7 @@ function Home() {
                 {r.category} due · UGX {ugx(r.amount)}
               </p>
               <button
+                type="button"
                 onClick={() => logRecurringDue(r.id)}
                 className="min-h-10 shrink-0 rounded-md bg-primary px-3 text-xs font-bold text-on-primary"
               >
@@ -161,7 +299,12 @@ function Home() {
               {low.length > 4 ? "…" : ""}
             </Link>
           )}
-          {insights.map((tip, i) => (
+        </section>
+      )}
+
+      {insights.length > 0 && (
+        <section className="space-y-2">
+          {insights.slice(0, 2).map((tip, i) => (
             <div key={i} className="card flex gap-2 p-sm text-sm text-on-surface">
               <Icon name="tips_and_updates" className="shrink-0 text-primary" />
               <span>{tip}</span>
@@ -170,45 +313,7 @@ function Home() {
         </section>
       )}
 
-      <section className="card grid grid-cols-2 divide-x divide-outline-variant/50 p-0">
-        <div className="p-sm text-center">
-          <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Expected Profit</p>
-          <p className="font-bold text-on-surface">UGX {ugx(expectedItemProfit)}</p>
-          <p className="mt-1 text-[10px] text-on-surface-variant">All stock bought this term</p>
-        </div>
-        <div className="p-sm text-center">
-          <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Realized Profit</p>
-          <p className="font-bold text-primary">UGX {ugx(realizedItemProfit)}</p>
-          <p className="mt-1 text-[10px] text-on-surface-variant">Confirmed by stock checks</p>
-        </div>
-      </section>
-      <button
-        onClick={tour.restart}
-        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-md border-2 border-dashed border-outline-variant text-sm font-bold text-primary"
-      >
-        <Icon name="tips_and_updates" className="text-[18px]" /> Show me around this app
-      </button>
-      <div className="flex items-end justify-between px-1">
-        <h2 className="label-bold text-on-surface-variant">Daily actions</h2>
-        <Link to="/settings" className="text-sm font-bold text-primary">More</Link>
-      </div>
-      <section data-tour="tiles" className="grid grid-cols-3 gap-2 sm:grid-cols-6 sm:gap-sm">
-        {dailyActions.map((t, i) => (
-          <TileLink
-            key={`${t.to}-${i}`}
-            to={t.to}
-            params={t.params ?? {}}
-            data-tour={`tile-${t.label}`}
-            className="card flex aspect-square flex-col items-center justify-center gap-1.5 p-2 text-center transition-transform active:scale-95 hover:bg-surface-low"
-          >
-            <Icon name={t.icon} className="text-[24px] text-primary sm:text-[26px]" />
-            <span className="text-[11px] font-semibold leading-tight text-on-surface sm:text-xs">{t.label}</span>
-          </TileLink>
-
-        ))}
-      </section>
-
-      <section className="card grid grid-cols-3 p-md">
+      <section className="card grid grid-cols-3 p-md" data-tour="today">
         {[
           { l: "Sales", v: today.sales, i: "trending_up", c: "text-primary" },
           { l: "Out", v: today.expenses, i: "trending_down", c: "text-tertiary" },
@@ -218,20 +323,65 @@ function Home() {
             <span className="flex items-center gap-1 text-xs uppercase tracking-wide text-on-surface-variant">
               <Icon name={s.i} className="text-[14px]" /> {s.l}
             </span>
-            <span className={`font-bold ${s.c}`}>{shortUgx(s.v)}</span>
+            <span className={`font-bold tabular-nums ${s.c}`}>{shortUgx(s.v)}</span>
           </div>
         ))}
       </section>
 
+      <div className="flex items-end justify-between px-1">
+        <h2 className="label-bold text-on-surface-variant">Daily actions</h2>
+        <Link to="/settings" className="text-sm font-bold text-primary">
+          More
+        </Link>
+      </div>
+      <section data-tour="tiles" className="grid grid-cols-4 gap-2">
+        {dailyActions.map((t) => (
+          <TileLink
+            key={t.to}
+            to={t.to}
+            data-tour={`tile-${t.label}`}
+            className="card flex aspect-square flex-col items-center justify-center gap-1.5 p-2 text-center transition-transform active:scale-95 hover:bg-surface-low"
+          >
+            <Icon name={t.icon} className="text-[26px] text-primary" />
+            <span className="text-[11px] font-semibold leading-tight text-on-surface">{t.label}</span>
+          </TileLink>
+        ))}
+      </section>
+
+      <section className="grid grid-cols-3 gap-2">
+        <Link
+          to="/debtors"
+          className="card flex min-h-11 items-center justify-center gap-1 p-2 text-xs font-bold text-on-surface"
+        >
+          <Icon name="group" className="text-[16px] text-primary" /> Credit
+        </Link>
+        <Link
+          to="/report"
+          className="card flex min-h-11 items-center justify-center gap-1 p-2 text-xs font-bold text-on-surface"
+        >
+          <Icon name="bar_chart" className="text-[16px] text-primary" /> Reports
+        </Link>
+        <Link
+          to="/history"
+          className="card flex min-h-11 items-center justify-center gap-1 p-2 text-xs font-bold text-on-surface"
+        >
+          <Icon name="history" className="text-[16px] text-primary" /> History
+        </Link>
+      </section>
+
       <section>
         <div className="mb-sm flex items-end justify-between px-1">
-          <h2 className="label-bold text-on-surface-variant" data-tour="recent">Recent transactions</h2>
+          <h2 className="label-bold text-on-surface-variant" data-tour="recent">
+            Recent
+          </h2>
           <Link to="/history" data-tour="see-all" className="text-sm font-bold text-primary hover:underline">
             See all
           </Link>
-
         </div>
         <div className="card overflow-hidden p-0">
+          {recent.length === 0 && (
+            <p className="p-sm text-sm text-on-surface-variant">No entries yet today. Tap Quick sale to start.</p>
+          )}
           {recent.map((t) => {
             const income = t.type === "sale" || t.type === "capital";
             return (
@@ -241,7 +391,9 @@ function Home() {
               >
                 <div className="flex min-w-0 items-center gap-sm">
                   <span
-                    className={`shrink-0 rounded-full p-2 ${income ? "bg-primary/10 text-primary" : "bg-tertiary/10 text-tertiary"}`}
+                    className={`shrink-0 rounded-full p-2 ${
+                      income ? "bg-primary/10 text-primary" : "bg-tertiary/10 text-tertiary"
+                    }`}
                   >
                     <Icon
                       name={
@@ -267,7 +419,7 @@ function Home() {
                     </span>
                   </div>
                 </div>
-                <span className={`shrink-0 font-bold ${income ? "text-primary" : "text-tertiary"}`}>
+                <span className={`shrink-0 font-bold tabular-nums ${income ? "text-primary" : "text-tertiary"}`}>
                   {income ? "+" : "-"}
                   {ugx(t.amount)}
                 </span>
@@ -276,43 +428,39 @@ function Home() {
           })}
         </div>
       </section>
+
+      <button
+        type="button"
+        onClick={tour.restart}
+        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-dashed border-outline-variant text-sm font-bold text-on-surface-variant"
+      >
+        <Icon name="tips_and_updates" className="text-[18px]" /> Show me around
+      </button>
     </AppLayout>
   );
 }
 
 const tourSteps = (): TourStep[] => [
   {
+    id: "quick-sale",
+    title: "Log money in seconds",
+    body: "Quick sale opens the keypad. Use it every time a customer pays — like buying airtime.",
+  },
+  {
+    id: "streak",
+    title: "Keep your close streak",
+    body: "Close the day every evening. The fire count grows when you don’t skip a day.",
+  },
+  {
+    id: "close-day",
+    title: "Count the till",
+    body: "At day end, count cash and match the app. Two minutes keeps the book honest.",
+  },
+  {
     id: "tile-Sale",
-    title: "Record a sale",
-    body: "Use Sale whenever a customer pays. Cash at Hand updates immediately.",
-  },
-  {
-    id: "tile-Stock",
-    title: "Add and count stock",
-    body: "Use Stock to record purchases, quantities, buying costs and physical counts.",
-  },
-  {
-    id: "tile-Expense",
-    title: "Record money spent",
-    body: "Use Expense for transport, wages, rent and every other business cost.",
-  },
-  {
-    id: "tile-Credit",
-    title: "Track unpaid sales",
-    body: "Use Credit when goods leave before payment, then record each payment received.",
-  },
-  {
-    id: "tile-Close Day",
-    title: "Check the day’s cash",
-    body: "At day end, count the cash box and compare it with the amount in SmartCanteen.",
-  },
-  {
-    id: "tile-Reports",
-    title: "Review the cash book",
-    body: "Use Reports for sales, costs, stock profit and exports for the selected period.",
+    title: "Daily actions",
+    body: "Sale, Stock, Expense, Close — the four moves you need most days. Everything else is under More.",
   },
 ];
 
-
-/** Tiles link to both static and dynamic routes, so params are passed loosely. */
 const TileLink = Link as unknown as React.ComponentType<Record<string, unknown>>;
