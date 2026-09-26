@@ -501,7 +501,7 @@ function Home() {
             Recent
           </h2>
           <Link to="/history" data-tour="see-all" className="text-sm font-bold text-primary hover:underline">
-            See all
+            Fix entries
           </Link>
         </div>
         <div className="card overflow-hidden p-0">
