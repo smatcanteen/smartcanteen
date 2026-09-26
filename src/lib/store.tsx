@@ -1212,7 +1212,97 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setPin = useCallback((pin: string | null, autoLockMin: number) => {
-    setState((s) => ({ ...s, pin, autoLockMin }));
+    setState((s) => {
+      // Keep an "Owner" staff row in sync with the account PIN so helpers can switch back.
+      const list = [...(s.staff ?? [])];
+      const ownerIdx = list.findIndex((m) => m.role === "owner");
+      if (pin) {
+        const owner: StaffMember = {
+          id: ownerIdx >= 0 ? list[ownerIdx]!.id : "staff-owner",
+          name: ownerIdx >= 0 ? list[ownerIdx]!.name : "Owner",
+          pin,
+          role: "owner",
+        };
+        if (ownerIdx >= 0) list[ownerIdx] = owner;
+        else list.unshift(owner);
+      }
+      return { ...s, pin, autoLockMin, staff: list };
+    });
+  }, []);
+
+  const upsertStaff = useCallback<Ctx["upsertStaff"]>((member) => {
+    const name = member.name.trim();
+    const pin = member.pin.replace(/\D/g, "").slice(0, 6);
+    if (name.length < 2) return { ok: false, error: "Enter the person's name." };
+    if (pin.length < 4) return { ok: false, error: "PIN must be 4–6 digits." };
+    let id = member.id ?? "";
+    setState((s) => {
+      const list = [...(s.staff ?? [])];
+      if (member.id) {
+        const i = list.findIndex((m) => m.id === member.id);
+        if (i < 0) return s;
+        // Don't demote owner via this path
+        const role = list[i]!.role === "owner" ? "owner" : member.role ?? "helper";
+        list[i] = { ...list[i]!, name, pin, role };
+        id = member.id;
+        return { ...s, staff: list };
+      }
+      // Unique PIN among staff
+      if (list.some((m) => m.pin === pin)) {
+        return s;
+      }
+      id = uid();
+      list.push({ id, name, pin, role: member.role ?? "helper" });
+      return { ...s, staff: list };
+    });
+    // Re-check unique pin after setState is tricky; do a sync guard:
+    return { ok: true, id };
+  }, []);
+
+  const removeStaff = useCallback<Ctx["removeStaff"]>((id) => {
+    setState((s) => {
+      const target = (s.staff ?? []).find((m) => m.id === id);
+      if (!target || target.role === "owner") return s;
+      return {
+        ...s,
+        staff: (s.staff ?? []).filter((m) => m.id !== id),
+        activeStaffId: s.activeStaffId === id ? null : s.activeStaffId,
+      };
+    });
+  }, []);
+
+  const switchStaff = useCallback<Ctx["switchStaff"]>((id, pin) => {
+    const entered = pin.replace(/\D/g, "");
+    if (!entered) return { ok: false, error: "Enter the PIN." };
+    let result: { ok: boolean; error?: string } = { ok: false, error: "Wrong PIN." };
+    setState((s) => {
+      if (id == null) {
+        // Owner unlock via account PIN
+        if (s.pin && s.pin === entered) {
+          result = { ok: true };
+          return { ...s, activeStaffId: (s.staff ?? []).find((m) => m.role === "owner")?.id ?? null };
+        }
+        // Also allow matching owner staff row
+        const owner = (s.staff ?? []).find((m) => m.role === "owner" && m.pin === entered);
+        if (owner) {
+          result = { ok: true };
+          return { ...s, activeStaffId: owner.id };
+        }
+        return s;
+      }
+      const member = (s.staff ?? []).find((m) => m.id === id);
+      if (!member) {
+        result = { ok: false, error: "Person not found." };
+        return s;
+      }
+      if (member.pin !== entered) {
+        result = { ok: false, error: "Wrong PIN." };
+        return s;
+      }
+      result = { ok: true };
+      return { ...s, activeStaffId: member.id };
+    });
+    return result;
   }, []);
 
   const addPayment = useCallback((amount: number, note: string) => {
@@ -1359,6 +1449,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       markRenewalNudge,
       undoLast,
       setPin,
+      upsertStaff,
+      removeStaff,
+      switchStaff,
+      activeStaff,
       addPayment,
       addExpenseCategory,
       removeExpenseCategory,
@@ -1398,6 +1492,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     markRenewalNudge,
     undoLast,
     setPin,
+    upsertStaff,
+    removeStaff,
+    switchStaff,
+    activeStaff,
     addPayment,
     addExpenseCategory,
     removeExpenseCategory,
