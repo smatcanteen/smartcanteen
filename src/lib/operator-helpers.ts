@@ -1,7 +1,6 @@
 /** Shared operator helpers — digests, insights, stock flags, plan price, term card. */
 
 import type { Debtor, State, StockItem, Tx } from "./store";
-import { ugx } from "./store";
 import { parseAmount, parseExpense, parseStock } from "./voice";
 
 /** Live plan: one prepay of UGX 35,000 covers four months. */
@@ -10,31 +9,7 @@ export const PLAN_MONTHS = 4;
 export const PLAN_LABEL = "UGX 35,000 for 4 months";
 export const SUPPORT_WHATSAPP = "256758727269";
 
-export type DayClose = {
-  id: string;
-  /** Calendar day key YYYY-MM-DD in local time. */
-  dayKey: string;
-  ts: number;
-  sales: number;
-  expenses: number;
-  net: number;
-  counted: number;
-  expected: number;
-  diff: number;
-  digestSent: boolean;
-};
-
-export type RecurringExpense = {
-  id: string;
-  category: string;
-  label: string;
-  amount: number;
-  /** Days between charges (rent ≈ 30). */
-  everyDays: number;
-  nextDue: number;
-  lastLoggedAt?: number;
-};
-
+const money = (n: number) => new Intl.NumberFormat("en-UG").format(Math.round(n));
 const dayMs = 86_400_000;
 
 export const dayKeyOf = (ts = Date.now()) => {
@@ -84,7 +59,7 @@ export function buildInsights(state: State, termProfit: number): string[] {
   const transportPrev = sumCat(twoWeeks, weekAgo, "Transport");
   if (transportPrev > 0 && transportThis > transportPrev * 1.25) {
     const pct = Math.round(((transportThis - transportPrev) / transportPrev) * 100);
-    tips.push(`Transport is up ${pct}% vs last week (UGX ${ugx(transportThis)} this week).`);
+    tips.push(`Transport is up ${pct}% vs last week (UGX ${money(transportThis)} this week).`);
   }
 
   const salesThis = state.txs
@@ -94,9 +69,9 @@ export function buildInsights(state: State, termProfit: number): string[] {
     .filter((t) => t.type === "sale" && t.ts >= twoWeeks && t.ts < weekAgo)
     .reduce((a, t) => a + t.amount, 0);
   if (salesPrev > 0 && salesThis < salesPrev * 0.75) {
-    tips.push(`Sales are down vs last week — UGX ${ugx(salesThis)} this week vs UGX ${ugx(salesPrev)} before.`);
+    tips.push(`Sales are down vs last week — UGX ${money(salesThis)} this week vs UGX ${money(salesPrev)} before.`);
   } else if (salesPrev > 0 && salesThis > salesPrev * 1.25) {
-    tips.push(`Strong week — sales up vs last week (UGX ${ugx(salesThis)}).`);
+    tips.push(`Strong week — sales up vs last week (UGX ${money(salesThis)}).`);
   }
 
   const low = lowStockItems(state.items);
@@ -115,19 +90,19 @@ export function buildInsights(state: State, termProfit: number): string[] {
   if (overdue.length) {
     const total = overdue.reduce((a, d) => a + balanceOf(d), 0);
     tips.push(
-      `${overdue.length} credit${overdue.length > 1 ? "s" : ""} unpaid 7+ days — UGX ${ugx(total)} still out.`,
+      `${overdue.length} credit${overdue.length > 1 ? "s" : ""} unpaid 7+ days — UGX ${money(total)} still out.`,
     );
   }
 
   if (state.savingsGoal > 0) {
     const pct = Math.max(0, Math.min(100, Math.round((termProfit / state.savingsGoal) * 100)));
-    if (pct >= 100) tips.push(`Term savings goal reached — UGX ${ugx(termProfit)} net so far.`);
-    else if (pct >= 75) tips.push(`Almost there — ${pct}% of your UGX ${ugx(state.savingsGoal)} term goal.`);
+    if (pct >= 100) tips.push(`Term savings goal reached — UGX ${money(termProfit)} net so far.`);
+    else if (pct >= 75) tips.push(`Almost there — ${pct}% of your UGX ${money(state.savingsGoal)} term goal.`);
   }
 
   const due = (state.recurringExpenses ?? []).filter((r) => r.nextDue <= now);
   for (const r of due.slice(0, 2)) {
-    tips.push(`${r.category} of UGX ${ugx(r.amount)} is due — open Expenses to log it.`);
+    tips.push(`${r.category} of UGX ${money(r.amount)} is due — open Expenses to log it.`);
   }
 
   return tips.slice(0, 4);
@@ -147,17 +122,17 @@ export function buildDayDigest(opts: {
     opts.diff === 0
       ? "Till balanced"
       : opts.diff > 0
-        ? `Surplus UGX ${ugx(opts.diff)}`
-        : `Shortfall UGX ${ugx(Math.abs(opts.diff))}`;
+        ? `Surplus UGX ${money(opts.diff)}`
+        : `Shortfall UGX ${money(Math.abs(opts.diff))}`;
   return [
     `SmartCanteen · ${opts.termName}`,
     `Day close ${opts.dayKey}`,
     "",
-    `Sales: UGX ${ugx(opts.sales)}`,
-    `Out (stock + expenses): UGX ${ugx(opts.expenses)}`,
-    `Net: UGX ${ugx(opts.net)}`,
-    `App cash: UGX ${ugx(opts.expected)}`,
-    `Counted: UGX ${ugx(opts.counted)}`,
+    `Sales: UGX ${money(opts.sales)}`,
+    `Out (stock + expenses): UGX ${money(opts.expenses)}`,
+    `Net: UGX ${money(opts.net)}`,
+    `App cash: UGX ${money(opts.expected)}`,
+    `Counted: UGX ${money(opts.counted)}`,
     bal,
     "",
     "— sent from SmartCanteen",
@@ -193,7 +168,7 @@ export function renewalReminderMessage(opts: {
     `Plan: ${PLAN_LABEL}`,
     `Access through: ${opts.dueLabel}`,
     "",
-    `Pay UGX ${ugx(PLAN_PRICE_UGX)} to +256 758 727269 or +256 783 113352`,
+    `Pay UGX ${money(PLAN_PRICE_UGX)} to +256 758 727269 or +256 783 113352`,
     `Use your canteen name as the MoMo reference.`,
     "",
     "After paying, forward the confirmation so access stays open.",
@@ -267,16 +242,16 @@ export function exportTermReportCard(opts: {
     <h1>Term report card</h1>
     <div class="sub">${esc(opts.school || "SmartCanteen")} · ${esc(opts.termName)} · from ${started}</div>
     <div class="grid">
-      <div class="box accent"><span>Total sales</span><strong>UGX ${ugx(opts.sales)}</strong></div>
-      <div class="box"><span>Stock + expenses</span><strong>UGX ${ugx(opts.stock + opts.expenses)}</strong></div>
-      <div class="box accent"><span>Net profit</span><strong>UGX ${ugx(net)}</strong></div>
-      <div class="box"><span>Expected profit (stock)</span><strong>UGX ${ugx(opts.expectedProfit)}</strong></div>
-      <div class="box"><span>Outstanding credit</span><strong>UGX ${ugx(opts.outstanding)}</strong></div>
-      <div class="box accent"><span>Cash at Hand</span><strong>UGX ${ugx(opts.cashAtHand)}</strong></div>
+      <div class="box accent"><span>Total sales</span><strong>UGX ${money(opts.sales)}</strong></div>
+      <div class="box"><span>Stock + expenses</span><strong>UGX ${money(opts.stock + opts.expenses)}</strong></div>
+      <div class="box accent"><span>Net profit</span><strong>UGX ${money(net)}</strong></div>
+      <div class="box"><span>Expected profit (stock)</span><strong>UGX ${money(opts.expectedProfit)}</strong></div>
+      <div class="box"><span>Outstanding credit</span><strong>UGX ${money(opts.outstanding)}</strong></div>
+      <div class="box accent"><span>Cash at Hand</span><strong>UGX ${money(opts.cashAtHand)}</strong></div>
     </div>
     ${
       opts.goal > 0
-        ? `<div class="goal"><div class="sub">Savings goal ${goalPct}% of UGX ${ugx(opts.goal)}</div><div class="bar"><i></i></div></div>`
+        ? `<div class="goal"><div class="sub">Savings goal ${goalPct}% of UGX ${money(opts.goal)}</div><div class="bar"><i></i></div></div>`
         : ""
     }
     <footer>SmartCanteen · generated ${new Date().toLocaleString("en-GB")} · Save as PDF from the print dialog</footer>
