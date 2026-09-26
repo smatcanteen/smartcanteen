@@ -587,6 +587,57 @@ function Accounts() {
         ))}
         {rows.length === 0 ? <SectionTitle>No accounts match this filter.</SectionTitle> : null}
       </div>
+      {renewForId
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 p-4 sm:items-center"
+              role="dialog"
+              aria-modal="true"
+              onClick={() => setRenewForId(null)}
+            >
+              <div
+                className="w-full max-w-md space-y-3 rounded-2xl bg-surface p-4 shadow-raised"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h3 className="text-lg font-extrabold text-on-surface">Confirm payment & renew</h3>
+                <p className="text-sm text-on-surface-variant">
+                  {s.tenants.find((t) => t.accountId === renewForId)?.canteenName ?? "Account"} — enter the
+                  amount received and the mobile-money reference. Access extends by {s.settings.months} months.
+                </p>
+                <Field
+                  label="Amount received (UGX)"
+                  inputMode="numeric"
+                  value={renewAmount}
+                  onChange={(e) => setRenewAmount(e.target.value)}
+                />
+                <Field
+                  label="Mobile-money reference"
+                  value={renewRef}
+                  onChange={(e) => setRenewRef(e.target.value)}
+                  placeholder="e.g. MM123ABC"
+                />
+                <Field
+                  label="Note (optional)"
+                  value={renewNote}
+                  onChange={(e) => setRenewNote(e.target.value)}
+                />
+                {actionError ? <p className="text-sm font-bold text-tertiary">{actionError}</p> : null}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setRenewForId(null)}
+                    className="min-h-12 flex-1 rounded-md border-2 border-outline-variant font-bold"
+                  >
+                    Cancel
+                  </button>
+                  <PrimaryButton onClick={() => void confirmRenew()}>Confirm & renew</PrimaryButton>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+
       {otp ? (
         <OtpModal
           code={otp.code}
