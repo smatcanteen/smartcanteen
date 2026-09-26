@@ -1173,22 +1173,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setPin = useCallback((pin: string | null, autoLockMin: number) => {
-    setState((s) => {
-      // Keep an "Owner" staff row in sync with the account PIN so helpers can switch back.
-      const list = [...(s.staff ?? [])];
-      const ownerIdx = list.findIndex((m) => m.role === "owner");
-      if (pin) {
-        const owner: StaffMember = {
-          id: ownerIdx >= 0 ? list[ownerIdx]!.id : "staff-owner",
-          name: ownerIdx >= 0 ? list[ownerIdx]!.name : "Owner",
-          pin,
-          role: "owner",
-        };
-        if (ownerIdx >= 0) list[ownerIdx] = owner;
-        else list.unshift(owner);
-      }
-      return { ...s, pin, autoLockMin, staff: list };
-    });
+    setState((s) => ({ ...s, pin, autoLockMin }));
   }, []);
 
   const upsertStaff = useCallback<Ctx["upsertStaff"]>((member) => {
