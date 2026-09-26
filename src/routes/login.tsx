@@ -64,7 +64,7 @@ function Login() {
   const [pin, setPin] = useState("");
   const [showPin, setShowPin] = useState(false);
   const [mode, setMode] = useState<"phone" | "email">("email");
-  const [email, setEmail] = useState("admin@smartcanteen.app");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [error, setError] = useState("");
@@ -276,9 +276,7 @@ function Login() {
                 <p className="mt-1 text-sm text-on-surface-variant">
                   Operators and agents use phone + PIN. Admin uses email + password.
                 </p>
-                <p className="mt-1 text-xs font-semibold text-primary">
-                  Admin: Phone/Email + password → email → admin@smartcanteen.app
-                </p>
+                
               </div>
 
               {/* Two ways in */}
