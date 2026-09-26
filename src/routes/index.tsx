@@ -70,15 +70,9 @@ function Home() {
     logRecurringDue,
     setHoliday,
     markRenewalNudge,
-    activeStaff,
-    switchStaff,
   } = useStore();
   const [hide, setHide] = useState(false);
   const [hour, setHour] = useState(() => localHour());
-  const [staffOpen, setStaffOpen] = useState(false);
-  const [pickId, setPickId] = useState<string | null>(null);
-  const [pickPin, setPickPin] = useState("");
-  const [staffErr, setStaffErr] = useState("");
   const { user } = useAuth();
   const { s: platform } = usePlatform();
   const tenant = platform.tenants.find((item) => item.accountId === user?.id);
