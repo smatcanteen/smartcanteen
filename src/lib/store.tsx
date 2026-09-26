@@ -440,6 +440,23 @@ type Ctx = {
   setRunningLow: (itemId: string, runningLow: boolean) => void;
   /** Removes an item and its linked purchases from the current term's figures. */
   removeStockItem: (itemId: string) => void;
+  /** Saves an end-of-day close (cash count + optional digest flag). */
+  closeDay: (payload: {
+    counted: number;
+    expected: number;
+    sales: number;
+    expenses: number;
+    net: number;
+    digestSent: boolean;
+  }) => void;
+  /** Schedules a recurring expense (e.g. rent every 30 days). */
+  scheduleRecurring: (opts: { category: string; label: string; amount: number; everyDays?: number }) => void;
+  /** Logs a due recurring expense into the cash book and rolls nextDue forward. */
+  logRecurringDue: (id: string) => void;
+  setDigestPhone: (phone: string) => void;
+  ensureReferralCode: (userId: string | null) => string;
+  applyReferralCode: (code: string) => { ok: boolean; error?: string };
+  redeemReferralCredit: () => boolean;
 
   undoLast: () => void;
 
@@ -597,8 +614,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       for (const p of picked) {
         const it = items.find((i) => i.id === p.itemId);
         if (!it || p.qty <= 0) continue;
-        const qty = Math.min(p.qty, it.stock);
-        it.stock -= qty;
+        // One shelf number: physical check wins when set, otherwise running stock.
+        const available = it.lastKnownQuantity != null ? it.lastKnownQuantity : it.stock;
+        const qty = Math.min(p.qty, available);
+        it.stock = Math.max(0, it.stock - qty);
+        if (it.lastKnownQuantity != null) {
+          it.lastKnownQuantity = Math.max(0, it.lastKnownQuantity - qty);
+        }
+        const left = it.lastKnownQuantity != null ? it.lastKnownQuantity : it.stock;
+        const threshold = Math.max(5, Math.ceil(it.qty * 0.1));
+        if (left <= threshold) it.runningLow = true;
         total += it.sell * qty;
         lines.push({ itemId: it.id, name: it.name, qty });
       }
