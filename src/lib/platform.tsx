@@ -879,6 +879,8 @@ export const checklistDone = (t: Tenant) =>
 export const fmtDate = (ts: number) =>
   new Date(ts).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
+export const ugxDisplay = (n: number) => new Intl.NumberFormat("en-UG").format(Math.round(n || 0));
+
 /** Churn rate of the accounts an agent onboarded, used for the quality flag. */
 export function agentChurnRate(agentId: string, tenants: Tenant[]) {
   const mine = tenants.filter((t) => t.agentId === agentId);
