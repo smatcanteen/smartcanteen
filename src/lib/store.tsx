@@ -1504,7 +1504,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     upsertStaff,
     removeStaff,
     switchStaff,
-    activeStaff,
     addPayment,
     addExpenseCategory,
     removeExpenseCategory,
