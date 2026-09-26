@@ -213,9 +213,20 @@ function Stock() {
         </div>
       )}
 
+      {low.length > 0 && (
+        <div className="rounded-lg border border-tertiary/20 bg-tertiary/10 p-sm">
+          <p className="label-bold flex items-center gap-2 text-tertiary">
+            <Icon name="warning" className="text-[18px]" /> Restock list
+          </p>
+          <p className="mt-1 text-sm text-on-surface">
+            {low.map((i) => `${i.name} (${shelfQty(i)} left)`).join(", ")}
+          </p>
+        </div>
+      )}
+
       <div className="grid gap-sm sm:grid-cols-2">
         <Card>
-          <p className="label-bold text-on-surface-variant">Total Stocked · checked at cost</p>
+          <p className="label-bold text-on-surface-variant">Total Stocked · at cost</p>
           <p className="price-display text-on-surface">UGX {ugx(atCost)}</p>
           <p className="mt-1 text-xs text-on-surface-variant">Only items physically checked are included.</p>
         </Card>
