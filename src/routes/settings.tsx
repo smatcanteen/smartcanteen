@@ -89,7 +89,7 @@ function SettingsPage() {
           {[
             { to: "/debtors", icon: "group", label: "Student credit" },
             { to: "/report", icon: "bar_chart", label: "Reports" },
-            { to: "/history", icon: "history", label: "History" },
+            { to: "/history", icon: "edit_note", label: "Fix entries" },
             { to: "/term-capital", icon: "account_balance", label: "Opening money" },
             { to: "/term-transition", icon: "event_repeat", label: "Close term" },
             { to: "/subscription", icon: "card_membership", label: "Plan & pay" },
