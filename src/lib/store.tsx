@@ -973,6 +973,138 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  const closeDay = useCallback<Ctx["closeDay"]>((payload) => {
+    setState((s) => {
+      const d = new Date();
+      const p = (n: number) => String(n).padStart(2, "0");
+      const dayKey = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+      const entry: DayClose = {
+        id: uid(),
+        dayKey,
+        ts: Date.now(),
+        sales: payload.sales,
+        expenses: payload.expenses,
+        net: payload.net,
+        counted: payload.counted,
+        expected: payload.expected,
+        diff: payload.counted - payload.expected,
+        digestSent: payload.digestSent,
+      };
+      const prior = (s.dayCloses ?? []).filter((c) => c.dayKey !== dayKey);
+      return { ...s, dayCloses: [...prior, entry] };
+    });
+  }, []);
+
+  const scheduleRecurring = useCallback<Ctx["scheduleRecurring"]>((opts) => {
+    setState((s) => {
+      const everyDays = opts.everyDays ?? 30;
+      const next: RecurringExpense = {
+        id: uid(),
+        category: opts.category,
+        label: opts.label,
+        amount: opts.amount,
+        everyDays,
+        nextDue: Date.now() + everyDays * 86_400_000,
+        lastLoggedAt: Date.now(),
+      };
+      return { ...s, recurringExpenses: [...(s.recurringExpenses ?? []), next] };
+    });
+  }, []);
+
+  const logRecurringDue = useCallback<Ctx["logRecurringDue"]>((id) => {
+    setState((s) => {
+      const rec = (s.recurringExpenses ?? []).find((r) => r.id === id);
+      if (!rec) return s;
+      const when = Date.now();
+      return {
+        ...s,
+        txs: [
+          ...s.txs,
+          {
+            id: uid(),
+            type: "expense" as TxType,
+            label: rec.label.includes("(recurring)") ? rec.label : `${rec.label} (recurring)`,
+            category: rec.category,
+            amount: rec.amount,
+            ts: when,
+          },
+        ],
+        recurringExpenses: (s.recurringExpenses ?? []).map((r) =>
+          r.id === id
+            ? { ...r, lastLoggedAt: when, nextDue: when + r.everyDays * 86_400_000 }
+            : r,
+        ),
+      };
+    });
+  }, []);
+
+  const setDigestPhone = useCallback<Ctx["setDigestPhone"]>((phone) => {
+    setState((s) => ({ ...s, digestPhone: phone.replace(/\D/g, "").slice(0, 15) }));
+  }, []);
+
+  const ensureReferralCode = useCallback<Ctx["ensureReferralCode"]>((id) => {
+    let code = "";
+    setState((s) => {
+      if (s.referralCode && s.referralCode.length >= 4) {
+        code = s.referralCode;
+        return s;
+      }
+      const raw = (id ?? "guest").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+      code = `SC${raw.slice(-4) || "SC01"}`;
+      return { ...s, referralCode: code, referralCredits: s.referralCredits ?? 0 };
+    });
+    return code;
+  }, []);
+
+  const applyReferralCode = useCallback<Ctx["applyReferralCode"]>((raw) => {
+    const code = raw.trim().toUpperCase();
+    if (code.length < 4) return { ok: false, error: "Enter a full referral code." };
+    let result: { ok: boolean; error?: string } = { ok: true };
+    setState((s) => {
+      if (s.referredByCode) {
+        result = { ok: false, error: "A referral code is already on this account." };
+        return s;
+      }
+      if (s.referralCode && s.referralCode === code) {
+        result = { ok: false, error: "You can't use your own code." };
+        return s;
+      }
+      return {
+        ...s,
+        referredByCode: code,
+        referralCredits: (s.referralCredits ?? 0) + 1,
+        payments: [
+          ...s.payments,
+          {
+            id: uid(),
+            amount: 0,
+            note: `Referral credit — code ${code} (1 free month)`,
+            ts: Date.now(),
+          },
+        ],
+      };
+    });
+    return result;
+  }, []);
+
+  const redeemReferralCredit = useCallback<Ctx["redeemReferralCredit"]>(() => {
+    let ok = false;
+    setState((s) => {
+      const credits = s.referralCredits ?? 0;
+      if (credits <= 0) return s;
+      ok = true;
+      return {
+        ...s,
+        referralCredits: credits - 1,
+        payments: [
+          ...s.payments,
+          { id: uid(), amount: 0, note: "Redeemed referral free month", ts: Date.now() },
+        ],
+      };
+    });
+    return ok;
+  }, []);
+
   const removeStockItem = useCallback<Ctx["removeStockItem"]>((itemId) => {
     setState((s) => {
       const item = s.items.find((i) => i.id === itemId);
@@ -1151,6 +1283,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       checkStock,
       setRunningLow,
       removeStockItem,
+      closeDay,
+      scheduleRecurring,
+      logRecurringDue,
+      setDigestPhone,
+      ensureReferralCode,
+      applyReferralCode,
+      redeemReferralCredit,
       undoLast,
       setPin,
       addPayment,
@@ -1181,6 +1320,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     checkStock,
     setRunningLow,
     removeStockItem,
+    closeDay,
+    scheduleRecurring,
+    logRecurringDue,
+    setDigestPhone,
+    ensureReferralCode,
+    applyReferralCode,
+    redeemReferralCredit,
     undoLast,
     setPin,
     addPayment,
