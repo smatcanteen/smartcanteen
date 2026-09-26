@@ -39,7 +39,9 @@ function Debtors() {
   const [payFor, setPayFor] = useState<{ id: string; mode: "partial" | "full" } | null>(null);
   const [pay, setPay] = useState({ amount: "", when: dateInput(Date.now()) });
 
-  const open = state.debtors.filter((d) => balanceOf(d) > 0);
+  const open = state.debtors.filter((d) => balanceOf(d) > 0).slice().sort((a, b) => a.ts - b.ts);
+  /** Oldest unpaid first — who to chase today. */
+  const collectToday = open.filter((d) => ageDays(d) >= 3);
   const owed = open.reduce((a, d) => a + balanceOf(d), 0);
   const collected = state.debtors
     .flatMap((d) => d.payments ?? [])
@@ -116,11 +118,54 @@ function Debtors() {
 
       <p className="text-xs text-outline">Credit never touches Cash at Hand until a payment is recorded.</p>
 
+      {collectToday.length > 0 && (
+        <Card className="space-y-sm border border-secondary/40 bg-secondary/10">
+          <SectionTitle>Collect today</SectionTitle>
+          <p className="text-xs text-on-surface-variant">
+            Unpaid 3+ days — oldest first. Tap Full or Partial on each card below.
+          </p>
+          {collectToday.slice(0, 8).map((d) => {
+            const days = ageDays(d);
+            const bal = balanceOf(d);
+            const flag = aging(days);
+            return (
+              <div key={d.id} className="flex items-center justify-between gap-2 rounded-md bg-surface-lowest p-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-on-surface">{d.name}</p>
+                  <p className="text-[11px] text-on-surface-variant">
+                    {d.klass || "—"} · {days}d · <span className={`font-bold ${flag.tone.includes("error") ? "text-tertiary" : ""}`}>{flag.label}</span>
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-sm font-bold tabular-nums text-tertiary">UGX {ugx(bal)}</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPayFor({ id: d.id, mode: "full" });
+                      setPay({ amount: String(bal), when: dateInput(Date.now()) });
+                    }}
+                    className="text-[11px] font-bold text-primary"
+                  >
+                    Collect →
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </Card>
+      )}
+
       <section>
-        <SectionTitle>Debtors</SectionTitle>
+        <SectionTitle>All debtors</SectionTitle>
         <div className="space-y-sm">
           {state.debtors.length === 0 && <p className="text-sm text-outline">No credit given yet.</p>}
-          {state.debtors.map((d) => {
+          {[...state.debtors].sort((a, b) => {
+            const ba = balanceOf(a);
+            const bb = balanceOf(b);
+            if (ba > 0 && bb <= 0) return -1;
+            if (bb > 0 && ba <= 0) return 1;
+            return a.ts - b.ts;
+          }).map((d) => {
             const days = ageDays(d);
             const bal = balanceOf(d);
             const flag = aging(days);
