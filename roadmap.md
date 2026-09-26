@@ -8,6 +8,9 @@
 - [ ] Cloud-backed cash book sync (offline-first, cleared data stays cleared)
 
 ## Requested changes
+- [x] Repair pictured icons throughout the site with a locally hosted, complete icon subset.
+- [x] Remove the Running Low stock control and its indicator.
+- [x] Delete linked stock purchases, checks, and itemised sale portions when removing an item so current figures reconcile.
 1. [ ] Working onboarding for new agents + operators (real accounts)
 2. [ ] New accounts start with zero data; clearing data is permanent
 3. [ ] Login page UI consistent on phone/tablet, no glitches
