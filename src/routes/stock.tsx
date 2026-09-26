@@ -300,17 +300,19 @@ function Stock() {
               <Card key={item.id} className="space-y-2 p-3 sm:space-y-sm sm:p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="truncate font-bold text-on-surface">{item.name}</p>
-                    <p className="text-xs text-on-surface-variant">{item.qty} bought · {shelfQty(item)} left{isChecked ? "" : " (est.)"}</p>
+                    <p className="truncate text-base font-bold leading-6 text-on-surface">{item.name}</p>
+                    <p className="text-xs leading-4 tabular-nums text-on-surface-variant">
+                      {item.qty} bought · {shelfQty(item)} left{isChecked ? "" : " (est.)"}
+                    </p>
                   </div>
-                  <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
-                    <span className="rounded-full bg-primary/10 px-2 py-1 text-[11px] font-bold text-primary">
+                  <div className="flex shrink-0 justify-end">
+                    <span className="rounded-full bg-primary/10 px-2 py-1 text-[11px] font-bold leading-4 tabular-nums text-primary">
                       {isChecked ? `${item.lastKnownQuantity} left` : "Not checked"}
                     </span>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 rounded-md bg-surface-low p-2 text-sm">
+                <div className="grid grid-cols-2 gap-2 rounded-md bg-surface-low p-2">
                   <Stat label="Expected profit" value={`UGX ${ugx(expectedProfit)}`} />
                   <Stat label="Realized profit" value={`UGX ${ugx(item.realizedProfit ?? 0)}`} accent />
                 </div>
