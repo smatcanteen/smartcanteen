@@ -308,3 +308,80 @@ export function txsToday(txs: Tx[]): Tx[] {
   const key = dayKeyOf();
   return txs.filter((t) => dayKeyOf(t.ts) === key);
 }
+
+/** Shift a dayKey (YYYY-MM-DD) by N calendar days. */
+export function shiftDayKey(dayKey: string, deltaDays: number): string {
+  const [y, m, d] = dayKey.split("-").map(Number);
+  const dt = new Date(y!, m! - 1, d!);
+  dt.setDate(dt.getDate() + deltaDays);
+  return dayKeyOf(dt.getTime());
+}
+
+export function yesterdayKey(now = Date.now()): string {
+  return shiftDayKey(dayKeyOf(now), -1);
+}
+
+export type DayCloseLike = { dayKey: string; ts: number; net: number; sales: number; expenses: number; diff: number };
+
+export function closeForDay(closes: DayCloseLike[] | undefined, dayKey: string): DayCloseLike | undefined {
+  return (closes ?? []).find((c) => c.dayKey === dayKey);
+}
+
+/** Consecutive closed days ending at today if closed, else yesterday. */
+export function closeStreak(closes: DayCloseLike[] | undefined, now = Date.now()): number {
+  const list = closes ?? [];
+  if (!list.length) return 0;
+  const keys = new Set(list.map((c) => c.dayKey));
+  let cursor = dayKeyOf(now);
+  // Streak counts back from today if closed, otherwise from yesterday.
+  if (!keys.has(cursor)) cursor = yesterdayKey(now);
+  if (!keys.has(cursor)) return 0;
+  let n = 0;
+  while (keys.has(cursor)) {
+    n += 1;
+    cursor = shiftDayKey(cursor, -1);
+  }
+  return n;
+}
+
+export function dayTotals(txs: Tx[], dayKey: string): { sales: number; expenses: number; net: number; count: number } {
+  let sales = 0;
+  let expenses = 0;
+  let count = 0;
+  for (const t of txs) {
+    if (dayKeyOf(t.ts) !== dayKey) continue;
+    count += 1;
+    if (t.type === "sale") sales += t.amount;
+    else if (t.type === "expense" || t.type === "stock") expenses += t.amount;
+  }
+  return { sales, expenses, net: sales - expenses, count };
+}
+
+/** Hour 0–23 in local time. */
+export function localHour(now = Date.now()): number {
+  return new Date(now).getHours();
+}
+
+/** True once local time is 18:00 or later and today is not closed. */
+export function needsEveningClose(closes: DayCloseLike[] | undefined, now = Date.now()): boolean {
+  if (localHour(now) < 18) return false;
+  return !closeForDay(closes, dayKeyOf(now));
+}
+
+export function eveningCloseMessage(opts: { termName: string; sales: number; net: number }) {
+  return [
+    `SmartCanteen · ${opts.termName}`,
+    "Time to close the day 🔔",
+    "",
+    `Today so far: sales UGX ${money(opts.sales)}, net UGX ${money(opts.net)}.`,
+    "Open the app → Close Day → count the till (about 2 minutes).",
+    "",
+    "Keep the streak going.",
+  ].join("\n");
+}
+
+export function morningGreeting(hour = localHour()): string {
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
