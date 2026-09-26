@@ -14,24 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      platform_state: {
-        Row: {
-          id: string
-          data: Json
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          data?: Json
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          data?: Json
-          updated_at?: string
-        }
-        Relationships: []
-      }
       canteen_books: {
         Row: {
           data: Json
