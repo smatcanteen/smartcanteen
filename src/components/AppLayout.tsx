@@ -13,7 +13,7 @@ import { useSetupGate } from "@/lib/setup-gate";
 const bottomNav = [
   { to: "/", icon: "home", label: "Home" },
   { to: "/stock", icon: "inventory_2", label: "Stock" },
-  { to: "/history", icon: "history", label: "History" },
+  { to: "/close-out", icon: "task_alt", label: "Close" },
   { to: "/settings", icon: "more_horiz", label: "More" },
 ] as const;
 
