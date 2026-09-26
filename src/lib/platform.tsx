@@ -260,6 +260,10 @@ async function persistHub(s: PlatformState) {
       commissions: s.commissions,
       payouts: s.payouts,
       announcements: s.announcements,
+      payments: s.payments,
+      paymentClaims: s.paymentClaims,
+      referralClaims: s.referralClaims,
+      auditLog: s.auditLog,
       tenantMeta,
     },
   });
@@ -299,6 +303,9 @@ const seed: PlatformState = {
   tickets: [],
   announcements: [],
   settings: defaultSettings,
+  payments: [],
+  paymentClaims: [],
+  referralClaims: [],
   auditLog: [],
 };
 
@@ -336,6 +343,19 @@ type Ctx = {
   toggleAnnouncement: (id: string) => void;
   updateSettings: (patch: Partial<PlatformSettings>) => void;
   logAction: (who: string, action: string) => void;
+  /** Renew only with amount + mobile-money reference; trails agent commission. */
+  renewWithProof: (opts: {
+    accountId: string;
+    amount: number;
+    ref: string;
+    note?: string;
+    who: string;
+    claimId?: string;
+  }) => { ok: boolean; error?: string; accessUntil?: number };
+  dismissPaymentClaim: (id: string) => void;
+  grantReferralCredit: (opts: { accountId: string; who: string; months?: number }) => { ok: boolean; error?: string };
+  dismissReferralClaim: (id: string) => void;
+  archiveTenant: (accountId: string, who: string) => void;
 };
 
 const PlatformContext = createContext<Ctx | null>(null);
@@ -365,6 +385,10 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
           ...seed,
           ...result.platform,
           settings: { ...defaultSettings, ...(result.platform.settings as PlatformSettings) },
+          payments: Array.isArray(result.platform.payments) ? result.platform.payments : [],
+          paymentClaims: Array.isArray(result.platform.paymentClaims) ? result.platform.paymentClaims : [],
+          referralClaims: Array.isArray(result.platform.referralClaims) ? result.platform.referralClaims : [],
+          auditLog: Array.isArray(result.platform.auditLog) ? result.platform.auditLog : [],
           announcements: (result.platform.announcements ?? []).map((a: Announcement) => ({
             ...a,
             audience: a.audience ?? "operators",
@@ -403,7 +427,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       });
     }, 900);
     return () => window.clearTimeout(timer);
-  }, [s.settings, s.commissions, s.payouts, s.announcements, s.tenants, hydrated, user?.role]);
+  }, [s.settings, s.commissions, s.payouts, s.announcements, s.payments, s.paymentClaims, s.referralClaims, s.auditLog, s.tenants, hydrated, user?.role]);
 
   useEffect(() => {
     const flush = () => {
