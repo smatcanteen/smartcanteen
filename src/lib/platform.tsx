@@ -696,7 +696,166 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         })),
       updateSettings: (upd) => patch((p) => ({ ...p, settings: { ...p.settings, ...upd } })),
       logAction: (who, action) =>
-        patch((p) => ({ ...p, auditLog: [{ id: uid(), who, action, ts: Date.now() }, ...p.auditLog] })),
+        patch((p) => ({ ...p, auditLog: [{ id: uid(), who, action, ts: Date.now() }, ...p.auditLog].slice(0, 500) })),
+
+      renewWithProof: ({ accountId, amount, ref, note, who, claimId }) => {
+        const paymentRef = ref.trim();
+        const payAmount = Math.round(Number(amount) || 0);
+        if (payAmount <= 0) return { ok: false, error: "Enter the amount received." };
+        if (paymentRef.length < 3) return { ok: false, error: "Enter the mobile-money reference." };
+
+        const tenant = s.tenants.find((t) => t.accountId === accountId);
+        if (!tenant) return { ok: false, error: "Account not found." };
+
+        const months = Math.max(1, s.settings.months || 4);
+        const from = new Date(Math.max(Date.now(), tenant.nextBillingAt));
+        from.setMonth(from.getMonth() + months);
+        const accessUntil = from.getTime();
+        const paymentId = uid();
+        const trailAmount = Math.round((payAmount * (s.settings.trailPct || 0)) / 100);
+
+        patch((p) => {
+          const commissions = [...p.commissions];
+          if (tenant.agentId && trailAmount > 0) {
+            commissions.unshift({
+              id: uid(),
+              agentId: tenant.agentId,
+              accountId,
+              type: "trail",
+              amount: trailAmount,
+              period: new Date().toISOString().slice(0, 7),
+              status: "pending",
+              createdAt: Date.now(),
+            });
+          }
+          return {
+            ...p,
+            tenants: p.tenants.map((t) =>
+              t.accountId === accountId
+                ? { ...t, status: "active" as const, trialEndsAt: null, nextBillingAt: accessUntil }
+                : t,
+            ),
+            payments: [
+              {
+                id: paymentId,
+                accountId,
+                amount: payAmount,
+                ref: paymentRef,
+                note: note?.trim() || undefined,
+                accessUntil,
+                who,
+                ts: Date.now(),
+                claimId,
+              },
+              ...p.payments,
+            ],
+            paymentClaims: p.paymentClaims.map((c) =>
+              claimId && c.id === claimId ? { ...c, status: "matched" as const } : c,
+            ),
+            commissions,
+            auditLog: [
+              {
+                id: uid(),
+                who,
+                action: `Renewed ${tenant.canteenName} · UGX ${payAmount.toLocaleString("en-UG")} · ref ${paymentRef} · access to ${new Date(accessUntil).toLocaleDateString("en-GB")}`,
+                ts: Date.now(),
+              },
+              ...p.auditLog,
+            ].slice(0, 500),
+          };
+        });
+
+        void sessionToken().then((accessToken) => {
+          if (!accessToken) return;
+          void upsertTenantMeta({
+            data: {
+              accessToken,
+              accountId,
+              patch: { status: "active", trialEndsAt: null, nextBillingAt: accessUntil },
+            },
+          });
+        });
+
+        return { ok: true, accessUntil };
+      },
+
+      dismissPaymentClaim: (id) =>
+        patch((p) => ({
+          ...p,
+          paymentClaims: p.paymentClaims.map((c) => (c.id === id ? { ...c, status: "dismissed" as const } : c)),
+        })),
+
+      grantReferralCredit: ({ accountId, who, months = 1 }) => {
+        const tenant = s.tenants.find((t) => t.accountId === accountId);
+        if (!tenant) return { ok: false, error: "Account not found." };
+        const from = new Date(Math.max(Date.now(), tenant.nextBillingAt));
+        from.setMonth(from.getMonth() + Math.max(1, months));
+        const accessUntil = from.getTime();
+        patch((p) => ({
+          ...p,
+          tenants: p.tenants.map((t) =>
+            t.accountId === accountId
+              ? { ...t, status: t.status === "churned" ? t.status : ("active" as const), nextBillingAt: accessUntil }
+              : t,
+          ),
+          referralClaims: p.referralClaims.map((c) =>
+            c.accountId === accountId && c.status === "pending" ? { ...c, status: "granted" as const } : c,
+          ),
+          auditLog: [
+            {
+              id: uid(),
+              who,
+              action: `Granted referral free month to ${tenant.canteenName} · access to ${new Date(accessUntil).toLocaleDateString("en-GB")}`,
+              ts: Date.now(),
+            },
+            ...p.auditLog,
+          ].slice(0, 500),
+        }));
+        void sessionToken().then((accessToken) => {
+          if (!accessToken) return;
+          void upsertTenantMeta({
+            data: { accessToken, accountId, patch: { nextBillingAt: accessUntil, status: "active" } },
+          });
+        });
+        return { ok: true };
+      },
+
+      dismissReferralClaim: (id) =>
+        patch((p) => ({
+          ...p,
+          referralClaims: p.referralClaims.map((c) => (c.id === id ? { ...c, status: "dismissed" as const } : c)),
+        })),
+
+      archiveTenant: (accountId, who) => {
+        const tenant = s.tenants.find((t) => t.accountId === accountId);
+        patch((p) => ({
+          ...p,
+          tenants: p.tenants.map((t) =>
+            t.accountId === accountId
+              ? { ...t, status: "churned" as const, trialEndsAt: null, nextBillingAt: Date.now(), tags: [...new Set([...t.tags, "stalled" as FollowUpTag])] }
+              : t,
+          ),
+          auditLog: [
+            {
+              id: uid(),
+              who,
+              action: `Archived ${tenant?.canteenName ?? accountId} (subscription off, login can still be suspended separately)`,
+              ts: Date.now(),
+            },
+            ...p.auditLog,
+          ].slice(0, 500),
+        }));
+        void sessionToken().then((accessToken) => {
+          if (!accessToken) return;
+          void upsertTenantMeta({
+            data: {
+              accessToken,
+              accountId,
+              patch: { status: "churned", trialEndsAt: null, nextBillingAt: Date.now() },
+            },
+          });
+        });
+      },
     };
   }, [s, hydrated, patch, user?.id]);
 
