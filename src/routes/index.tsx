@@ -209,7 +209,69 @@ function Home() {
       <Tour steps={steps} open={tour.open} onClose={tour.finish} />
 
       <section className="space-y-2" data-tour="habit">
-        {missedYesterday && (
+        {onHoliday && (
+          <div className="card space-y-2 border border-primary/25 bg-primary/5 p-sm">
+            <p className="text-sm font-bold text-primary">School holiday pause</p>
+            <p className="text-xs leading-4 text-on-surface-variant">
+              {holidayDaysLeft != null
+                ? `About ${holidayDaysLeft} day${holidayDaysLeft === 1 ? "" : "s"} left.`
+                : "Paused until school resumes."}
+              {nextTermDays != null
+                ? ` Next term opens in about ${nextTermDays} day${nextTermDays === 1 ? "" : "s"}.`
+                : ""}{" "}
+              Your books stay safe. Daily close can wait.
+            </p>
+            <button
+              type="button"
+              onClick={() => setHoliday(null)}
+              className="flex min-h-11 w-full items-center justify-center rounded-md bg-primary text-sm font-bold text-on-primary"
+            >
+              School is back — resume
+            </button>
+          </div>
+        )}
+
+        {showRenewal && tenant && renewalTier != null && (
+          <div className="card space-y-2 border border-secondary/40 bg-secondary/10 p-sm">
+            <p className="text-sm font-bold text-secondary">
+              {renewalTier === 0
+                ? "Plan access is due"
+                : renewalTier === 1
+                  ? "Plan renews tomorrow"
+                  : `Plan renews in ${daysLeft} days`}
+            </p>
+            <p className="text-xs text-on-surface-variant">
+              UGX 35,000 for 4 months · access through {fmtDate(tenant.nextBillingAt)}
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <Link
+                to="/subscription"
+                className="flex min-h-11 items-center justify-center rounded-md bg-primary text-sm font-bold text-on-primary"
+              >
+                How to pay
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  openWhatsApp(
+                    renewalReminderMessage({
+                      termName: state.termName,
+                      school: user?.school,
+                      dueLabel: fmtDate(tenant.nextBillingAt),
+                    }),
+                    state.digestPhone,
+                  );
+                  if (renewalKey) markRenewalNudge(renewalKey);
+                }}
+                className="flex min-h-11 items-center justify-center gap-1 rounded-md border border-outline-variant text-sm font-bold"
+              >
+                <Icon name="chat" className="text-[18px]" /> WhatsApp
+              </button>
+            </div>
+          </div>
+        )}
+
+        {missedYesterday && !onHoliday && (
           <Link
             to="/close-out"
             className="card flex items-start gap-3 border border-tertiary/40 bg-tertiary/10 p-sm"
