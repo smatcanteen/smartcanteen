@@ -184,6 +184,12 @@ export type State = {
   referralCredits?: number;
   /** Phone for WhatsApp digests (optional). */
   digestPhone?: string;
+  /** School holiday pause ends at this timestamp (ms). 0/undefined = not paused. */
+  holidayUntil?: number;
+  /** Optional planned next-term open date while on holiday. */
+  nextTermOpensAt?: number;
+  /** Last auto renewal nudge key e.g. "2026-09-26:7" so we don't spam. */
+  lastRenewalNudgeKey?: string;
 };
 
 const STORAGE_BASE = "smartcanteen.v2";
@@ -457,6 +463,9 @@ type Ctx = {
   ensureReferralCode: (userId: string | null) => string;
   applyReferralCode: (code: string) => { ok: boolean; error?: string };
   redeemReferralCredit: () => boolean;
+  /** Pause daily work during school holiday; optional next-term open date. */
+  setHoliday: (until: number | null, nextTermOpensAt?: number | null) => void;
+  markRenewalNudge: (key: string) => void;
 
   undoLast: () => void;
 
