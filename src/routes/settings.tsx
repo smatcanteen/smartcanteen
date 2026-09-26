@@ -147,7 +147,7 @@ function SettingsPage() {
 
       <div>
 
-        <SectionTitle>Privacy lock</SectionTitle>
+        <SectionTitle>PIN lock (hide money)</SectionTitle>
         <Card className="space-y-sm">
           <p className="text-sm text-on-surface-variant">
             {state.pin ? (
