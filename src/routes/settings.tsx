@@ -31,8 +31,19 @@ export const Route = createFileRoute("/settings")({
 });
 
 function SettingsPage() {
-  const { state, setPin, restoreState, clearAll, setTheme, setFontScale, addExpenseCategory, removeExpenseCategory } =
-    useStore();
+  const {
+    state,
+    setPin,
+    restoreState,
+    clearAll,
+    setTheme,
+    setFontScale,
+    addExpenseCategory,
+    removeExpenseCategory,
+    upsertStaff,
+    removeStaff,
+    activeStaff,
+  } = useStore();
   const [newCat, setNewCat] = useState("");
   const [newIcon, setNewIcon] = useState("smartphone");
   const [pin, setPinValue] = useState("");
@@ -40,6 +51,9 @@ function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [savingPin, setSavingPin] = useState(false);
   const [error, setError] = useState("");
+  const [staffName, setStaffName] = useState("");
+  const [staffPin, setStaffPin] = useState("");
+  const [staffMsg, setStaffMsg] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const logoRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
