@@ -39,9 +39,6 @@ function SettingsPage() {
     setFontScale,
     addExpenseCategory,
     removeExpenseCategory,
-    upsertStaff,
-    removeStaff,
-    activeStaff,
   } = useStore();
   const [newCat, setNewCat] = useState("");
   const [newIcon, setNewIcon] = useState("smartphone");
@@ -50,9 +47,6 @@ function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [savingPin, setSavingPin] = useState(false);
   const [error, setError] = useState("");
-  const [staffName, setStaffName] = useState("");
-  const [staffPin, setStaffPin] = useState("");
-  const [staffMsg, setStaffMsg] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const logoRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
@@ -237,92 +231,6 @@ function SettingsPage() {
         </Card>
       </div>
 
-      <div>
-        <SectionTitle>People who work here</SectionTitle>
-        <Card className="space-y-sm">
-          <p className="text-sm text-on-surface-variant">
-            More than one person runs the canteen? Give each a name and PIN. Sales show who logged them.
-            {activeStaff ? (
-              <>
-                {" "}
-                <span className="font-bold text-primary">Now working: {activeStaff.name}</span>
-              </>
-            ) : null}
-          </p>
-
-          {(state.staff ?? []).length === 0 ? (
-            <p className="text-xs text-on-surface-variant">
-              Set your owner PIN above first — then add helpers here.
-            </p>
-          ) : (
-            <ul className="divide-y divide-outline-variant/50">
-              {(state.staff ?? []).map((m) => (
-                <li key={m.id} className="flex items-center justify-between gap-2 py-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-bold text-on-surface">
-                      {m.name}
-                      {m.role === "owner" ? (
-                        <span className="ml-1 text-[11px] font-semibold text-primary">· owner</span>
-                      ) : (
-                        <span className="ml-1 text-[11px] font-semibold text-on-surface-variant">· helper</span>
-                      )}
-                    </p>
-                    <p className="text-[11px] text-on-surface-variant">PIN ···{m.pin.slice(-2)}</p>
-                  </div>
-                  {m.role !== "owner" && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (confirm(`Remove ${m.name}?`)) {
-                          removeStaff(m.id);
-                          flash();
-                        }
-                      }}
-                      className="min-h-10 shrink-0 rounded-md px-3 text-xs font-bold text-tertiary"
-                    >
-                      Remove
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <div className="grid gap-sm sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-            <Field
-              label="Helper name"
-              value={staffName}
-              onChange={(e) => setStaffName(e.target.value)}
-              placeholder="e.g. Sarah"
-            />
-            <Field
-              label="Their PIN (4–6 digits)"
-              type="password"
-              inputMode="numeric"
-              maxLength={6}
-              value={staffPin}
-              onChange={(e) => setStaffPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            />
-            <PrimaryButton
-              disabled={staffName.trim().length < 2 || staffPin.length < 4}
-              onClick={() => {
-                const res = upsertStaff({ name: staffName, pin: staffPin, role: "helper" });
-                if (!res.ok) {
-                  setStaffMsg(res.error ?? "Could not add.");
-                  return;
-                }
-                setStaffName("");
-                setStaffPin("");
-                setStaffMsg("Helper added — they unlock with their PIN on Home.");
-                flash();
-              }}
-            >
-              <Icon name="person_add" /> Add
-            </PrimaryButton>
-          </div>
-          {staffMsg ? <p className="text-sm font-semibold text-primary">{staffMsg}</p> : null}
-        </Card>
-      </div>
 
       <div>
         <SectionTitle>Look and text size</SectionTitle>
