@@ -13,7 +13,9 @@ import {
   dayKeyOf,
   dayTotals,
   daysSinceStockCheck,
+  daysUntil,
   eveningCloseMessage,
+  isOnHoliday,
   localHour,
   lowStockItems,
   morningGreeting,
@@ -22,10 +24,13 @@ import {
   openTillMismatch,
   openWhatsApp,
   overdueDebtors,
+  renewalNudgeTier,
+  renewalReminderMessage,
   shelfQty,
   yesterdayKey,
 } from "@/lib/operator-helpers";
 import { ugx, shortUgx, useStore } from "@/lib/store";
+import { effectiveTenantStatus, fmtDate, usePlatform } from "@/lib/platform";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -57,10 +62,13 @@ const dailyActions = [
 ] as const;
 
 function Home() {
-  const { state, cashAtHand, today, termProfit, logRecurringDue } = useStore();
+  const { state, cashAtHand, today, termProfit, logRecurringDue, setHoliday, markRenewalNudge } =
+    useStore();
   const [hide, setHide] = useState(false);
   const [hour, setHour] = useState(() => localHour());
   const { user } = useAuth();
+  const { s: platform } = usePlatform();
+  const tenant = platform.tenants.find((item) => item.accountId === user?.id);
 
   useEffect(() => {
     const id = window.setInterval(() => setHour(localHour()), 60_000);
@@ -80,6 +88,25 @@ function Home() {
   const stockDue = needsWeeklyStockCheck(state.stockChecks, state.items, 7);
   const stockDays = daysSinceStockCheck(state.stockChecks, state.items);
   const tillMismatch = openTillMismatch(state.dayCloses);
+  const onHoliday = isOnHoliday(state.holidayUntil);
+  const holidayDaysLeft =
+    state.holidayUntil && onHoliday ? daysUntil(state.holidayUntil) : null;
+  const nextTermDays =
+    state.nextTermOpensAt && state.nextTermOpensAt > Date.now()
+      ? daysUntil(state.nextTermOpensAt)
+      : null;
+
+  const daysLeft = tenant
+    ? Math.ceil((new Date(tenant.nextBillingAt).getTime() - Date.now()) / 86_400_000)
+    : null;
+  const renewalTier = renewalNudgeTier(daysLeft);
+  const renewalKey =
+    renewalTier != null && tenant ? `${dayKeyOf()}:${renewalTier}` : null;
+  const showRenewal =
+    renewalKey &&
+    renewalKey !== state.lastRenewalNudgeKey &&
+    tenant &&
+    !onHoliday;
 
   const todayKey = dayKeyOf();
   const yKey = yesterdayKey();
