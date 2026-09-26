@@ -1283,10 +1283,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     day.net = day.sales - day.expenses;
     const capital = state.txs.find((x) => x.type === "capital")?.amount ?? state.capital;
     const cashAtHand = capital + t.sales - t.expenses - t.stock;
-    const activeStaff =
-      (state.staff ?? []).find((m) => m.id === state.activeStaffId) ??
-      (state.staff ?? []).find((m) => m.role === "owner") ??
-      null;
     const shelfValueAtCost = state.items.reduce(
       (a, i) => a + (i.qty ? (i.buy / i.qty) * i.stock : 0),
       0,
@@ -1324,10 +1320,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       markRenewalNudge,
       undoLast,
       setPin,
-      upsertStaff,
-      removeStaff,
-      switchStaff,
-      activeStaff,
       addPayment,
       addExpenseCategory,
       removeExpenseCategory,
@@ -1367,9 +1359,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     markRenewalNudge,
     undoLast,
     setPin,
-    upsertStaff,
-    removeStaff,
-    switchStaff,
     addPayment,
     addExpenseCategory,
     removeExpenseCategory,
