@@ -190,10 +190,6 @@ export type State = {
   nextTermOpensAt?: number;
   /** Last auto renewal nudge key e.g. "2026-09-26:7" so we don't spam. */
   lastRenewalNudgeKey?: string;
-  /** People who can work this canteen on the shared phone. */
-  staff?: StaffMember[];
-  /** Who is currently logged on this device (null = owner / not chosen). */
-  activeStaffId?: string | null;
 };
 
 const STORAGE_BASE = "smartcanteen.v2";
