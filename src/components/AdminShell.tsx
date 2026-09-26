@@ -14,6 +14,9 @@ export type AdminPerm =
   | "commissions"
   | "support"
   | "announcements"
+  | "payments"
+  | "settings"
+  | "activity"
   | "revenue"
   | "suspend";
 
@@ -22,16 +25,19 @@ const matrix: Record<"admin" | "support" | "finance", AdminPerm[]> = {
     "dashboard",
     "accounts",
     "new",
+    "payments",
     "agents",
     "leads",
     "commissions",
     "support",
     "announcements",
+    "settings",
+    "activity",
     "revenue",
     "suspend",
   ],
-  support: ["dashboard", "accounts", "new", "leads", "support", "announcements"],
-  finance: ["dashboard", "accounts", "agents", "commissions", "revenue"],
+  support: ["dashboard", "accounts", "new", "payments", "leads", "support", "announcements", "activity"],
+  finance: ["dashboard", "accounts", "payments", "agents", "commissions", "settings", "activity", "revenue"],
 };
 
 export const can = (role: Role | undefined, perm: AdminPerm) =>
@@ -40,12 +46,15 @@ export const can = (role: Role | undefined, perm: AdminPerm) =>
 const tabs: { to: string; label: string; icon: string; perm: AdminPerm }[] = [
   { to: "/admin", label: "Dashboard", icon: "dashboard", perm: "dashboard" },
   { to: "/admin/accounts", label: "Accounts", icon: "storefront", perm: "accounts" },
+  { to: "/admin/payments", label: "Payments", icon: "account_balance_wallet", perm: "payments" },
   { to: "/admin/new", label: "New account", icon: "person_add", perm: "new" },
   { to: "/admin/agents", label: "Agents", icon: "badge", perm: "agents" },
   { to: "/admin/leads", label: "Leads", icon: "group", perm: "leads" },
   { to: "/admin/commissions", label: "Commissions", icon: "payments", perm: "commissions" },
   { to: "/admin/support", label: "Support", icon: "support_agent", perm: "support" },
   { to: "/admin/announcements", label: "Notices", icon: "campaign", perm: "announcements" },
+  { to: "/admin/activity", label: "Activity", icon: "history", perm: "activity" },
+  { to: "/admin/settings", label: "Settings", icon: "settings", perm: "settings" },
 ];
 
 /** Shared chrome for every Super Admin / Support / Finance screen. */
