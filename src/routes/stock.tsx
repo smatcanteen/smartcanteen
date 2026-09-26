@@ -74,9 +74,10 @@ function Stock() {
   const purchaseRows = purchases.map((t) => {
     const quantity = purchaseQuantity(t);
     return [
-      new Date(t.ts).toLocaleDateString("en-GB"),
+      new Date(t.ts).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }),
       t.label.replace(/\s+restock$/i, ""),
-      quantity.value,
+      // Keep cells short so the table type doesn't reflow.
+      quantity.recorded ? quantity.value : "—",
       t.amount,
     ];
   });
@@ -102,7 +103,8 @@ function Stock() {
   const totalPurchaseCost = purchaseSummary.reduce((sum, row) => sum + row.cost, 0);
   const purchaseSummaryRows = purchaseSummary.map((row) => [
     row.item,
-    row.incomplete ? `${row.quantity} recorded + older quantity unavailable` : row.quantity,
+    // Short label only — full note sits under the table, not inside a cell.
+    row.incomplete ? `${row.quantity}*` : row.quantity,
     row.cost,
   ]);
   const stockSheet: Sheet = {
@@ -168,24 +170,29 @@ function Stock() {
         </section>
       )}
 
-      <Card className="space-y-2 p-3 sm:p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="label-bold text-on-surface">Purchase totals</p>
-            <p className="text-xs text-on-surface-variant">{range.label}</p>
+      <Card className="space-y-3 p-3 sm:p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="label-bold text-on-surface-variant">Purchase totals</p>
+            <p className="mt-0.5 truncate text-xs leading-4 text-on-surface-variant">{range.label}</p>
           </div>
-          <div className="text-right text-sm">
-            <p><strong>{totalPurchaseQuantity}</strong> recorded units</p>
-            <p className="font-bold text-primary">UGX {ugx(totalPurchaseCost)}</p>
+          <div className="shrink-0 text-right">
+            <p className="text-xs leading-4 text-on-surface-variant">
+              <span className="font-semibold tabular-nums text-on-surface">{totalPurchaseQuantity}</span> units
+            </p>
+            <p className="text-base font-bold leading-6 tabular-nums text-primary">
+              UGX {ugx(totalPurchaseCost)}
+            </p>
           </div>
         </div>
         <button
+          type="button"
           onClick={() => setShowPurchaseTables((show) => !show)}
-          className="flex min-h-10 w-full items-center justify-center gap-1 rounded-md border border-outline-variant text-sm font-bold text-primary"
+          className="flex min-h-11 w-full items-center justify-center gap-1 rounded-md border border-outline-variant font-sans text-sm font-bold text-primary"
           aria-expanded={showPurchaseTables}
         >
           {showPurchaseTables ? "Hide purchase tables" : "View purchase tables"}
-          <Icon name={showPurchaseTables ? "expand_less" : "expand_more"} />
+          <Icon name={showPurchaseTables ? "expand_less" : "expand_more"} className="text-[18px]" />
         </button>
       </Card>
 
@@ -194,19 +201,30 @@ function Stock() {
           <Card className="space-y-sm overflow-hidden p-3 sm:p-4">
             <SectionTitle>Purchases by item</SectionTitle>
             <DataTable
-              columns={["Item", "Total quantity", "Total cost (UGX)"]}
+              columns={["Item", "Qty", "Cost (UGX)"]}
               rows={purchaseSummaryRows}
               pageSize={8}
               empty="No stock purchases in this period."
+              alignRight={[1, 2]}
             />
+            {purchaseSummary.some((r) => r.incomplete) && (
+              <p className="text-xs leading-4 text-on-surface-variant">
+                * Some older buys had no quantity saved. Those units are left out of the qty total; their cost is still included.
+              </p>
+            )}
           </Card>
 
           <Card className="space-y-sm overflow-hidden p-3 sm:p-4">
             <SectionTitle>Purchase entries</SectionTitle>
-            <DataTable columns={["Date", "Item", "Quantity", "Cost (UGX)"]} rows={purchaseRows} pageSize={8} />
+            <DataTable
+              columns={["Date", "Item", "Qty", "Cost (UGX)"]}
+              rows={purchaseRows}
+              pageSize={8}
+              alignRight={[2, 3]}
+            />
             {purchases.some((t) => !purchaseQuantity(t).recorded) && (
-              <p className="text-xs text-on-surface-variant">
-                Older purchases without a saved quantity show “Not recorded.” They are excluded from quantity totals but remain included in cost totals.
+              <p className="text-xs leading-4 text-on-surface-variant">
+                “—” means quantity was not saved on that entry. Cost still counts in the total.
               </p>
             )}
           </Card>
@@ -225,15 +243,19 @@ function Stock() {
       )}
 
       <div className="grid gap-sm sm:grid-cols-2">
-        <Card>
-          <p className="label-bold text-on-surface-variant">Total Stocked · at cost</p>
-          <p className="price-display text-on-surface">UGX {ugx(atCost)}</p>
-          <p className="mt-1 text-xs text-on-surface-variant">Only items physically checked are included.</p>
+        <Card className="min-w-0 p-3 sm:p-4">
+          <p className="label-bold text-on-surface-variant">Total stocked · at cost</p>
+          <p className="mt-1 break-all font-display text-xl font-bold leading-7 tabular-nums text-on-surface sm:text-[28px] sm:leading-9">
+            UGX {ugx(atCost)}
+          </p>
+          <p className="mt-1 text-xs leading-4 text-on-surface-variant">Shelf value from current quantity.</p>
         </Card>
-        <Card>
-          <p className="label-bold text-on-surface-variant">Total Stocked · checked at retail</p>
-          <p className="price-display text-primary">UGX {ugx(atRetail)}</p>
-          <p className="mt-1 text-xs text-on-surface-variant">Based on the latest confirmed count.</p>
+        <Card className="min-w-0 p-3 sm:p-4">
+          <p className="label-bold text-on-surface-variant">Total stocked · at retail</p>
+          <p className="mt-1 break-all font-display text-xl font-bold leading-7 tabular-nums text-primary sm:text-[28px] sm:leading-9">
+            UGX {ugx(atRetail)}
+          </p>
+          <p className="mt-1 text-xs leading-4 text-on-surface-variant">If everything left sold at list price.</p>
         </Card>
       </div>
 
@@ -459,9 +481,14 @@ function Stock() {
 
 function Stat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
-    <div>
-      <p className="text-xs uppercase tracking-wide text-outline">{label}</p>
-      <p className={`font-bold ${accent ? "text-primary" : "text-on-surface"}`}>{value}</p>
+    <div className="min-w-0">
+      <p className="truncate text-[11px] font-bold uppercase leading-4 tracking-wide text-outline">{label}</p>
+      <p
+        className={`truncate text-sm font-bold leading-5 tabular-nums ${accent ? "text-primary" : "text-on-surface"}`}
+        title={value}
+      >
+        {value}
+      </p>
     </div>
   );
 }
