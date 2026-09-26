@@ -6,7 +6,7 @@ import { Card, Field, PrimaryButton, SectionTitle } from "@/components/ui-kit";
 import { DataTable, RangeBar, useRange } from "@/components/RangeExport";
 import type { Sheet } from "@/lib/export";
 import { dateInput, fromDateInput, ugx, useStore, type StockItem } from "@/lib/store";
-import { lowStockItems, shelfQty } from "@/lib/operator-helpers";
+import { daysSinceStockCheck, lowStockItems, needsWeeklyStockCheck, shelfQty } from "@/lib/operator-helpers";
 import { StockPurchaseForm } from "./stock-in";
 
 export const Route = createFileRoute("/stock")({
@@ -55,6 +55,8 @@ function Stock() {
   );
   const atRetail = state.items.reduce((a, i) => a + i.sell * shelfQty(i), 0);
   const low = lowStockItems(state.items);
+  const stockDue = needsWeeklyStockCheck(state.stockChecks, state.items, 7);
+  const stockDays = daysSinceStockCheck(state.stockChecks, state.items);
   const filteredItems = state.items.filter((i) =>
     i.name.toLowerCase().includes(itemSearch.trim().toLowerCase()),
   );
@@ -151,6 +153,25 @@ function Stock() {
   return (
     <AppLayout title="Stock">
       <RangeBar range={range} title={`Stock purchases — ${range.label}`} sheets={[stockSheet, stockSummarySheet]} baseName="smartcanteen-stock" />
+
+      <Card className="border border-primary/20 bg-primary/5 p-sm text-sm text-on-surface">
+        <p className="font-bold text-primary">Sales do not change shelf counts</p>
+        <p className="mt-1 text-xs leading-4 text-on-surface-variant">
+          Canteens sell too fast to tap every item. Buy stock here, then <span className="font-bold text-on-surface">Update</span> each
+          item with what is physically left (about once a week).
+        </p>
+      </Card>
+
+      {stockDue && (
+        <Card className="border border-secondary/40 bg-secondary/10 p-sm text-sm">
+          <p className="font-bold text-secondary">Weekly shelf count due</p>
+          <p className="mt-1 text-xs text-on-surface-variant">
+            {stockDays === null
+              ? "No physical count yet — open an item and tap Update."
+              : `Last full count was ${stockDays} day${stockDays === 1 ? "" : "s"} ago. Count what is left on the shelf.`}
+          </p>
+        </Card>
+      )}
 
       <button
         onClick={() => setAddingItem((open) => !open)}
@@ -428,7 +449,7 @@ function Stock() {
                 {confirmDelete === item.id && (
                   <div className="space-y-2 rounded-md border border-tertiary/40 bg-tertiary/10 p-3">
                     <p className="text-sm font-bold text-on-surface">Delete {item.name} from the current Stock list?</p>
-                     <p className="text-xs text-on-surface-variant">This also removes its purchases, stock checks and linked itemised sales from this term’s totals and reports. Other items in a shared sale stay recorded. This cannot be undone.</p>
+                     <p className="text-xs text-on-surface-variant">This also removes its purchases and stock checks from this term’s totals and reports. Cash sales stay as they are. This cannot be undone.</p>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => setConfirmDelete(null)}
