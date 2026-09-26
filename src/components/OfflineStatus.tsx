@@ -3,9 +3,11 @@ import { Icon } from "./Icon";
 
 /** Reassures the operator that losing signal does not stop the cash book. */
 export function OfflineStatus() {
+  // Always start online so server and first client paint match (no hydration crash).
   const [offline, setOffline] = useState(false);
 
   useEffect(() => {
+    if (typeof window === "undefined" || typeof navigator === "undefined") return;
     const update = () => setOffline(!navigator.onLine);
     update();
     window.addEventListener("online", update);
