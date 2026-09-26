@@ -30,7 +30,7 @@ import {
   yesterdayKey,
 } from "@/lib/operator-helpers";
 import { ugx, shortUgx, useStore } from "@/lib/store";
-import { effectiveTenantStatus, fmtDate, usePlatform } from "@/lib/platform";
+import { fmtDate, usePlatform } from "@/lib/platform";
 
 export const Route = createFileRoute("/")({
   head: () => ({
