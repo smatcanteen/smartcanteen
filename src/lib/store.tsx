@@ -470,13 +470,6 @@ type Ctx = {
   undoLast: () => void;
 
   setPin: (pin: string | null, autoLockMin: number) => void;
-  /** Add a helper (or rename). PIN 4–6 digits. */
-  upsertStaff: (member: { id?: string; name: string; pin: string; role?: "owner" | "helper" }) => { ok: boolean; error?: string; id?: string };
-  removeStaff: (id: string) => void;
-  /** Unlock as this person after PIN check. */
-  switchStaff: (id: string | null, pin: string) => { ok: boolean; error?: string };
-  /** Who is working right now (falls back to Owner). */
-  activeStaff: StaffMember | null;
   addPayment: (amount: number, note: string) => void;
   addExpenseCategory: (label: string, icon: string) => void;
   removeExpenseCategory: (id: string) => void;
