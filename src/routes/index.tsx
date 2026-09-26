@@ -4,6 +4,13 @@ import { AppLayout } from "@/components/AppLayout";
 import { Tour, useTour, type TourStep } from "@/components/Tour";
 import { useAuth } from "@/lib/auth";
 import { Icon } from "@/components/Icon";
+import {
+  buildInsights,
+  lowStockItems,
+  overdueDebtors,
+  balanceOf,
+  shelfQty,
+} from "@/lib/operator-helpers";
 import { ugx, shortUgx, useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/")({
@@ -39,17 +46,22 @@ const dailyActions: Tile[] = [
 ];
 
 function Home() {
-  const { state, cashAtHand, today } = useStore();
+  const { state, cashAtHand, today, termProfit, logRecurringDue } = useStore();
   const [hide, setHide] = useState(false);
 
   const { user } = useAuth();
+  // Progress tracks net profit toward the term savings goal (not cash in hand).
   const goalPct = Math.max(
     0,
-    Math.min(100, Math.round((cashAtHand / Math.max(1, state.savingsGoal)) * 100)),
+    Math.min(100, Math.round((termProfit / Math.max(1, state.savingsGoal)) * 100)),
   );
   const recent = [...state.txs].sort((a, b) => b.ts - a.ts).slice(0, 6);
   const expectedItemProfit = state.items.reduce((sum, item) => sum + item.qty * item.sell - item.buy, 0);
   const realizedItemProfit = state.items.reduce((sum, item) => sum + (item.realizedProfit ?? 0), 0);
+  const insights = buildInsights(state, termProfit);
+  const overdue = overdueDebtors(state.debtors, 7);
+  const low = lowStockItems(state.items);
+  const dueRecurring = (state.recurringExpenses ?? []).filter((r) => r.nextDue <= Date.now());
   const tour = useTour("operator-home-v2", user?.id, true);
   const steps = React.useMemo(() => tourSteps(), []);
 
@@ -84,7 +96,7 @@ function Home() {
               <div className="h-full rounded-full bg-secondary-container" style={{ width: `${goalPct}%` }} />
             </div>
             <p className="mt-1 text-[11px] text-on-surface-variant">
-              Term goal {goalPct}% · target UGX {ugx(state.savingsGoal)} by term end
+              Savings goal {goalPct}% · net profit UGX {ugx(termProfit)} of UGX {ugx(state.savingsGoal)}
             </p>
           </div>
         ) : null}
@@ -110,6 +122,54 @@ function Home() {
   return (
     <AppLayout title="SmartCanteen" hero={hero}>
       <Tour steps={steps} open={tour.open} onClose={tour.finish} />
+
+      {(insights.length > 0 || overdue.length > 0 || low.length > 0 || dueRecurring.length > 0) && (
+        <section className="space-y-2">
+          {dueRecurring.map((r) => (
+            <div
+              key={r.id}
+              className="card flex items-center justify-between gap-2 border border-secondary/30 bg-secondary/10 p-sm"
+            >
+              <p className="text-sm font-semibold text-on-surface">
+                {r.category} due · UGX {ugx(r.amount)}
+              </p>
+              <button
+                onClick={() => logRecurringDue(r.id)}
+                className="min-h-10 shrink-0 rounded-md bg-primary px-3 text-xs font-bold text-on-primary"
+              >
+                Log now
+              </button>
+            </div>
+          ))}
+          {overdue.length > 0 && (
+            <Link
+              to="/debtors"
+              className="card block border border-tertiary/30 bg-tertiary/10 p-sm text-sm text-on-surface"
+            >
+              <span className="font-bold text-tertiary">{overdue.length} credit unpaid 7+ days</span>
+              {" · "}UGX {ugx(overdue.reduce((a, d) => a + balanceOf(d), 0))} still out — tap to collect
+            </Link>
+          )}
+          {low.length > 0 && (
+            <Link to="/stock" className="card block border border-tertiary/20 bg-tertiary/10 p-sm text-sm">
+              <span className="font-bold text-tertiary">Restock list</span>
+              {": "}
+              {low
+                .slice(0, 4)
+                .map((i) => `${i.name} (${shelfQty(i)})`)
+                .join(", ")}
+              {low.length > 4 ? "…" : ""}
+            </Link>
+          )}
+          {insights.map((tip, i) => (
+            <div key={i} className="card flex gap-2 p-sm text-sm text-on-surface">
+              <Icon name="tips_and_updates" className="shrink-0 text-primary" />
+              <span>{tip}</span>
+            </div>
+          ))}
+        </section>
+      )}
+
       <section className="card grid grid-cols-2 divide-x divide-outline-variant/50 p-0">
         <div className="p-sm text-center">
           <p className="text-[10px] uppercase tracking-wide text-on-surface-variant">Expected Profit</p>
