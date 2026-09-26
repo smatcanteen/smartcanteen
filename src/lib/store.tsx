@@ -34,9 +34,6 @@ export type Tx = {
   sell?: number;
   /** Every correction made to this entry, newest last. */
   edits?: TxEdit[];
-  /** Who recorded this entry (helper name), when staff PINs are in use. */
-  staffId?: string;
-  staffName?: string;
   ts: number;
 };
 
