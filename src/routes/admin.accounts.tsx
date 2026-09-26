@@ -51,7 +51,7 @@ const filters: { key: TenantStatus | "all"; label: string }[] = [
 
 function Accounts() {
   const { user, accounts, toggleAccount, resendOtp } = useAuth();
-  const { s, updateTenant, toggleTag, addTenantNote, logAction } = usePlatform();
+  const { s, updateTenant, toggleTag, addTenantNote, logAction, renewWithProof, archiveTenant } = usePlatform();
   type Progress = {
     accountId: string;
     entries: number;
@@ -68,6 +68,10 @@ function Accounts() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [otp, setOtp] = useState<{ id: string; code: string } | null>(null);
   const [actionError, setActionError] = useState("");
+  const [renewFor, setRenewFor] = useState<(typeof rows extends (infer R)[] ? R : never) | null>(null);
+  const [renewAmount, setRenewAmount] = useState("");
+  const [renewRef, setRenewRef] = useState("");
+  const [renewNote, setRenewNote] = useState("");
 
   // Pull the operators' real progress from the backend so the onboarding ticks
   // below show what they actually did, not a stale local copy.
@@ -126,11 +130,49 @@ function Accounts() {
     return from.getTime();
   };
 
-  const renew = async (tenant: (typeof rows)[number]) => {
-    updateTenant(tenant.accountId, { status: "active", trialEndsAt: null, nextBillingAt: renewalDate(tenant) });
-    const account = accounts.find((item) => item.id === tenant.accountId);
-    if (account && !account.active) await toggleAccount(tenant.accountId);
-    logAction(user?.name ?? "admin", `Renewed ${tenant.canteenName} for 4 months`);
+  const openRenew = (tenant: (typeof rows)[number]) => {
+    setRenewFor(tenant);
+    setRenewAmount(String(s.settings.priceUGX));
+    setRenewRef("");
+    setRenewNote("");
+    setActionError("");
+  };
+
+  const confirmRenew = async () => {
+    if (!renewFor) return;
+    const res = renewWithProof({
+      accountId: renewFor.accountId,
+      amount: Number(renewAmount) || 0,
+      ref: renewRef,
+      note: renewNote,
+      who: user?.name ?? "admin",
+    });
+    if (!res.ok) {
+      setActionError(res.error ?? "Could not renew");
+      return;
+    }
+    const account = accounts.find((item) => item.id === renewFor.accountId);
+    if (account && !account.active) await toggleAccount(renewFor.accountId);
+    setRenewFor(null);
+    setActionError("");
+  };
+
+  const exportCsv = () => {
+    const header = ["Canteen", "School", "Owner", "Phone", "Status", "Access ends", "Zone", "Agent", "Entries"];
+    const lines = rows.map((t) => {
+      const agent = s.agents.find((a) => a.id === t.agentId)?.name ?? "";
+      return [t.canteenName, t.school, t.ownerName, t.phone, t.status, fmtDate(t.nextBillingAt), t.zone, agent, String(t.entries)]
+        .map((c) => `"${String(c).replace(/"/g, '""')}"`)
+        .join(",");
+    });
+    const blob = new Blob([[header.join(","), ...lines].join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `smartcanteen-accounts-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    logAction(user?.name ?? "admin", `Exported ${rows.length} accounts CSV`);
   };
 
   const deactivate = (tenant: (typeof rows)[number]) => {
@@ -154,9 +196,18 @@ function Accounts() {
           <h1 className="text-2xl font-extrabold text-on-surface sm:text-3xl">Canteen accounts</h1>
           <p className="mt-1 text-sm text-on-surface-variant">Manage access, renewals and operator setup.</p>
         </div>
-        <Link to="/admin/new" className="inline-flex min-h-11 items-center gap-2 rounded-full bg-primary px-5 text-sm font-bold text-on-primary shadow-sm">
-          <Icon name="person_add" className="text-[18px]" /> New account
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={exportCsv}
+            className="inline-flex min-h-11 items-center gap-2 rounded-full border-2 border-outline-variant px-4 text-sm font-bold text-on-surface"
+          >
+            <Icon name="download" className="text-[18px]" /> Export CSV
+          </button>
+          <Link to="/admin/new" className="inline-flex min-h-11 items-center gap-2 rounded-full bg-primary px-5 text-sm font-bold text-on-primary shadow-sm">
+            <Icon name="person_add" className="text-[18px]" /> New account
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
