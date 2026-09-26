@@ -109,16 +109,6 @@ export type Payment = { id: string; amount: number; note: string; ts: number };
 
 export type ExpenseCategory = { id: string; label: string; icon: string };
 
-/** Helper who can unlock the shared device and log money. Owner uses account PIN. */
-export type StaffMember = {
-  id: string;
-  name: string;
-  /** 4–6 digit PIN, stored on-device with the cash book. */
-  pin: string;
-  /** owner = can change settings/term; helper = sales/expenses/stock only. */
-  role: "owner" | "helper";
-};
-
 /** One end-of-day close saved for history and WhatsApp digests. */
 export type DayClose = {
   id: string;
