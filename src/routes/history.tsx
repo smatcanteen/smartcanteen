@@ -5,7 +5,12 @@ import { Icon } from "@/components/Icon";
 import { Card, Field, SectionTitle, SelectField } from "@/components/ui-kit";
 import { GroupedBars, TrendLine } from "@/components/Charts";
 import { exportCsv, exportExcel, exportPdf, type Sheet } from "@/lib/export";
-import { dateInput, fromDateInput, ugx, useStore, type Tx } from "@/lib/store";
+import { dateInput, ugx, useStore, type Tx } from "@/lib/store";
+
+const whenToTs = (when: string) => {
+  const t = new Date(`${when}T12:00:00`).getTime();
+  return Number.isFinite(t) ? t : Date.now();
+};
 
 export const Route = createFileRoute("/history")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -280,7 +285,7 @@ function EntryRow({ tx, editable, startOpen }: { tx: Tx; editable: boolean; star
     const patch: Parameters<typeof editTx>[1] = {
       amount: Number(amount) || 0,
       label: label.trim() || tx.label,
-      ts: fromDateInput(when),
+      ts: whenToTs(when),
     };
     if (tx.type === "expense") patch.category = category;
     if (tx.type === "stock") {
