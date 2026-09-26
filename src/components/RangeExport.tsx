@@ -150,34 +150,58 @@ export function DataTable({
   rows,
   pageSize = 10,
   empty = "Nothing in this period yet.",
+  /** Optional right-aligned columns (0-based). Defaults to last column only. */
+  alignRight,
 }: {
   columns: string[];
   rows: (string | number)[][];
   pageSize?: number;
   empty?: string;
+  alignRight?: number[];
 }) {
   const [page, setPage] = useState(0);
   const pages = Math.max(1, Math.ceil(rows.length / pageSize));
   const current = Math.min(page, pages - 1);
   useEffect(() => setPage(0), [rows.length, pageSize]);
   const slice = rows.slice(current * pageSize, current * pageSize + pageSize);
+  const rightCols = new Set(alignRight ?? [columns.length - 1]);
 
-  if (rows.length === 0) return <p className="text-sm text-on-surface-variant">{empty}</p>;
+  if (rows.length === 0) {
+    return <p className="text-sm leading-5 text-on-surface-variant">{empty}</p>;
+  }
 
   return (
     <div className="space-y-sm">
-      <div className="-mx-1 overflow-x-auto">
-        <table className="w-full min-w-full text-sm">
+      <div className="-mx-1 overflow-x-auto overscroll-x-contain">
+        <table className="w-full min-w-[20rem] table-fixed border-collapse text-left text-sm leading-5">
+          <colgroup>
+            {columns.map((_, i) => {
+              // First column (name/date) takes remaining space; number cols stay narrow.
+              const isFirst = i === 0;
+              const isLast = i === columns.length - 1;
+              const width = isFirst
+                ? columns.length <= 3
+                  ? "46%"
+                  : "32%"
+                : isLast
+                  ? columns.length <= 3
+                    ? "28%"
+                    : "24%"
+                  : undefined;
+              return <col key={i} style={width ? { width } : undefined} />;
+            })}
+          </colgroup>
           <thead>
-            <tr className="border-b border-outline-variant text-left">
+            <tr className="border-b border-outline-variant">
               {columns.map((c, i) => (
                 <th
                   key={c}
-                  className={`px-2 py-2 text-xs font-bold uppercase tracking-wide text-on-surface-variant ${
-                    i === columns.length - 1 ? "text-right" : ""
+                  scope="col"
+                  className={`px-2 py-2.5 font-sans text-[11px] font-bold uppercase leading-4 tracking-wide text-on-surface-variant ${
+                    rightCols.has(i) ? "text-right" : "text-left"
                   }`}
                 >
-                  {c}
+                  <span className="block truncate">{c}</span>
                 </th>
               ))}
             </tr>
@@ -185,35 +209,49 @@ export function DataTable({
           <tbody>
             {slice.map((r, ri) => (
               <tr key={ri} className="border-b border-outline-variant/40 last:border-0">
-                {r.map((c, ci) => (
-                  <td
-                    key={ci}
-                    className={`px-2 py-2 ${ci === r.length - 1 ? "text-right font-bold text-on-surface" : "text-on-surface-variant"}`}
-                  >
-                    {typeof c === "number" ? c.toLocaleString("en-UG") : c}
-                  </td>
-                ))}
+                {r.map((c, ci) => {
+                  const isNum = typeof c === "number";
+                  const isRight = rightCols.has(ci) || isNum;
+                  return (
+                    <td
+                      key={ci}
+                      className={`px-2 py-2.5 font-sans text-sm leading-5 ${
+                        isRight ? "text-right" : "text-left"
+                      } ${
+                        isNum || rightCols.has(ci)
+                          ? "font-semibold tabular-nums text-on-surface"
+                          : "font-medium text-on-surface"
+                      }`}
+                    >
+                      <span className="block truncate" title={String(c)}>
+                        {isNum ? c.toLocaleString("en-UG") : c}
+                      </span>
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
       {pages > 1 && (
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <button
+            type="button"
             onClick={() => setPage(Math.max(0, current - 1))}
             disabled={current === 0}
-            className="h-10 min-h-10 rounded-full bg-surface-high px-4 text-sm font-bold text-on-surface-variant disabled:opacity-40"
+            className="h-10 min-h-10 rounded-full bg-surface-high px-4 font-sans text-sm font-bold text-on-surface-variant disabled:opacity-40"
           >
             Back
           </button>
-          <span className="text-xs text-on-surface-variant">
+          <span className="shrink-0 font-sans text-xs tabular-nums leading-4 text-on-surface-variant">
             Page {current + 1} of {pages}
           </span>
           <button
+            type="button"
             onClick={() => setPage(Math.min(pages - 1, current + 1))}
             disabled={current >= pages - 1}
-            className="h-10 min-h-10 rounded-full bg-surface-high px-4 text-sm font-bold text-on-surface-variant disabled:opacity-40"
+            className="h-10 min-h-10 rounded-full bg-surface-high px-4 font-sans text-sm font-bold text-on-surface-variant disabled:opacity-40"
           >
             Next
           </button>
