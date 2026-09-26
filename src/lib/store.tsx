@@ -109,6 +109,31 @@ export type Payment = { id: string; amount: number; note: string; ts: number };
 
 export type ExpenseCategory = { id: string; label: string; icon: string };
 
+/** One end-of-day close saved for history and WhatsApp digests. */
+export type DayClose = {
+  id: string;
+  dayKey: string;
+  ts: number;
+  sales: number;
+  expenses: number;
+  net: number;
+  counted: number;
+  expected: number;
+  diff: number;
+  digestSent: boolean;
+};
+
+/** Rent (or similar) that should reappear every N days. */
+export type RecurringExpense = {
+  id: string;
+  category: string;
+  label: string;
+  amount: number;
+  everyDays: number;
+  nextDue: number;
+  lastLoggedAt?: number;
+};
+
 export type TermRecord = {
   id: string;
   name: string;
@@ -147,6 +172,18 @@ export type State = {
 
   /** False until the operator has done the canteen setup (term + opening cash). */
   setupDone?: boolean;
+  /** Saved end-of-day closes (newest last). */
+  dayCloses?: DayClose[];
+  /** Recurring costs such as rent. */
+  recurringExpenses?: RecurringExpense[];
+  /** This operator's share code (e.g. SC1A2B). */
+  referralCode?: string;
+  /** Code they entered when joining. */
+  referredByCode?: string;
+  /** Free months earned from referrals (redeemed on subscription). */
+  referralCredits?: number;
+  /** Phone for WhatsApp digests (optional). */
+  digestPhone?: string;
 };
 
 const STORAGE_BASE = "smartcanteen.v2";
@@ -270,6 +307,9 @@ export const emptyState = (): State => ({
   debtors: [],
   terms: [],
   setupDone: false,
+  dayCloses: [],
+  recurringExpenses: [],
+  referralCredits: 0,
 });
 
 /**
