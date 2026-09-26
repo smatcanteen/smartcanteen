@@ -398,7 +398,7 @@ type Ctx = {
     restock?: { quantity: number; cost: number; date: number },
   ) => void;
   setRunningLow: (itemId: string, runningLow: boolean) => void;
-  /** Removes an item from the current stock list while preserving transaction and stock-check history. */
+  /** Removes an item and its linked purchases from the current term's figures. */
   removeStockItem: (itemId: string) => void;
 
   undoLast: () => void;
@@ -912,9 +912,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState((s) => {
       const item = s.items.find((i) => i.id === itemId);
       if (!item) return s;
+      const purchaseLabel = `${item.name} restock`.toLowerCase();
+      const txs = s.txs.flatMap((tx) => {
+        // Older purchases did not record an item ID, so match their exact item label.
+        if (tx.type === "stock" && (tx.itemId === itemId || (!tx.itemId && tx.label.toLowerCase() === purchaseLabel))) return [];
+        if (tx.type !== "sale" || !tx.lines?.some((line) => line.itemId === itemId)) return [tx];
+        const kept = tx.lines.filter((line) => line.itemId !== itemId);
+        if (!kept.length) return [];
+        // Allocate the recorded amount across the original lines, retaining
+        // other items in a mixed sale rather than deleting the entire sale.
+        const weight = (line: (typeof kept)[number]) =>
+          line.qty * (s.items.find((i) => i.id === line.itemId)?.sell ?? item.sell);
+        const allWeight = tx.lines.reduce((sum, line) => sum + weight(line), 0);
+        const keptWeight = kept.reduce((sum, line) => sum + weight(line), 0);
+        return [{
+          ...tx,
+          lines: kept,
+          label: kept.map((line) => `${line.name} x${line.qty}`).join(", "),
+          amount: allWeight > 0 ? Math.round(tx.amount * keptWeight / allWeight) : tx.amount,
+        }];
+      });
       return {
         ...s,
         items: s.items.filter((i) => i.id !== itemId),
+        txs,
+        stockChecks: (s.stockChecks ?? []).filter((check) => check.itemId !== itemId),
         savedItems: (s.savedItems ?? []).filter(
           (saved) => saved.name.toLowerCase() !== item.name.toLowerCase(),
         ),

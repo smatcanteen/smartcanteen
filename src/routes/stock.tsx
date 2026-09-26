@@ -39,7 +39,7 @@ const blankForm = (): CheckForm => ({
 });
 
 function Stock() {
-  const { state, checkStock, setRunningLow, removeStockItem } = useStore();
+  const { state, checkStock, removeStockItem } = useStore();
   const [editing, setEditing] = useState<string | null>(null);
   const [details, setDetails] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -54,7 +54,6 @@ function Stock() {
     0,
   );
   const atRetail = checked.reduce((a, i) => a + i.sell * (i.lastKnownQuantity ?? 0), 0);
-  const low = state.items.filter((i) => i.runningLow);
   const filteredItems = state.items.filter((i) =>
     i.name.toLowerCase().includes(itemSearch.trim().toLowerCase()),
   );
@@ -226,15 +225,6 @@ function Stock() {
         </Card>
       </div>
 
-      {low.length > 0 && (
-        <div className="rounded-lg border border-tertiary/20 bg-tertiary/10 p-sm">
-          <p className="label-bold flex items-center gap-2 text-tertiary">
-            <Icon name="warning" className="text-[18px]" /> Running low
-          </p>
-          <p className="mt-1 text-sm text-on-surface">{low.map((i) => i.name).join(", ")}</p>
-        </div>
-      )}
-
       <section>
         <div className="mb-sm flex items-end justify-between gap-2">
           <SectionTitle>Items this term</SectionTitle>
@@ -280,11 +270,6 @@ function Stock() {
                     <p className="text-xs text-on-surface-variant">{item.qty} bought · {isChecked ? `${item.lastKnownQuantity} left` : "count not checked"}</p>
                   </div>
                   <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
-                    {item.runningLow && (
-                      <span className="rounded-full bg-tertiary/10 px-2 py-1 text-[11px] font-bold text-tertiary">
-                        Running Low
-                      </span>
-                    )}
                     <span className="rounded-full bg-primary/10 px-2 py-1 text-[11px] font-bold text-primary">
                       {isChecked ? `${item.lastKnownQuantity} left` : "Not checked"}
                     </span>
@@ -322,14 +307,7 @@ function Stock() {
                 )}
 
                 {!isEditing ? (
-                  <div className="grid grid-cols-3 gap-2 border-t border-outline-variant/50 pt-2">
-                    <button
-                      onClick={() => setRunningLow(item.id, !item.runningLow)}
-                      className="flex min-h-11 items-center justify-center gap-1 rounded-md border border-outline-variant px-2 text-xs font-bold text-tertiary hover:bg-surface-low"
-                    >
-                      <Icon name={item.runningLow ? "remove_circle" : "warning"} className="text-[18px]" />
-                      {item.runningLow ? "Clear Low Flag" : "Running Low"}
-                    </button>
+                   <div className="grid grid-cols-2 gap-2 border-t border-outline-variant/50 pt-2">
                     <button
                       onClick={() => openCheck(item)}
                       className="flex min-h-11 items-center justify-center gap-1 rounded-md bg-primary px-2 text-xs font-bold text-on-primary"
@@ -414,7 +392,7 @@ function Stock() {
                 {confirmDelete === item.id && (
                   <div className="space-y-2 rounded-md border border-tertiary/40 bg-tertiary/10 p-3">
                     <p className="text-sm font-bold text-on-surface">Delete {item.name} from the current Stock list?</p>
-                    <p className="text-xs text-on-surface-variant">Past purchase entries and stock checks will remain in reports.</p>
+                     <p className="text-xs text-on-surface-variant">This also removes its purchases, stock checks and linked itemised sales from this term’s totals and reports. Other items in a shared sale stay recorded. This cannot be undone.</p>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => setConfirmDelete(null)}
