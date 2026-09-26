@@ -1114,6 +1114,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return ok;
   }, []);
 
+  const setHoliday = useCallback<Ctx["setHoliday"]>((until, nextTermOpensAt) => {
+    setState((s) => ({
+      ...s,
+      holidayUntil: until && until > 0 ? until : undefined,
+      nextTermOpensAt:
+        nextTermOpensAt && nextTermOpensAt > 0
+          ? nextTermOpensAt
+          : until && until > 0
+            ? s.nextTermOpensAt
+            : undefined,
+    }));
+  }, []);
+
+  const markRenewalNudge = useCallback<Ctx["markRenewalNudge"]>((key) => {
+    setState((s) => ({ ...s, lastRenewalNudgeKey: key }));
+  }, []);
+
   const removeStockItem = useCallback<Ctx["removeStockItem"]>((itemId) => {
     setState((s) => {
       const item = s.items.find((i) => i.id === itemId);
@@ -1299,6 +1316,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ensureReferralCode,
       applyReferralCode,
       redeemReferralCredit,
+      setHoliday,
+      markRenewalNudge,
       undoLast,
       setPin,
       addPayment,
@@ -1336,6 +1355,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     ensureReferralCode,
     applyReferralCode,
     redeemReferralCredit,
+    setHoliday,
+    markRenewalNudge,
     undoLast,
     setPin,
     addPayment,
