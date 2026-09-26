@@ -26,6 +26,10 @@ type PlatformHub = {
   commissions?: any[];
   payouts?: any[];
   announcements?: any[];
+  payments?: any[];
+  paymentClaims?: any[];
+  referralClaims?: any[];
+  auditLog?: any[];
   tenantMeta?: Record<string, any>;
   updatedAt?: number;
 };
@@ -219,6 +223,69 @@ export const loadLivePlatform = createServerFn({ method: "POST" })
         scopedTickets = [];
       }
 
+      // Operator self-reported payments + referral codes from each canteen book.
+      const matchedClaimIds = new Set(
+        (Array.isArray(hub.payments) ? hub.payments : [])
+          .map((p: any) => p.claimId)
+          .filter(Boolean),
+      );
+      const hubClaims = Array.isArray(hub.paymentClaims) ? hub.paymentClaims : [];
+      const liveClaims = tenants.flatMap((t) => {
+        const book = bookById.get(t.accountId)?.data ?? {};
+        const pays = Array.isArray(book.payments) ? book.payments : [];
+        return pays
+          .filter((p: any) => Number(p.amount) > 0)
+          .map((p: any) => {
+            const id = String(p.id ?? `${t.accountId}-${p.ts}`);
+            const prior = hubClaims.find((c: any) => c.id === id);
+            const status =
+              prior?.status === "dismissed" || prior?.status === "matched"
+                ? prior.status
+                : matchedClaimIds.has(id)
+                  ? "matched"
+                  : "pending";
+            return {
+              id,
+              accountId: t.accountId,
+              canteenName: t.canteenName,
+              school: t.school,
+              ownerName: t.ownerName,
+              phone: t.phone,
+              amount: Number(p.amount) || 0,
+              note: String(p.note ?? ""),
+              ts: Number(p.ts) || Date.now(),
+              status,
+            };
+          });
+      });
+      const claimById = new Map<string, any>();
+      [...hubClaims, ...liveClaims].forEach((c) => claimById.set(c.id, c));
+
+      const hubReferrals = Array.isArray(hub.referralClaims) ? hub.referralClaims : [];
+      const liveReferrals = tenants.flatMap((t) => {
+        const book = bookById.get(t.accountId)?.data ?? {};
+        const credits = Number(book.referralCredits ?? 0);
+        const code = book.referralCode ? String(book.referralCode) : "";
+        const referredBy = book.referredByCode ? String(book.referredByCode) : "";
+        if (credits <= 0 && !referredBy) return [];
+        const id = `ref-${t.accountId}`;
+        const prior = hubReferrals.find((c: any) => c.id === id);
+        return [
+          {
+            id,
+            accountId: t.accountId,
+            canteenName: t.canteenName,
+            code,
+            referredByCode: referredBy || undefined,
+            credits,
+            status: prior?.status === "granted" || prior?.status === "dismissed" ? prior.status : credits > 0 ? "pending" : "pending",
+            ts: Number(prior?.ts) || Date.now(),
+          },
+        ];
+      });
+      const refById = new Map<string, any>();
+      [...hubReferrals, ...liveReferrals].forEach((c) => refById.set(c.id, c));
+
       return {
         ok: true as const,
         platform: {
@@ -230,7 +297,10 @@ export const loadLivePlatform = createServerFn({ method: "POST" })
           tickets: scopedTickets,
           announcements: Array.isArray(hub.announcements) ? hub.announcements : [],
           settings: { ...defaultSettings, ...(hub.settings ?? {}) },
-          auditLog: [],
+          payments: Array.isArray(hub.payments) ? hub.payments : [],
+          paymentClaims: [...claimById.values()].sort((a, b) => b.ts - a.ts),
+          referralClaims: [...refById.values()].sort((a, b) => b.ts - a.ts),
+          auditLog: Array.isArray(hub.auditLog) ? hub.auditLog : [],
         },
         me: {
           quizPassed: isAgent ? !!(bookById.get(userId)?.data?.agentAdmin?.quizPassed) : false,
@@ -254,6 +324,10 @@ export const savePlatformHub = createServerFn({ method: "POST" })
     commissions?: any[];
     payouts?: any[];
     announcements?: any[];
+    payments?: any[];
+    paymentClaims?: any[];
+    referralClaims?: any[];
+    auditLog?: any[];
     tenantMeta?: Record<string, any>;
   }) => data)
   .handler(async ({ data }) => {
@@ -266,6 +340,10 @@ export const savePlatformHub = createServerFn({ method: "POST" })
         commissions: data.commissions ?? prev.commissions ?? [],
         payouts: data.payouts ?? prev.payouts ?? [],
         announcements: data.announcements ?? prev.announcements ?? [],
+        payments: data.payments ?? prev.payments ?? [],
+        paymentClaims: data.paymentClaims ?? prev.paymentClaims ?? [],
+        referralClaims: data.referralClaims ?? prev.referralClaims ?? [],
+        auditLog: data.auditLog ?? prev.auditLog ?? [],
         tenantMeta: data.tenantMeta ?? prev.tenantMeta ?? {},
         updatedAt: Date.now(),
       };
