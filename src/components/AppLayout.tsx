@@ -1,5 +1,5 @@
 import { Link, useNavigate, useRouter } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Icon } from "./Icon";
 import { AccountAvatar, BrandMark, useAccountLogo } from "./Brand";
 import { homeForRole, useAuth } from "@/lib/auth";
@@ -58,7 +58,21 @@ export function AppLayout({
     return true;
   });
   const { logo } = useAccountLogo(user?.id);
+  const [online, setOnline] = useState(
+    typeof navigator === "undefined" ? true : navigator.onLine,
+  );
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const up = () => setOnline(true);
+    const down = () => setOnline(false);
+    window.addEventListener("online", up);
+    window.addEventListener("offline", down);
+    return () => {
+      window.removeEventListener("online", up);
+      window.removeEventListener("offline", down);
+    };
+  }, []);
 
   // A reset account has no PIN in the backend: ask before showing anything.
   useSetupGate(ready && !!user);
@@ -185,6 +199,15 @@ export function AppLayout({
           hero ? "-mt-14" : "-mt-3"
         }`}
       >
+        {!online && (
+          <div className="flex items-start gap-2 rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-sm text-on-surface">
+            <Icon name="cloud_off" className="mt-0.5 shrink-0 text-primary" />
+            <p>
+              <span className="font-bold text-primary">Working offline</span>
+              {" — "}everything you enter stays on this phone and syncs when data returns. Nothing is lost.
+            </p>
+          </div>
+        )}
         {children}
       </main>
 
