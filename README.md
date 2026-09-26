@@ -119,7 +119,7 @@ A real accounting-style statement, filterable by day, week, term, or custom rang
 
 SmartCanteen is delivered as a subscription, sold to many canteen operators, each with fully isolated data:
 
-•     UGX 10,000 per canteen account, per month, billed against the operator's own school term calendar rather than a fixed date
+•     UGX 35,000 per canteen account for 4 months (prepay), billed against the operator's own school term calendar rather than a fixed date
 
 •     Automatic pause or reduced rate during school holidays, when canteen income stops
 
