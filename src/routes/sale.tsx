@@ -52,6 +52,8 @@ function Sale() {
     draft.setValue((v) => ({ ...v, amount: typeof fn === "function" ? fn(v.amount) : fn }));
   const [saved, setSaved] = useState(false);
   const [lastLabel, setLastLabel] = useState("");
+  /** Advanced options (credit, date, note) stay collapsed — one tap path first. */
+  const [more, setMore] = useState(false);
 
   const range = useRange(state.termStartedAt);
   const sales = state.txs.filter((t) => t.type === "sale" && range.has(t.ts));
@@ -145,47 +147,62 @@ function Sale() {
         />
       </div>
 
-      <Card className="space-y-sm">
-        <Field
-          label="Note (optional)"
-          placeholder="e.g. Break rush, staff tea…"
-          value={note}
-          onChange={(e) => patch({ note: e.target.value })}
-        />
-        <Field label="Date of sale" type="date" value={when} onChange={(e) => patch({ when: e.target.value })} />
-        <label className="flex min-h-11 items-center justify-between gap-3">
-          <span className="text-sm font-bold text-on-surface-variant">
-            Credit sale
-            <span className="mt-0.5 block text-xs font-normal text-on-surface-variant">
-              Student pays later — does not touch Cash at Hand now
-            </span>
-          </span>
-          <input
-            type="checkbox"
-            checked={credit}
-            onChange={(e) => patch({ credit: e.target.checked })}
-            className="h-6 w-6 shrink-0 accent-[#135230]"
+      <button
+        type="button"
+        onClick={() => setMore((m) => !m)}
+        className="flex min-h-11 w-full items-center justify-center gap-1 text-sm font-bold text-primary"
+      >
+        {more ? "Hide options" : "Credit · note · date"}
+        <Icon name={more ? "expand_less" : "expand_more"} className="text-[18px]" />
+      </button>
+
+      {more && (
+        <Card className="space-y-sm">
+          <Field
+            label="Note (optional)"
+            placeholder="e.g. Break rush…"
+            value={note}
+            onChange={(e) => patch({ note: e.target.value })}
           />
-        </label>
-        {credit && (
-          <div className="grid gap-sm sm:grid-cols-2">
-            <Field
-              label="Student name"
-              value={debtor.name}
-              onChange={(e) => patch({ debtor: { ...debtor, name: e.target.value } })}
+          <Field
+            label="Date of sale"
+            type="date"
+            value={when}
+            onChange={(e) => patch({ when: e.target.value })}
+          />
+          <label className="flex min-h-11 items-center justify-between gap-3">
+            <span className="text-sm font-bold text-on-surface-variant">
+              Student credit (pays later)
+              <span className="mt-0.5 block text-xs font-normal text-on-surface-variant">
+                Does not touch money in hand until they pay
+              </span>
+            </span>
+            <input
+              type="checkbox"
+              checked={credit}
+              onChange={(e) => patch({ credit: e.target.checked })}
+              className="h-6 w-6 shrink-0 accent-[#135230]"
             />
-            <Field
-              label="Class / section"
-              value={debtor.klass}
-              onChange={(e) => patch({ debtor: { ...debtor, klass: e.target.value } })}
-            />
-          </div>
-        )}
-      </Card>
+          </label>
+          {credit && (
+            <div className="grid gap-sm sm:grid-cols-2">
+              <Field
+                label="Student name"
+                value={debtor.name}
+                onChange={(e) => patch({ debtor: { ...debtor, name: e.target.value } })}
+              />
+              <Field
+                label="Class"
+                value={debtor.klass}
+                onChange={(e) => patch({ debtor: { ...debtor, klass: e.target.value } })}
+              />
+            </div>
+          )}
+        </Card>
+      )}
 
       <p className="text-xs leading-4 text-on-surface-variant">
-        Shelf stock is updated by <span className="font-bold text-on-surface">Stock → count</span>, not by each sale.
-        Canteens sell too fast to tap every soda.
+        Shelf is updated under <span className="font-bold text-on-surface">Stock → Update</span>, not each sale.
       </p>
 
       {voiceDrafts && voiceDrafts.length > 0 && (
