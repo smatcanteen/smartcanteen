@@ -68,7 +68,7 @@ function Accounts() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [otp, setOtp] = useState<{ id: string; code: string } | null>(null);
   const [actionError, setActionError] = useState("");
-  const [renewFor, setRenewFor] = useState<(typeof rows extends (infer R)[] ? R : never) | null>(null);
+  const [renewForId, setRenewForId] = useState<string | null>(null);
   const [renewAmount, setRenewAmount] = useState("");
   const [renewRef, setRenewRef] = useState("");
   const [renewNote, setRenewNote] = useState("");
@@ -130,8 +130,8 @@ function Accounts() {
     return from.getTime();
   };
 
-  const openRenew = (tenant: (typeof rows)[number]) => {
-    setRenewFor(tenant);
+  const openRenew = (accountId: string) => {
+    setRenewForId(accountId);
     setRenewAmount(String(s.settings.priceUGX));
     setRenewRef("");
     setRenewNote("");
@@ -139,9 +139,9 @@ function Accounts() {
   };
 
   const confirmRenew = async () => {
-    if (!renewFor) return;
+    if (!renewForId) return;
     const res = renewWithProof({
-      accountId: renewFor.accountId,
+      accountId: renewForId,
       amount: Number(renewAmount) || 0,
       ref: renewRef,
       note: renewNote,
@@ -151,9 +151,9 @@ function Accounts() {
       setActionError(res.error ?? "Could not renew");
       return;
     }
-    const account = accounts.find((item) => item.id === renewFor.accountId);
-    if (account && !account.active) await toggleAccount(renewFor.accountId);
-    setRenewFor(null);
+    const account = accounts.find((item) => item.id === renewForId);
+    if (account && !account.active) await toggleAccount(renewForId);
+    setRenewForId(null);
     setActionError("");
   };
 
@@ -331,8 +331,8 @@ function Accounts() {
                 </p>
               </div>
               <div className="flex flex-wrap gap-1">
-                <button onClick={() => void renew(t)} className="min-h-10 rounded-full bg-primary px-4 text-xs font-bold text-on-primary">
-                  {t.status === "active" ? "Renew 4 months" : "Activate for 4 months"}
+                <button onClick={() => openRenew(t.accountId)} className="min-h-10 rounded-full bg-primary px-4 text-xs font-bold text-on-primary">
+                  {t.status === "active" ? "Renew with proof" : "Activate with proof"}
                 </button>
                 {t.status !== "churned" ? (
                   <button onClick={() => deactivate(t)} className="min-h-10 rounded-full border-2 border-tertiary px-3 text-xs font-bold text-tertiary">
@@ -406,10 +406,20 @@ function Accounts() {
                       </button>
                     ))}
                     <button
-                      onClick={() => void renew(t)}
+                      onClick={() => openRenew(t.accountId)}
                       className="min-h-11 rounded-full bg-primary px-4 text-xs font-bold text-on-primary"
                     >
-                      {t.status === "active" ? "Renew 4 months" : "Activate for 4 months"}
+                      {t.status === "active" ? "Renew with proof" : "Activate with proof"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (confirm(`Archive ${t.canteenName}? Subscription ends; past records stay read-only.`)) {
+                          archiveTenant(t.accountId, user?.name ?? "admin");
+                        }
+                      }}
+                      className="min-h-11 rounded-full border-2 border-outline-variant px-3 text-xs font-bold text-on-surface-variant"
+                    >
+                      Archive account
                     </button>
                     {t.status !== "churned" ? (
                       <button
