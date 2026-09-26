@@ -608,25 +608,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [state.theme, state.fontScale]);
 
   const addTx = useCallback((tx: Omit<Tx, "id" | "ts"> & { ts?: number }) => {
-    setState((s) => {
-      const staff =
-        (s.staff ?? []).find((m) => m.id === s.activeStaffId) ??
-        (s.staff ?? []).find((m) => m.role === "owner") ??
-        null;
-      return {
-        ...s,
-        txs: [
-          ...s.txs,
-          {
-            ...tx,
-            id: uid(),
-            ts: tx.ts ?? Date.now(),
-            staffId: tx.staffId ?? staff?.id,
-            staffName: tx.staffName ?? staff?.name,
-          },
-        ],
-      };
-    });
+    setState((s) => ({
+      ...s,
+      txs: [...s.txs, { ...tx, id: uid(), ts: tx.ts ?? Date.now() }],
+    }));
   }, []);
 
   const sellItems = useCallback<Ctx["sellItems"]>((picked, opts) => {
