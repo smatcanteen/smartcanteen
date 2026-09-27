@@ -29,6 +29,7 @@ type PlatformHub = {
   payments?: any[];
   paymentClaims?: any[];
   referralClaims?: any[];
+  expenses?: any[];
   auditLog?: any[];
   tenantMeta?: Record<string, any>;
   updatedAt?: number;
@@ -300,6 +301,7 @@ export const loadLivePlatform = createServerFn({ method: "POST" })
           payments: Array.isArray(hub.payments) ? hub.payments : [],
           paymentClaims: [...claimById.values()].sort((a, b) => b.ts - a.ts),
           referralClaims: [...refById.values()].sort((a, b) => b.ts - a.ts),
+          expenses: Array.isArray(hub.expenses) ? hub.expenses : [],
           auditLog: Array.isArray(hub.auditLog) ? hub.auditLog : [],
         },
         me: {
@@ -327,6 +329,7 @@ export const savePlatformHub = createServerFn({ method: "POST" })
     payments?: any[];
     paymentClaims?: any[];
     referralClaims?: any[];
+    expenses?: any[];
     auditLog?: any[];
     tenantMeta?: Record<string, any>;
   }) => data)
@@ -343,6 +346,7 @@ export const savePlatformHub = createServerFn({ method: "POST" })
         payments: data.payments ?? prev.payments ?? [],
         paymentClaims: data.paymentClaims ?? prev.paymentClaims ?? [],
         referralClaims: data.referralClaims ?? prev.referralClaims ?? [],
+        expenses: data.expenses ?? prev.expenses ?? [],
         auditLog: data.auditLog ?? prev.auditLog ?? [],
         tenantMeta: data.tenantMeta ?? prev.tenantMeta ?? {},
         updatedAt: Date.now(),
