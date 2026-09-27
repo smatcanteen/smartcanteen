@@ -31,6 +31,7 @@ type PlatformHub = {
   referralClaims?: any[];
   expenses?: any[];
   auditLog?: any[];
+  renewalChases?: any[];
   tenantMeta?: Record<string, any>;
   updatedAt?: number;
 };
