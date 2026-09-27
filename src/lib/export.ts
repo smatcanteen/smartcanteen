@@ -152,3 +152,63 @@ export function exportPdf(title: string, subtitle: string, sheets: Sheet[]) {
   </body></html>`);
   win.document.close();
 }
+
+/** Branded payment receipt for a confirmed subscription payment. */
+export function exportPaymentReceipt(opts: {
+  canteenName: string;
+  operatorName: string;
+  school: string;
+  termName?: string;
+  amount: number;
+  method: string;
+  transactionId: string;
+  accessUntil: number;
+  months: number;
+  paidAt: number;
+  confirmedBy: string;
+  receiptNo: string;
+}) {
+  const win = window.open("", "_blank", "width=720,height=900");
+  if (!win) return;
+  const money = (n: number) => `UGX ${Math.round(n).toLocaleString("en-UG")}`;
+  const d = (ts: number) =>
+    new Date(ts).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Receipt ${xmlEscape(opts.receiptNo)}</title>
+  <style>
+    @page { size: A5; margin: 12mm; }
+    body { font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; color: #1a241e; margin: 0; }
+    .card { border: 2px solid #2f6b46; border-radius: 12px; padding: 20px; max-width: 480px; margin: 12px auto; }
+    h1 { margin: 0; color: #2f6b46; font-size: 22px; }
+    .sub { color: #5c665e; font-size: 12px; margin-top: 4px; }
+    .amount { font-size: 28px; font-weight: 800; color: #2f6b46; margin: 16px 0 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 12px; }
+    td { padding: 6px 0; border-bottom: 1px solid #e4e8e3; vertical-align: top; }
+    td.k { color: #5c665e; width: 42%; }
+    td.v { font-weight: 600; text-align: right; }
+    .ok { display: inline-block; background: #e7f3ec; color: #2f6b46; font-weight: 700; font-size: 12px; padding: 4px 10px; border-radius: 999px; }
+    footer { margin-top: 18px; font-size: 10px; color: #8a918a; text-align: center; }
+  </style></head><body>
+  <div class="card">
+    <h1>SmartCanteen</h1>
+    <div class="sub">Subscription payment receipt</div>
+    <div class="ok">Payment confirmed</div>
+    <div class="amount">${money(opts.amount)}</div>
+    <div class="sub">Receipt ${xmlEscape(opts.receiptNo)}</div>
+    <table>
+      <tr><td class="k">Canteen</td><td class="v">${xmlEscape(opts.canteenName)}</td></tr>
+      <tr><td class="k">Operator</td><td class="v">${xmlEscape(opts.operatorName)}</td></tr>
+      <tr><td class="k">School</td><td class="v">${xmlEscape(opts.school)}</td></tr>
+      ${opts.termName ? `<tr><td class="k">Term</td><td class="v">${xmlEscape(opts.termName)}</td></tr>` : ""}
+      <tr><td class="k">Mode of payment</td><td class="v">${xmlEscape(opts.method)}</td></tr>
+      <tr><td class="k">Transaction ID</td><td class="v">${xmlEscape(opts.transactionId)}</td></tr>
+      <tr><td class="k">Paid on</td><td class="v">${d(opts.paidAt)}</td></tr>
+      <tr><td class="k">Access covers</td><td class="v">${opts.months} month${opts.months === 1 ? "" : "s"}</td></tr>
+      <tr><td class="k">Access until</td><td class="v">${d(opts.accessUntil)}</td></tr>
+      <tr><td class="k">Confirmed by</td><td class="v">${xmlEscape(opts.confirmedBy)}</td></tr>
+    </table>
+    <footer>Keep this receipt for your school records · SmartCanteen</footer>
+  </div>
+  <script>window.onload=function(){setTimeout(function(){window.print();},300);};<\/script>
+  </body></html>`);
+  win.document.close();
+}
