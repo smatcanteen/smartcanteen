@@ -249,13 +249,17 @@ export const loadLivePlatform = createServerFn({ method: "POST" })
               id,
               accountId: t.accountId,
               canteenName: t.canteenName,
-              school: t.school,
+              school: String(p.school || t.school || ""),
               ownerName: t.ownerName,
               phone: t.phone,
               amount: Number(p.amount) || 0,
               note: String(p.note ?? ""),
               ts: Number(p.ts) || Date.now(),
-              status,
+              status: p.status === "confirmed" || p.status === "dismissed" ? p.status === "confirmed" ? "matched" : "dismissed" : status,
+              operatorName: String(p.operatorName || t.ownerName || ""),
+              termName: String(p.termName || book.termName || ""),
+              method: p.method === "cash" || p.method === "bank" ? p.method : "mobile_money",
+              transactionId: String(p.transactionId || ""),
             };
           });
       });
