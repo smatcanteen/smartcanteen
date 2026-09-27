@@ -322,26 +322,6 @@ function Accounts() {
               </div>
             </div>
 
-            <div className="grid gap-2 rounded-md border border-outline-variant bg-surface-lowest p-3 sm:grid-cols-[1fr_auto] sm:items-center">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-on-surface-variant">Subscription</p>
-                <p className="text-sm font-extrabold text-on-surface">{statusLabels[t.status]}</p>
-                <p className="text-xs text-on-surface-variant">
-                  {t.status === "active" || t.status === "trial" ? `Access ends ${fmtDate(t.nextBillingAt)}` : "Past records remain available; new entries are locked."}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-1">
-                <button onClick={() => openRenew(t.accountId)} className="min-h-10 rounded-full bg-primary px-4 text-xs font-bold text-on-primary">
-                  {t.status === "active" ? "Renew with proof" : "Activate with proof"}
-                </button>
-                {t.status !== "churned" ? (
-                  <button onClick={() => deactivate(t)} className="min-h-10 rounded-full border-2 border-tertiary px-3 text-xs font-bold text-tertiary">
-                    Deactivate subscription
-                  </button>
-                ) : null}
-              </div>
-            </div>
-
             <div className="flex flex-wrap gap-1">
               {(["loggedIn", "capitalSet", "firstStock", "firstSale"] as const).map((k) => (
                 <Pill key={k} tone={t.checklist[k] ? "good" : "bad"}>
