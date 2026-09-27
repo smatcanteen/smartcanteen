@@ -366,7 +366,7 @@ function Accounts() {
                   <p className="text-sm font-bold text-on-surface">Subscription &amp; trial</p>
                   <p className="text-xs text-on-surface-variant">
                     {t.trialEndsAt ? `Trial ends ${fmtDate(t.trialEndsAt)} · ` : ""}
-                    Next billing {fmtDate(t.nextBillingAt)}
+                    Access / next billing {fmtDate(t.nextBillingAt)}
                   </p>
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <button
