@@ -126,6 +126,7 @@ function Accounts() {
     setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
 
   const openRenew = (accountId: string) => {
+    setOpenId(accountId);
     setRenewForId(accountId);
     setRenewAmount(String(s.settings.priceUGX));
     setRenewRef("");
