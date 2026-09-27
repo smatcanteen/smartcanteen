@@ -308,6 +308,7 @@ export const loadLivePlatform = createServerFn({ method: "POST" })
           referralClaims: [...refById.values()].sort((a, b) => b.ts - a.ts),
           expenses: Array.isArray(hub.expenses) ? hub.expenses : [],
           auditLog: Array.isArray(hub.auditLog) ? hub.auditLog : [],
+          renewalChases: Array.isArray(hub.renewalChases) ? hub.renewalChases : [],
         },
         me: {
           quizPassed: isAgent ? !!(bookById.get(userId)?.data?.agentAdmin?.quizPassed) : false,
@@ -336,6 +337,7 @@ export const savePlatformHub = createServerFn({ method: "POST" })
     referralClaims?: any[];
     expenses?: any[];
     auditLog?: any[];
+    renewalChases?: any[];
     tenantMeta?: Record<string, any>;
   }) => data)
   .handler(async ({ data }) => {
@@ -353,6 +355,7 @@ export const savePlatformHub = createServerFn({ method: "POST" })
         referralClaims: data.referralClaims ?? prev.referralClaims ?? [],
         expenses: data.expenses ?? prev.expenses ?? [],
         auditLog: data.auditLog ?? prev.auditLog ?? [],
+        renewalChases: data.renewalChases ?? prev.renewalChases ?? [],
         tenantMeta: data.tenantMeta ?? prev.tenantMeta ?? {},
         updatedAt: Date.now(),
       };
