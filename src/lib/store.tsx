@@ -105,7 +105,25 @@ export type Debtor = {
 };
 
 
-export type Payment = { id: string; amount: number; note: string; ts: number };
+/** Operator self-report of a subscription payment (admin confirms before access extends). */
+export type Payment = {
+  id: string;
+  amount: number;
+  note: string;
+  ts: number;
+  /** Person who paid / operator name. */
+  operatorName?: string;
+  /** School attached to this account. */
+  school?: string;
+  /** Term they are paying for (e.g. Term 3, 2026). */
+  termName?: string;
+  /** How they paid — default mobile money. */
+  method?: "mobile_money" | "cash" | "bank";
+  /** Mobile-money / bank transaction id. */
+  transactionId?: string;
+  /** Waiting for admin, confirmed, or dismissed. */
+  status?: "pending" | "confirmed" | "dismissed";
+};
 
 export type ExpenseCategory = { id: string; label: string; icon: string };
 
@@ -470,7 +488,17 @@ type Ctx = {
   undoLast: () => void;
 
   setPin: (pin: string | null, autoLockMin: number) => void;
-  addPayment: (amount: number, note: string) => void;
+  addPayment: (
+    amount: number,
+    note: string,
+    meta?: {
+      operatorName?: string;
+      school?: string;
+      termName?: string;
+      method?: Payment["method"];
+      transactionId?: string;
+    },
+  ) => void;
   addExpenseCategory: (label: string, icon: string) => void;
   removeExpenseCategory: (id: string) => void;
   setTheme: (theme: "light" | "dark") => void;
@@ -1176,8 +1204,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, pin, autoLockMin }));
   }, []);
 
-  const addPayment = useCallback((amount: number, note: string) => {
-    setState((s) => ({ ...s, payments: [...s.payments, { id: uid(), amount, note, ts: Date.now() }] }));
+  const addPayment = useCallback<Ctx["addPayment"]>((amount, note, meta) => {
+    setState((s) => ({
+      ...s,
+      payments: [
+        ...s.payments,
+        {
+          id: uid(),
+          amount,
+          note,
+          ts: Date.now(),
+          operatorName: meta?.operatorName?.trim() || undefined,
+          school: meta?.school?.trim() || undefined,
+          termName: meta?.termName?.trim() || undefined,
+          method: meta?.method ?? "mobile_money",
+          transactionId: meta?.transactionId?.trim() || undefined,
+          status: "pending",
+        },
+      ],
+    }));
   }, []);
 
   const addExpenseCategory = useCallback((label: string, icon: string) => {
