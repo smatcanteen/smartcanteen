@@ -9,14 +9,20 @@ export const Route = createFileRoute("/admin/payments")({
   head: () => ({
     meta: [
       { title: "Payments — SmartCanteen Admin" },
-      { name: "description", content: "Match operator payment claims, confirm renewals and grant referral free months." },
+      {
+        name: "description",
+        content: "Match operator payment claims, confirm renewals and grant referral free months.",
+      },
     ],
   }),
   component: PaymentsPage,
 });
 
+const methodLabel = (m?: string) =>
+  m === "cash" ? "Cash" : m === "bank" ? "Bank" : "Mobile money";
+
 function PaymentsPage() {
-  const { user } = useAuth();
+  const { user, accounts, toggleAccount } = useAuth();
   const {
     s,
     renewWithProof,
@@ -25,8 +31,10 @@ function PaymentsPage() {
     dismissReferralClaim,
   } = usePlatform();
   const [err, setErr] = useState("");
+  const [okMsg, setOkMsg] = useState("");
   const [refByClaim, setRefByClaim] = useState<Record<string, string>>({});
   const [amountByClaim, setAmountByClaim] = useState<Record<string, string>>({});
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   const pendingClaims = (s.paymentClaims ?? []).filter((c) => c.status === "pending");
   const pendingRefs = (s.referralClaims ?? []).filter((c) => c.status === "pending" && c.credits > 0);
@@ -37,13 +45,44 @@ function PaymentsPage() {
   });
   const monthTotal = paidThisMonth.reduce((a, p) => a + p.amount, 0);
 
+  const confirmClaim = async (c: (typeof pendingClaims)[number]) => {
+    setBusyId(c.id);
+    setErr("");
+    setOkMsg("");
+    const txn = (refByClaim[c.id] ?? c.transactionId ?? "").trim();
+    const res = renewWithProof({
+      accountId: c.accountId,
+      amount: Number(amountByClaim[c.id] ?? c.amount) || s.settings.priceUGX,
+      ref: txn,
+      note: c.note,
+      who: user?.name ?? "admin",
+      claimId: c.id,
+      operatorName: c.operatorName || c.ownerName,
+      school: c.school,
+      termName: c.termName,
+      method: c.method || "mobile_money",
+      transactionId: txn,
+    });
+    if (!res.ok) {
+      setErr(res.error ?? "Could not confirm");
+      setBusyId(null);
+      return;
+    }
+    const account = accounts.find((a) => a.id === c.accountId);
+    if (account && !account.active) await toggleAccount(c.accountId);
+    setOkMsg(
+      `Payment confirmed · ${c.operatorName || c.ownerName} · ${c.school || c.canteenName} activated until ${fmtDate(res.accessUntil!)}`,
+    );
+    setBusyId(null);
+  };
+
   return (
     <>
       <div>
         <p className="text-xs font-bold uppercase tracking-wider text-primary">Billing</p>
         <h1 className="text-2xl font-extrabold text-on-surface sm:text-3xl">Payments inbox</h1>
         <p className="mt-1 text-sm text-on-surface-variant">
-          Operator “I paid” notes land here. Confirm with the mobile-money reference to renew access.
+          Operator submits name, school, term, mobile money and transaction ID. You confirm receipt → account activates.
         </p>
       </div>
 
@@ -55,28 +94,54 @@ function PaymentsPage() {
       </div>
 
       {err ? <p className="rounded-md bg-tertiary/10 px-3 py-2 text-sm font-bold text-tertiary">{err}</p> : null}
+      {okMsg ? <p className="rounded-md bg-primary/10 px-3 py-2 text-sm font-bold text-primary">{okMsg}</p> : null}
 
       <Card className="space-y-sm">
-        <SectionTitle>Operator payment claims</SectionTitle>
+        <SectionTitle>Waiting for your confirmation</SectionTitle>
         {pendingClaims.length === 0 ? (
-          <p className="text-sm text-on-surface-variant">No open claims. Operators add these on Plan & pay.</p>
+          <p className="text-sm text-on-surface-variant">
+            No open claims. Operators submit these on Plan & pay after they send mobile money.
+          </p>
         ) : null}
         {pendingClaims.map((c) => (
-          <div key={c.id} className="space-y-2 rounded-md border border-outline-variant bg-surface-lowest p-3">
+          <div key={c.id} className="space-y-3 rounded-md border border-outline-variant bg-surface-lowest p-3">
             <div className="flex flex-wrap items-start justify-between gap-2">
-              <div className="min-w-0">
+              <div className="min-w-0 space-y-1">
                 <p className="font-bold text-on-surface">{c.canteenName}</p>
+                <dl className="grid gap-1 text-sm sm:grid-cols-2">
+                  <div>
+                    <dt className="text-[11px] font-bold uppercase text-on-surface-variant">Operator</dt>
+                    <dd className="font-semibold text-on-surface">{c.operatorName || c.ownerName || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-bold uppercase text-on-surface-variant">School</dt>
+                    <dd className="font-semibold text-on-surface">{c.school || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-bold uppercase text-on-surface-variant">Term</dt>
+                    <dd className="font-semibold text-on-surface">{c.termName || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-bold uppercase text-on-surface-variant">Mode of payment</dt>
+                    <dd className="font-semibold text-on-surface">{methodLabel(c.method)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-bold uppercase text-on-surface-variant">Amount claimed</dt>
+                    <dd className="font-semibold text-on-surface">UGX {ugxDisplay(c.amount)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-bold uppercase text-on-surface-variant">Transaction ID</dt>
+                    <dd className="font-mono font-semibold text-on-surface">{c.transactionId || "— not provided —"}</dd>
+                  </div>
+                </dl>
                 <p className="text-xs text-on-surface-variant">
-                  {c.ownerName} · {c.phone} · {c.school || "—"}
-                </p>
-                <p className="mt-1 text-sm text-on-surface">
-                  Claims UGX {ugxDisplay(c.amount)}
+                  {c.phone || "No phone"} · submitted {fmtDate(c.ts)}
                   {c.note ? ` · “${c.note}”` : ""}
                 </p>
-                <p className="text-xs text-on-surface-variant">{fmtDate(c.ts)}</p>
               </div>
               <Pill tone="warn">Waiting</Pill>
             </div>
+
             <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
               <Field
                 label="Amount received (UGX)"
@@ -85,26 +150,13 @@ function PaymentsPage() {
                 onChange={(e) => setAmountByClaim({ ...amountByClaim, [c.id]: e.target.value })}
               />
               <Field
-                label="Mobile-money reference"
-                value={refByClaim[c.id] ?? ""}
+                label="Confirm transaction ID"
+                value={refByClaim[c.id] ?? c.transactionId ?? ""}
                 onChange={(e) => setRefByClaim({ ...refByClaim, [c.id]: e.target.value })}
-                placeholder="e.g. MM123ABC"
+                placeholder="Match the MoMo SMS"
               />
-              <PrimaryButton
-                onClick={() => {
-                  const res = renewWithProof({
-                    accountId: c.accountId,
-                    amount: Number(amountByClaim[c.id] ?? c.amount) || s.settings.priceUGX,
-                    ref: refByClaim[c.id] ?? "",
-                    note: c.note,
-                    who: user?.name ?? "admin",
-                    claimId: c.id,
-                  });
-                  if (!res.ok) setErr(res.error ?? "Could not renew");
-                  else setErr("");
-                }}
-              >
-                Confirm & renew
+              <PrimaryButton disabled={busyId === c.id} onClick={() => void confirmClaim(c)}>
+                {busyId === c.id ? "Working…" : "Confirm & activate"}
               </PrimaryButton>
               <button
                 type="button"
@@ -114,6 +166,10 @@ function PaymentsPage() {
                 Dismiss
               </button>
             </div>
+            <p className="text-xs text-on-surface-variant">
+              Confirm only after you see this money on your phone. That starts / renews their paid access for{" "}
+              {s.settings.months} months.
+            </p>
           </div>
         ))}
       </Card>
@@ -160,17 +216,26 @@ function PaymentsPage() {
       <Card className="space-y-sm">
         <SectionTitle>Confirmed payments</SectionTitle>
         {(s.payments ?? []).length === 0 ? (
-          <p className="text-sm text-on-surface-variant">None yet — renewals with a MoMo reference appear here.</p>
+          <p className="text-sm text-on-surface-variant">None yet — confirmed claims appear here.</p>
         ) : null}
         {(s.payments ?? []).slice(0, 40).map((p) => {
           const t = s.tenants.find((x) => x.accountId === p.accountId);
           return (
-            <div key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-surface-lowest p-3 text-sm">
-              <div>
+            <div
+              key={p.id}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-surface-lowest p-3 text-sm"
+            >
+              <div className="min-w-0">
                 <p className="font-bold text-on-surface">{t?.canteenName ?? p.accountId}</p>
                 <p className="text-xs text-on-surface-variant">
-                  {fmtDate(p.ts)} · ref {p.ref} · by {p.who}
-                  {p.note ? ` · ${p.note}` : ""}
+                  {p.operatorName || t?.ownerName || "—"}
+                  {p.school || t?.school ? ` · ${p.school || t?.school}` : ""}
+                  {p.termName ? ` · ${p.termName}` : ""}
+                  {" · "}
+                  {methodLabel(p.method)}
+                </p>
+                <p className="font-mono text-xs text-on-surface">
+                  Txn {p.transactionId || p.ref} · by {p.who} · {fmtDate(p.ts)}
                 </p>
               </div>
               <div className="text-right">
