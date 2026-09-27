@@ -464,7 +464,18 @@ function Accounts() {
                         .slice(0, 5)
                         .map((p) => (
                           <div key={p.id} className="flex flex-wrap justify-between gap-2 rounded-md bg-surface-lowest px-2 py-1.5 text-xs">
-                            <span className="text-on-surface-variant">{fmtDate(p.ts)} · ref {p.ref} · {p.who}</span>
+                            <span className="text-on-surface-variant">
+                              {fmtDate(p.ts)}
+                              {p.operatorName ? ` · ${p.operatorName}` : ""}
+                              {p.school ? ` · ${p.school}` : ""}
+                              {p.termName ? ` · ${p.termName}` : ""}
+                              {" · "}
+                              {p.method === "cash" ? "Cash" : p.method === "bank" ? "Bank" : "Mobile money"}
+                              {" · txn "}
+                              {p.transactionId || p.ref}
+                              {" · by "}
+                              {p.who}
+                            </span>
                             <span className="font-bold tabular-nums text-primary">
                               UGX {ugxDisplay(p.amount)}
                               <span className="ml-1 font-normal text-on-surface-variant">→ {fmtDate(p.accessUntil)}</span>
