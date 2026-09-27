@@ -53,9 +53,11 @@ function PaymentsPage() {
     setErr("");
     setOkMsg("");
     const txn = (refByClaim[c.id] ?? c.transactionId ?? "").trim();
+    const months = Math.max(1, Math.min(s.settings.months || 4, Number(monthsByClaim[c.id]) || s.settings.months || 4));
+    const amount = Number(amountByClaim[c.id] ?? c.amount) || prorateAmount(s.settings.priceUGX, s.settings.months, months);
     const res = renewWithProof({
       accountId: c.accountId,
-      amount: Number(amountByClaim[c.id] ?? c.amount) || s.settings.priceUGX,
+      amount,
       ref: txn,
       note: c.note,
       who: user?.name ?? "admin",
@@ -65,6 +67,7 @@ function PaymentsPage() {
       termName: c.termName,
       method: c.method || "mobile_money",
       transactionId: txn,
+      months,
     });
     if (!res.ok) {
       setErr(res.error ?? "Could not confirm");
@@ -73,8 +76,22 @@ function PaymentsPage() {
     }
     const account = accounts.find((a) => a.id === c.accountId);
     if (account && !account.active) await toggleAccount(c.accountId);
+    exportPaymentReceipt({
+      canteenName: c.canteenName,
+      operatorName: c.operatorName || c.ownerName || "",
+      school: c.school || "",
+      termName: c.termName,
+      amount,
+      method: c.method === "cash" ? "Cash" : c.method === "bank" ? "Bank" : "Mobile money",
+      transactionId: txn,
+      accessUntil: res.accessUntil!,
+      months,
+      paidAt: Date.now(),
+      confirmedBy: user?.name ?? "admin",
+      receiptNo: `SC-${c.id.slice(0, 8).toUpperCase()}`,
+    });
     setOkMsg(
-      `Payment confirmed · ${c.operatorName || c.ownerName} · ${c.school || c.canteenName} activated until ${fmtDate(res.accessUntil!)}`,
+      `Payment confirmed · ${c.operatorName || c.ownerName} · activated until ${fmtDate(res.accessUntil!)} · receipt opened`,
     );
     setBusyId(null);
   };
