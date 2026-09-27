@@ -525,9 +525,27 @@ function Accounts() {
                 </div>
 
 
+                <p className="text-xs font-bold uppercase tracking-wide text-on-surface-variant">Help this operator</p>
                 <div className="flex flex-wrap gap-sm">
+                  {whatsappLink(
+                    t.phone,
+                    `Hello ${t.ownerName || t.canteenName}, this is SmartCanteen about your canteen account at ${t.school || "your school"}.`,
+                  ) ? (
+                    <a
+                      href={whatsappLink(
+                        t.phone,
+                        `Hello ${t.ownerName || t.canteenName}, this is SmartCanteen about your canteen account at ${t.school || "your school"}.`,
+                      )!}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex min-h-11 items-center gap-1 rounded-full border-2 border-primary px-4 text-sm font-bold text-primary"
+                    >
+                      <Icon name="chat" className="text-[18px]" /> WhatsApp
+                    </a>
+                  ) : null}
                   {can(user?.role, "suspend") ? (
                     <button
+                      type="button"
                       disabled={busyId === t.accountId}
                       onClick={async () => {
                         const account = accounts.find((item) => item.id === t.accountId);
@@ -539,9 +557,9 @@ function Accounts() {
                         await toggleAccount(t.accountId);
                         setBusyId(null);
                       }}
-                      className="min-h-11 rounded-full bg-tertiary px-4 text-sm font-bold text-on-tertiary disabled:opacity-50"
+                      className="min-h-11 rounded-full border-2 border-outline-variant px-4 text-sm font-bold text-on-surface-variant disabled:opacity-50"
                     >
-                      {accounts.find((item) => item.id === t.accountId)?.active === false ? "Restore login" : "Suspend login"}
+                      {accounts.find((item) => item.id === t.accountId)?.active === false ? "Restore login" : "Pause login"}
                     </button>
                   ) : null}
                   {(() => {
