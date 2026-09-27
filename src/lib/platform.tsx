@@ -444,7 +444,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       });
     }, 900);
     return () => window.clearTimeout(timer);
-  }, [s.settings, s.commissions, s.payouts, s.announcements, s.payments, s.paymentClaims, s.referralClaims, s.auditLog, s.tenants, hydrated, user?.role]);
+  }, [s.settings, s.commissions, s.payouts, s.announcements, s.payments, s.paymentClaims, s.referralClaims, s.expenses, s.auditLog, s.tenants, hydrated, user?.role]);
 
   useEffect(() => {
     const flush = () => {
@@ -873,6 +873,39 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
           });
         });
       },
+
+      addExpense: ({ label, category, amount, ref, who, ts }) => {
+        const pay = Math.round(Number(amount) || 0);
+        const name = label.trim();
+        if (!name) return { ok: false, error: "Enter what the money was for." };
+        if (pay <= 0) return { ok: false, error: "Enter the amount spent." };
+        patch((p) => ({
+          ...p,
+          expenses: [
+            {
+              id: uid(),
+              label: name,
+              category: category.trim() || "Other",
+              amount: pay,
+              ref: ref?.trim() || undefined,
+              who,
+              ts: ts ?? Date.now(),
+            },
+            ...(p.expenses ?? []),
+          ],
+          auditLog: [
+            { id: uid(), who, action: `Logged expense UGX ${pay.toLocaleString("en-UG")} · ${name}`, ts: Date.now() },
+            ...p.auditLog,
+          ].slice(0, 500),
+        }));
+        return { ok: true };
+      },
+
+      removeExpense: (id) =>
+        patch((p) => ({
+          ...p,
+          expenses: (p.expenses ?? []).filter((e) => e.id !== id),
+        })),
     };
   }, [s, hydrated, patch, user?.id]);
 
