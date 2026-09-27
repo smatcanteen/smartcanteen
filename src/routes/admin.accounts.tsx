@@ -17,6 +17,7 @@ import {
   fmtDate,
   statusLabels,
   tagLabels,
+  ugxDisplay,
   usePlatform,
   zones,
   type FollowUpTag,
@@ -72,6 +73,7 @@ function Accounts() {
   const [renewAmount, setRenewAmount] = useState("");
   const [renewRef, setRenewRef] = useState("");
   const [renewNote, setRenewNote] = useState("");
+  const [trialMoreId, setTrialMoreId] = useState<string | null>(null);
 
   // Pull the operators' real progress from the backend so the onboarding ticks
   // below show what they actually did, not a stale local copy.
