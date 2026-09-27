@@ -732,14 +732,15 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       logAction: (who, action) =>
         patch((p) => ({ ...p, auditLog: [{ id: uid(), who, action, ts: Date.now() }, ...p.auditLog].slice(0, 500) })),
 
-      renewWithProof: ({ accountId, amount, ref, note, who, claimId }) => {
-        const paymentRef = ref.trim();
+      renewWithProof: ({ accountId, amount, ref, note, who, claimId, operatorName, school, termName, method, transactionId }) => {
+        const paymentRef = (transactionId || ref).trim();
         const payAmount = Math.round(Number(amount) || 0);
         if (payAmount <= 0) return { ok: false, error: "Enter the amount received." };
-        if (paymentRef.length < 3) return { ok: false, error: "Enter the mobile-money reference." };
+        if (paymentRef.length < 3) return { ok: false, error: "Enter the mobile-money transaction ID." };
 
         const tenant = s.tenants.find((t) => t.accountId === accountId);
         if (!tenant) return { ok: false, error: "Account not found." };
+        const claim = claimId ? (s.paymentClaims ?? []).find((c) => c.id === claimId) : undefined;
 
         const months = Math.max(1, s.settings.months || 4);
         const from = new Date(Math.max(Date.now(), tenant.nextBillingAt));
@@ -780,6 +781,11 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
                 who,
                 ts: Date.now(),
                 claimId,
+                operatorName: operatorName || claim?.operatorName || tenant.ownerName,
+                school: school || claim?.school || tenant.school,
+                termName: termName || claim?.termName,
+                method: method || claim?.method || "mobile_money",
+                transactionId: transactionId || claim?.transactionId || paymentRef,
               },
               ...p.payments,
             ],
