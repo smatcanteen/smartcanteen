@@ -517,3 +517,88 @@ export const markFirstRunDone = createServerFn({ method: "POST" })
     if (error) return { ok: false as const, error: error.message };
     return { ok: true as const };
   });
+
+/**
+ * Read-only snapshot of an operator cash book for admin "View as" and export pack.
+ * Never returns PIN material — only business numbers and recent lines.
+ */
+export const getOperatorBookPreview = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { accountId: string }) => data)
+  .handler(async ({ data, context }) => {
+    await assertStaff(context as any);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const [{ data: book }, { data: profile }] = await Promise.all([
+      supabaseAdmin.from("canteen_books").select("data, updated_at").eq("user_id", data.accountId).maybeSingle(),
+      supabaseAdmin
+        .from("profiles")
+        .select("id, full_name, school, phone, last_login_at, active")
+        .eq("id", data.accountId)
+        .maybeSingle(),
+    ]);
+    if (!profile) return { ok: false as const, error: "Account not found." };
+    const d = (book?.data ?? {}) as any;
+    const txs: any[] = Array.isArray(d.txs) ? d.txs : [];
+    const items: any[] = Array.isArray(d.items) ? d.items : [];
+    const capital = Number(d.capital ?? 0);
+    let sales = 0;
+    let stock = 0;
+    let expenses = 0;
+    txs.forEach((t) => {
+      if (t.type === "sale") sales += Number(t.amount) || 0;
+      else if (t.type === "stock") stock += Number(t.amount) || 0;
+      else if (t.type === "expense") expenses += Number(t.amount) || 0;
+    });
+    const recent = [...txs]
+      .sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0))
+      .slice(0, 40)
+      .map((t) => ({
+        id: String(t.id ?? ""),
+        type: String(t.type ?? ""),
+        label: String(t.label ?? ""),
+        amount: Number(t.amount) || 0,
+        ts: Number(t.ts) || 0,
+        category: t.category ? String(t.category) : undefined,
+      }));
+    const stockRows = items.slice(0, 80).map((i) => ({
+      name: String(i.name ?? i.label ?? "Item"),
+      qty: Number(i.qty ?? i.stock ?? 0),
+      buy: Number(i.buy ?? i.cost ?? 0),
+      sell: Number(i.sell ?? i.price ?? 0),
+    }));
+    // Rough average daily sales over the last 30 days of sale txs
+    const monthAgo = Date.now() - 30 * 86_400_000;
+    const recentSales = txs.filter((t) => t.type === "sale" && Number(t.ts) >= monthAgo);
+    const daysActive = Math.max(
+      1,
+      new Set(recentSales.map((t) => new Date(Number(t.ts)).toDateString())).size,
+    );
+    const avgDailySales =
+      recentSales.length > 0
+        ? Math.round(recentSales.reduce((a, t) => a + (Number(t.amount) || 0), 0) / daysActive)
+        : 0;
+
+    return {
+      ok: true as const,
+      preview: {
+        accountId: data.accountId,
+        name: profile.full_name ?? "",
+        school: profile.school ?? "",
+        phone: profile.phone ?? "",
+        active: !!profile.active,
+        lastLoginAt: profile.last_login_at ? new Date(profile.last_login_at).getTime() : null,
+        termName: String(d.termName ?? ""),
+        capital,
+        sales,
+        stock,
+        expenses,
+        cashAtHand: capital + sales - stock - expenses,
+        entries: txs.filter((t) => t.type !== "capital").length,
+        avgDailySales,
+        recent,
+        stockRows,
+        payments: Array.isArray(d.payments) ? d.payments : [],
+        updatedAt: book?.updated_at ? new Date(book.updated_at).getTime() : null,
+      },
+    };
+  });
