@@ -321,6 +321,13 @@ function Accounts() {
                 >
                   {openId === t.accountId ? "Close details" : "Manage account"} <Icon name={openId === t.accountId ? "expand_less" : "chevron_right"} className="text-[17px]" />
                 </button>
+                <Link
+                  to="/admin/view/$accountId"
+                  params={{ accountId: t.accountId }}
+                  className="col-span-3 inline-flex min-h-9 items-center justify-end text-xs font-bold text-primary underline"
+                >
+                  View as operator · export pack
+                </Link>
               </div>
             </div>
 
