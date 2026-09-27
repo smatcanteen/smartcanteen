@@ -275,6 +275,7 @@ async function persistHub(s: PlatformState) {
       payments: s.payments,
       paymentClaims: s.paymentClaims,
       referralClaims: s.referralClaims,
+      expenses: s.expenses,
       auditLog: s.auditLog,
       tenantMeta,
     },
@@ -318,6 +319,7 @@ const seed: PlatformState = {
   payments: [],
   paymentClaims: [],
   referralClaims: [],
+  expenses: [],
   auditLog: [],
 };
 
@@ -368,6 +370,8 @@ type Ctx = {
   grantReferralCredit: (opts: { accountId: string; who: string; months?: number }) => { ok: boolean; error?: string };
   dismissReferralClaim: (id: string) => void;
   archiveTenant: (accountId: string, who: string) => void;
+  addExpense: (opts: { label: string; category: string; amount: number; ref?: string; who: string; ts?: number }) => { ok: boolean; error?: string };
+  removeExpense: (id: string) => void;
 };
 
 const PlatformContext = createContext<Ctx | null>(null);
@@ -400,6 +404,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
           payments: Array.isArray(result.platform.payments) ? result.platform.payments : [],
           paymentClaims: Array.isArray(result.platform.paymentClaims) ? result.platform.paymentClaims : [],
           referralClaims: Array.isArray(result.platform.referralClaims) ? result.platform.referralClaims : [],
+          expenses: Array.isArray(result.platform.expenses) ? result.platform.expenses : [],
           auditLog: Array.isArray(result.platform.auditLog) ? result.platform.auditLog : [],
           announcements: (result.platform.announcements ?? []).map((a: Announcement) => ({
             ...a,
