@@ -137,6 +137,11 @@ export type PaymentRecord = {
   ts: number;
   /** Matched operator self-reported payment id, if any. */
   claimId?: string;
+  operatorName?: string;
+  school?: string;
+  termName?: string;
+  method?: "mobile_money" | "cash" | "bank";
+  transactionId?: string;
 };
 
 /** Company money out (airtime, agent payouts, ads, rent, etc.). */
@@ -162,6 +167,13 @@ export type PaymentClaim = {
   note: string;
   ts: number;
   status: "pending" | "matched" | "dismissed";
+  /** Operator-entered name on the payment form. */
+  operatorName?: string;
+  /** Term they say they are paying for. */
+  termName?: string;
+  method?: "mobile_money" | "cash" | "bank";
+  /** Mobile-money transaction id. */
+  transactionId?: string;
 };
 
 /** Operator referral free-month request. */
@@ -365,6 +377,11 @@ type Ctx = {
     note?: string;
     who: string;
     claimId?: string;
+    operatorName?: string;
+    school?: string;
+    termName?: string;
+    method?: "mobile_money" | "cash" | "bank";
+    transactionId?: string;
   }) => { ok: boolean; error?: string; accessUntil?: number };
   dismissPaymentClaim: (id: string) => void;
   grantReferralCredit: (opts: { accountId: string; who: string; months?: number }) => { ok: boolean; error?: string };
