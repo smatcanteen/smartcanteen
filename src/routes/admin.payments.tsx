@@ -162,7 +162,21 @@ function PaymentsPage() {
               <Pill tone="warn">Waiting</Pill>
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto_auto] sm:items-end">
+              <Field
+                label="Months (1–4 partial OK)"
+                inputMode="numeric"
+                value={monthsByClaim[c.id] ?? String(s.settings.months)}
+                onChange={(e) => {
+                  const m = e.target.value.replace(/\D/g, "").slice(0, 1);
+                  setMonthsByClaim({ ...monthsByClaim, [c.id]: m });
+                  const months = Math.max(1, Math.min(s.settings.months || 4, Number(m) || 1));
+                  setAmountByClaim({
+                    ...amountByClaim,
+                    [c.id]: String(prorateAmount(s.settings.priceUGX, s.settings.months, months)),
+                  });
+                }}
+              />
               <Field
                 label="Amount received (UGX)"
                 inputMode="numeric"
@@ -261,6 +275,28 @@ function PaymentsPage() {
               <div className="text-right">
                 <p className="font-bold text-primary">UGX {ugxDisplay(p.amount)}</p>
                 <p className="text-xs text-on-surface-variant">Access to {fmtDate(p.accessUntil)}</p>
+                <button
+                  type="button"
+                  className="text-xs font-bold text-primary underline"
+                  onClick={() =>
+                    exportPaymentReceipt({
+                      canteenName: t?.canteenName ?? p.accountId,
+                      operatorName: p.operatorName || t?.ownerName || "",
+                      school: p.school || t?.school || "",
+                      termName: p.termName,
+                      amount: p.amount,
+                      method: p.method === "cash" ? "Cash" : p.method === "bank" ? "Bank" : "Mobile money",
+                      transactionId: p.transactionId || p.ref,
+                      accessUntil: p.accessUntil,
+                      months: s.settings.months,
+                      paidAt: p.ts,
+                      confirmedBy: p.who,
+                      receiptNo: `SC-${p.id.slice(0, 8).toUpperCase()}`,
+                    })
+                  }
+                >
+                  Receipt PDF
+                </button>
               </div>
             </div>
           );
