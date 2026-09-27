@@ -41,6 +41,8 @@ import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminSupportRouteImport } from './routes/admin.support'
 import { Route as AdminFinanceRouteImport } from './routes/admin.finance'
+import { Route as AdminInsightsRouteImport } from './routes/admin.insights'
+import { Route as AdminViewAccountIdRouteImport } from './routes/admin.view.$accountId'
 import { Route as PayCategoryRouteImport } from './routes/pay.$category'
 
 const IndexRoute = IndexRouteImport.update({
@@ -203,6 +205,16 @@ const AdminFinanceRoute = AdminFinanceRouteImport.update({
   path: '/finance',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminInsightsRoute = AdminInsightsRouteImport.update({
+  id: '/insights',
+  path: '/insights',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminViewAccountIdRoute = AdminViewAccountIdRouteImport.update({
+  id: '/view/$accountId',
+  path: '/view/$accountId',
+  getParentRoute: () => AdminRoute,
+} as any)
 const PayCategoryRoute = PayCategoryRouteImport.update({
   id: '/pay/$category',
   path: '/pay/$category',
@@ -241,6 +253,8 @@ export interface FileRoutesByFullPath {
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/support': typeof AdminSupportRoute
   '/admin/finance': typeof AdminFinanceRoute
+  '/admin/insights': typeof AdminInsightsRoute
+  '/admin/view/$accountId': typeof AdminViewAccountIdRoute
   '/pay/$category': typeof PayCategoryRoute
   '/admin/': typeof AdminIndexRoute
 }
@@ -275,6 +289,8 @@ export interface FileRoutesByTo {
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/support': typeof AdminSupportRoute
   '/admin/finance': typeof AdminFinanceRoute
+  '/admin/insights': typeof AdminInsightsRoute
+  '/admin/view/$accountId': typeof AdminViewAccountIdRoute
   '/pay/$category': typeof PayCategoryRoute
   '/admin': typeof AdminIndexRoute
 }
@@ -311,6 +327,8 @@ export interface FileRoutesById {
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/support': typeof AdminSupportRoute
   '/admin/finance': typeof AdminFinanceRoute
+  '/admin/insights': typeof AdminInsightsRoute
+  '/admin/view/$accountId': typeof AdminViewAccountIdRoute
   '/pay/$category': typeof PayCategoryRoute
   '/admin/': typeof AdminIndexRoute
 }
@@ -348,6 +366,8 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/admin/support'
     | '/admin/finance'
+    | '/admin/insights'
+    | '/admin/view/$accountId'
     | '/pay/$category'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
@@ -382,6 +402,8 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/admin/support'
     | '/admin/finance'
+    | '/admin/insights'
+    | '/admin/view/$accountId'
     | '/pay/$category'
     | '/admin'
   id:
@@ -417,6 +439,8 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/admin/support'
     | '/admin/finance'
+    | '/admin/insights'
+    | '/admin/view/$accountId'
     | '/pay/$category'
     | '/admin/'
   fileRoutesById: FileRoutesById
@@ -671,6 +695,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminFinanceRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/insights': {
+      id: '/admin/insights'
+      path: '/insights'
+      fullPath: '/admin/insights'
+      preLoaderRoute: typeof AdminInsightsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/view/$accountId': {
+      id: '/admin/view/$accountId'
+      path: '/view/$accountId'
+      fullPath: '/admin/view/$accountId'
+      preLoaderRoute: typeof AdminViewAccountIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/pay/$category': {
       id: '/pay/$category'
       path: '/pay/$category'
@@ -693,6 +731,8 @@ interface AdminRouteChildren {
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminSupportRoute: typeof AdminSupportRoute
   AdminFinanceRoute: typeof AdminFinanceRoute
+  AdminInsightsRoute: typeof AdminInsightsRoute
+  AdminViewAccountIdRoute: typeof AdminViewAccountIdRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
@@ -708,6 +748,8 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminSettingsRoute: AdminSettingsRoute,
   AdminSupportRoute: AdminSupportRoute,
   AdminFinanceRoute: AdminFinanceRoute,
+  AdminInsightsRoute: AdminInsightsRoute,
+  AdminViewAccountIdRoute: AdminViewAccountIdRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 
