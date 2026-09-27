@@ -40,6 +40,7 @@ import { Route as AdminNewRouteImport } from './routes/admin.new'
 import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminSupportRouteImport } from './routes/admin.support'
+import { Route as AdminFinanceRouteImport } from './routes/admin.finance'
 import { Route as PayCategoryRouteImport } from './routes/pay.$category'
 
 const IndexRoute = IndexRouteImport.update({
@@ -197,6 +198,11 @@ const AdminSupportRoute = AdminSupportRouteImport.update({
   path: '/support',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminFinanceRoute = AdminFinanceRouteImport.update({
+  id: '/finance',
+  path: '/finance',
+  getParentRoute: () => AdminRoute,
+} as any)
 const PayCategoryRoute = PayCategoryRouteImport.update({
   id: '/pay/$category',
   path: '/pay/$category',
@@ -234,6 +240,7 @@ export interface FileRoutesByFullPath {
   '/admin/payments': typeof AdminPaymentsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/support': typeof AdminSupportRoute
+  '/admin/finance': typeof AdminFinanceRoute
   '/pay/$category': typeof PayCategoryRoute
   '/admin/': typeof AdminIndexRoute
 }
@@ -267,6 +274,7 @@ export interface FileRoutesByTo {
   '/admin/payments': typeof AdminPaymentsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/support': typeof AdminSupportRoute
+  '/admin/finance': typeof AdminFinanceRoute
   '/pay/$category': typeof PayCategoryRoute
   '/admin': typeof AdminIndexRoute
 }
@@ -302,6 +310,7 @@ export interface FileRoutesById {
   '/admin/payments': typeof AdminPaymentsRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/support': typeof AdminSupportRoute
+  '/admin/finance': typeof AdminFinanceRoute
   '/pay/$category': typeof PayCategoryRoute
   '/admin/': typeof AdminIndexRoute
 }
@@ -338,6 +347,7 @@ export interface FileRouteTypes {
     | '/admin/payments'
     | '/admin/settings'
     | '/admin/support'
+    | '/admin/finance'
     | '/pay/$category'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
@@ -371,6 +381,7 @@ export interface FileRouteTypes {
     | '/admin/payments'
     | '/admin/settings'
     | '/admin/support'
+    | '/admin/finance'
     | '/pay/$category'
     | '/admin'
   id:
@@ -405,6 +416,7 @@ export interface FileRouteTypes {
     | '/admin/payments'
     | '/admin/settings'
     | '/admin/support'
+    | '/admin/finance'
     | '/pay/$category'
     | '/admin/'
   fileRoutesById: FileRoutesById
@@ -652,6 +664,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSupportRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/finance': {
+      id: '/admin/finance'
+      path: '/finance'
+      fullPath: '/admin/finance'
+      preLoaderRoute: typeof AdminFinanceRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/pay/$category': {
       id: '/pay/$category'
       path: '/pay/$category'
@@ -673,6 +692,7 @@ interface AdminRouteChildren {
   AdminPaymentsRoute: typeof AdminPaymentsRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminSupportRoute: typeof AdminSupportRoute
+  AdminFinanceRoute: typeof AdminFinanceRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
@@ -687,6 +707,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminPaymentsRoute: AdminPaymentsRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminSupportRoute: AdminSupportRoute,
+  AdminFinanceRoute: AdminFinanceRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 
