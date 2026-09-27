@@ -299,6 +299,7 @@ async function persistHub(s: PlatformState) {
       referralClaims: s.referralClaims,
       expenses: s.expenses,
       auditLog: s.auditLog,
+      renewalChases: s.renewalChases,
       tenantMeta,
     },
   });
@@ -438,6 +439,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
           referralClaims: Array.isArray(result.platform.referralClaims) ? result.platform.referralClaims : [],
           expenses: Array.isArray(result.platform.expenses) ? result.platform.expenses : [],
           auditLog: Array.isArray(result.platform.auditLog) ? result.platform.auditLog : [],
+          renewalChases: Array.isArray((result.platform as any).renewalChases) ? (result.platform as any).renewalChases : [],
           announcements: (result.platform.announcements ?? []).map((a: Announcement) => ({
             ...a,
             audience: a.audience ?? "operators",
@@ -476,7 +478,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       });
     }, 900);
     return () => window.clearTimeout(timer);
-  }, [s.settings, s.commissions, s.payouts, s.announcements, s.payments, s.paymentClaims, s.referralClaims, s.expenses, s.auditLog, s.tenants, hydrated, user?.role]);
+  }, [s.settings, s.commissions, s.payouts, s.announcements, s.payments, s.paymentClaims, s.referralClaims, s.expenses, s.auditLog, s.renewalChases, s.tenants, hydrated, user?.role]);
 
   useEffect(() => {
     const flush = () => {
@@ -747,7 +749,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       logAction: (who, action) =>
         patch((p) => ({ ...p, auditLog: [{ id: uid(), who, action, ts: Date.now() }, ...p.auditLog].slice(0, 500) })),
 
-      renewWithProof: ({ accountId, amount, ref, note, who, claimId, operatorName, school, termName, method, transactionId }) => {
+      renewWithProof: ({ accountId, amount, ref, note, who, claimId, operatorName, school, termName, method, transactionId, months: monthsOpt }) => {
         const paymentRef = (transactionId || ref).trim();
         const payAmount = Math.round(Number(amount) || 0);
         if (payAmount <= 0) return { ok: false, error: "Enter the amount received." };
@@ -757,7 +759,8 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         if (!tenant) return { ok: false, error: "Account not found." };
         const claim = claimId ? (s.paymentClaims ?? []).find((c) => c.id === claimId) : undefined;
 
-        const months = Math.max(1, s.settings.months || 4);
+        const planMonths = Math.max(1, s.settings.months || 4);
+        const months = Math.max(1, Math.min(planMonths, Math.round(monthsOpt ?? planMonths)));
         const from = new Date(Math.max(Date.now(), tenant.nextBillingAt));
         from.setMonth(from.getMonth() + months);
         const accessUntil = from.getTime();
@@ -944,6 +947,26 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
           ...p,
           expenses: (p.expenses ?? []).filter((e) => e.id !== id),
         })),
+
+      markRenewalChase: ({ accountId, tier, who }) => {
+        const tenant = s.tenants.find((t) => t.accountId === accountId);
+        patch((p) => ({
+          ...p,
+          renewalChases: [
+            { id: uid(), accountId, tier, who, ts: Date.now() },
+            ...(p.renewalChases ?? []),
+          ].slice(0, 500),
+          auditLog: [
+            {
+              id: uid(),
+              who,
+              action: `Renewal chase ${tier}d → ${tenant?.canteenName ?? accountId}`,
+              ts: Date.now(),
+            },
+            ...p.auditLog,
+          ].slice(0, 500),
+        }));
+      },
     };
   }, [s, hydrated, patch, user?.id]);
 
