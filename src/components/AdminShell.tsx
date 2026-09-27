@@ -16,6 +16,7 @@ export type AdminPerm =
   | "announcements"
   | "payments"
   | "finance"
+  | "insights"
   | "settings"
   | "activity"
   | "revenue"
@@ -28,6 +29,7 @@ const matrix: Record<"admin" | "support" | "finance", AdminPerm[]> = {
     "new",
     "payments",
     "finance",
+    "insights",
     "agents",
     "leads",
     "commissions",
@@ -38,8 +40,8 @@ const matrix: Record<"admin" | "support" | "finance", AdminPerm[]> = {
     "revenue",
     "suspend",
   ],
-  support: ["dashboard", "accounts", "new", "payments", "leads", "support", "announcements", "activity"],
-  finance: ["dashboard", "accounts", "payments", "finance", "agents", "commissions", "settings", "activity", "revenue"],
+  support: ["dashboard", "accounts", "new", "payments", "insights", "leads", "support", "announcements", "activity"],
+  finance: ["dashboard", "accounts", "payments", "finance", "insights", "agents", "commissions", "settings", "activity", "revenue"],
 };
 
 export const can = (role: Role | undefined, perm: AdminPerm) =>
@@ -50,6 +52,7 @@ const tabs: { to: string; label: string; icon: string; perm: AdminPerm }[] = [
   { to: "/admin/accounts", label: "Accounts", icon: "storefront", perm: "accounts" },
   { to: "/admin/payments", label: "Payments", icon: "account_balance_wallet", perm: "payments" },
   { to: "/admin/finance", label: "Finance", icon: "monitoring", perm: "finance" },
+  { to: "/admin/insights", label: "Insights", icon: "insights", perm: "insights" },
   { to: "/admin/new", label: "New account", icon: "person_add", perm: "new" },
   { to: "/admin/agents", label: "Agents", icon: "badge", perm: "agents" },
   { to: "/admin/leads", label: "Leads", icon: "group", perm: "leads" },
