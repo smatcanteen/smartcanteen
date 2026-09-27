@@ -368,28 +368,70 @@ function Accounts() {
                     {t.trialEndsAt ? `Trial ends ${fmtDate(t.trialEndsAt)} · ` : ""}
                     Access / next billing {fmtDate(t.nextBillingAt)}
                   </p>
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <button
-                      type="button"
-                      onClick={() => openRenew(t.accountId)}
-                      className="min-h-11 rounded-full bg-primary px-5 text-sm font-bold text-on-primary shadow-sm"
-                    >
-                      {t.status === "active"
-                        ? "They paid — renew access"
-                        : t.status === "trial"
-                          ? "They paid — start subscription"
-                          : "They paid — restore access"}
-                    </button>
-                    {(t.status === "trial" || t.status === "past_due") && (
+                  {renewForId === t.accountId ? (
+                    <div className="w-full min-w-0 space-y-3 rounded-md border-2 border-primary/30 bg-primary/5 p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-bold text-on-surface">Confirm payment received</p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRenewForId(null);
+                            setActionError("");
+                          }}
+                          className="text-xs font-bold text-on-surface-variant underline"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                      <p className="text-xs text-on-surface-variant">
+                        Enter the amount and the mobile-money reference. Access extends by {s.settings.months} months.
+                      </p>
+                      <div className="grid min-w-0 gap-2 sm:grid-cols-2">
+                        <Field
+                          label="Amount received (UGX)"
+                          inputMode="numeric"
+                          value={renewAmount}
+                          onChange={(e) => setRenewAmount(e.target.value.replace(/\D/g, ""))}
+                        />
+                        <Field
+                          label="Mobile-money reference"
+                          value={renewRef}
+                          onChange={(e) => setRenewRef(e.target.value)}
+                          placeholder="e.g. MM123ABC"
+                        />
+                      </div>
+                      <Field
+                        label="Note (optional)"
+                        value={renewNote}
+                        onChange={(e) => setRenewNote(e.target.value)}
+                      />
+                      {actionError ? <p className="text-sm font-bold text-tertiary">{actionError}</p> : null}
+                      <PrimaryButton onClick={() => void confirmRenew()}>Confirm & renew</PrimaryButton>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => setTrialMoreId(trialMoreId === t.accountId ? null : t.accountId)}
-                        className="min-h-11 text-xs font-bold text-primary underline"
+                        onClick={() => openRenew(t.accountId)}
+                        className="min-h-11 rounded-full bg-primary px-5 text-sm font-bold text-on-primary shadow-sm"
                       >
-                        {trialMoreId === t.accountId ? "Hide free days" : "Give more free days…"}
+                        {t.status === "active"
+                          ? "They paid — renew access"
+                          : t.status === "trial"
+                            ? "They paid — start subscription"
+                            : "They paid — restore access"}
                       </button>
-                    )}
-                  </div>
+                      {(t.status === "trial" || t.status === "past_due") && (
+                        <button
+                          type="button"
+                          onClick={() => setTrialMoreId(trialMoreId === t.accountId ? null : t.accountId)}
+                          className="min-h-11 text-xs font-bold text-primary underline"
+                        >
+                          {trialMoreId === t.accountId ? "Hide free days" : "Give more free days…"}
+                        </button>
+                      )}
+                    </div>
+                  )}
                   {trialMoreId === t.accountId ? (
                     <div className="flex flex-wrap gap-1">
                       {[7, 14, 30].map((d) => (
