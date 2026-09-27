@@ -366,50 +366,103 @@ function Accounts() {
                     {t.trialEndsAt ? `Trial ends ${fmtDate(t.trialEndsAt)} · ` : ""}
                     Next billing {fmtDate(t.nextBillingAt)}
                   </p>
-                  <div className="flex flex-wrap gap-1">
-                    {[7, 14, 30].map((d) => (
-                      <button
-                        key={d}
-                        onClick={() => {
-                          const base = Math.max(Date.now(), t.trialEndsAt ?? t.nextBillingAt);
-                          const until = base + d * 86400000;
-                          updateTenant(t.accountId, {
-                            status: "trial",
-                            trialEndsAt: until,
-                            nextBillingAt: until,
-                          });
-                          logAction(user?.name ?? "admin", `Extended ${t.canteenName} trial by ${d} days`);
-                        }}
-                        className="min-h-11 rounded-full border-2 border-primary px-3 text-xs font-bold text-primary"
-                      >
-                        Extend trial +{d}d
-                      </button>
-                    ))}
+                  <div className="flex flex-wrap items-start justify-between gap-2">
                     <button
+                      type="button"
                       onClick={() => openRenew(t.accountId)}
-                      className="min-h-11 rounded-full bg-primary px-4 text-xs font-bold text-on-primary"
+                      className="min-h-11 rounded-full bg-primary px-5 text-sm font-bold text-on-primary shadow-sm"
                     >
-                      {t.status === "active" ? "Renew with proof" : "Activate with proof"}
+                      {t.status === "active"
+                        ? "They paid — renew access"
+                        : t.status === "trial"
+                          ? "They paid — start subscription"
+                          : "They paid — restore access"}
                     </button>
-                    <button
-                      onClick={() => {
-                        if (confirm(`Archive ${t.canteenName}? Subscription ends; past records stay read-only.`)) {
-                          archiveTenant(t.accountId, user?.name ?? "admin");
-                        }
-                      }}
-                      className="min-h-11 rounded-full border-2 border-outline-variant px-3 text-xs font-bold text-on-surface-variant"
-                    >
-                      Archive account
-                    </button>
-                    {t.status !== "churned" ? (
+                    {(t.status === "trial" || t.status === "past_due") && (
                       <button
-                        onClick={() => deactivate(t)}
-                        className="min-h-11 rounded-full border-2 border-tertiary px-3 text-xs font-bold text-tertiary"
+                        type="button"
+                        onClick={() => setTrialMoreId(trialMoreId === t.accountId ? null : t.accountId)}
+                        className="min-h-11 text-xs font-bold text-primary underline"
                       >
-                        Deactivate subscription
+                        {trialMoreId === t.accountId ? "Hide free days" : "Give more free days…"}
                       </button>
-                    ) : null}
+                    )}
                   </div>
+                  {trialMoreId === t.accountId ? (
+                    <div className="flex flex-wrap gap-1">
+                      {[7, 14, 30].map((d) => (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => {
+                            const base = Math.max(Date.now(), t.trialEndsAt ?? t.nextBillingAt);
+                            const until = base + d * 86400000;
+                            updateTenant(t.accountId, {
+                              status: "trial",
+                              trialEndsAt: until,
+                              nextBillingAt: until,
+                            });
+                            logAction(user?.name ?? "admin", `Extended ${t.canteenName} trial by ${d} days`);
+                          }}
+                          className="min-h-10 rounded-full border border-outline-variant px-3 text-xs font-bold text-on-surface-variant"
+                        >
+                          +{d} free days
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                  {(s.payments ?? []).filter((p) => p.accountId === t.accountId).length > 0 ? (
+                    <div className="space-y-1">
+                      <p className="text-[11px] font-bold uppercase text-on-surface-variant">Payment history</p>
+                      {(s.payments ?? [])
+                        .filter((p) => p.accountId === t.accountId)
+                        .sort((a, b) => b.ts - a.ts)
+                        .slice(0, 5)
+                        .map((p) => (
+                          <div key={p.id} className="flex flex-wrap justify-between gap-2 rounded-md bg-surface-lowest px-2 py-1.5 text-xs">
+                            <span className="text-on-surface-variant">{fmtDate(p.ts)} · ref {p.ref} · {p.who}</span>
+                            <span className="font-bold tabular-nums text-primary">
+                              UGX {ugxDisplay(p.amount)}
+                              <span className="ml-1 font-normal text-on-surface-variant">→ {fmtDate(p.accessUntil)}</span>
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-on-surface-variant">
+                      No confirmed payments yet. When money lands, tap the green button and enter the MoMo reference.
+                    </p>
+                  )}
+                  {(s.paymentClaims ?? []).some((c) => c.accountId === t.accountId && c.status === "pending") ? (
+                    <p className="rounded-md bg-secondary/15 px-3 py-2 text-xs font-semibold text-secondary">
+                      Payment claim waiting in{" "}
+                      <Link to="/admin/payments" className="underline">Payments inbox</Link>
+                    </p>
+                  ) : null}
+                  {t.status !== "churned" ? (
+                    <div className="flex flex-wrap gap-3 border-t border-outline-variant/40 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (confirm(`End subscription for ${t.canteenName}? Past records stay readable.`))
+                            deactivate(t);
+                        }}
+                        className="text-xs font-bold text-tertiary underline"
+                      >
+                        End subscription
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (confirm(`Archive ${t.canteenName}?`))
+                            archiveTenant(t.accountId, user?.name ?? "admin");
+                        }}
+                        className="text-xs font-bold text-on-surface-variant underline"
+                      >
+                        Archive
+                      </button>
+                    </div>
+                  ) : null}
                   <div className="grid gap-sm sm:grid-cols-3">
                     <SelectField
                       label="Plan / category"
