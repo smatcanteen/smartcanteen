@@ -3,6 +3,8 @@ import { useState } from "react";
 import { Card, Field, PrimaryButton, SectionTitle } from "@/components/ui-kit";
 import { Kpi, Pill } from "@/components/AdminShell";
 import { useAuth } from "@/lib/auth";
+import { exportPaymentReceipt } from "@/lib/export";
+import { prorateAmount } from "@/lib/admin-metrics";
 import { fmtDate, ugxDisplay, usePlatform } from "@/lib/platform";
 
 export const Route = createFileRoute("/admin/payments")({
@@ -34,6 +36,7 @@ function PaymentsPage() {
   const [okMsg, setOkMsg] = useState("");
   const [refByClaim, setRefByClaim] = useState<Record<string, string>>({});
   const [amountByClaim, setAmountByClaim] = useState<Record<string, string>>({});
+  const [monthsByClaim, setMonthsByClaim] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const pendingClaims = (s.paymentClaims ?? []).filter((c) => c.status === "pending");
