@@ -190,7 +190,9 @@ function Accounts() {
         <div>
           <p className="text-xs font-bold uppercase tracking-wider text-primary">Account administration</p>
           <h1 className="text-2xl font-extrabold text-on-surface sm:text-3xl">Canteen accounts</h1>
-          <p className="mt-1 text-sm text-on-surface-variant">Manage access, renewals and operator setup.</p>
+          <p className="mt-1 text-sm text-on-surface-variant">
+            Open an account → confirm payment when money arrives → track setup. One green button starts paid access.
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
