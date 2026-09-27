@@ -190,6 +190,15 @@ export type ReferralClaim = {
 
 export type AuditEntry = { id: string; who: string; action: string; ts: number };
 
+/** Renewal chase touch in the 14 / 7 / 1 day sequence. */
+export type RenewalChase = {
+  id: string;
+  accountId: string;
+  tier: 14 | 7 | 1;
+  who: string;
+  ts: number;
+};
+
 export type PlatformSettings = {
   priceUGX: number;
   months: number;
@@ -215,6 +224,7 @@ export type PlatformState = {
   expenses: BusinessExpense[];
   /** Audit log of support and billing actions. */
   auditLog: AuditEntry[];
+  renewalChases: RenewalChase[];
 };
 
 /* ------------------------------------------------------------------- seed */
@@ -333,6 +343,7 @@ const seed: PlatformState = {
   referralClaims: [],
   expenses: [],
   auditLog: [],
+  renewalChases: [],
 };
 
 /* --------------------------------------------------------------- provider */
@@ -382,7 +393,11 @@ type Ctx = {
     termName?: string;
     method?: "mobile_money" | "cash" | "bank";
     transactionId?: string;
+    /** Override plan months (proration / partial term). */
+    months?: number;
   }) => { ok: boolean; error?: string; accessUntil?: number };
+  /** Record that a renewal WhatsApp chase was sent (14/7/1 day sequence). */
+  markRenewalChase: (opts: { accountId: string; tier: 14 | 7 | 1; who: string }) => void;
   dismissPaymentClaim: (id: string) => void;
   grantReferralCredit: (opts: { accountId: string; who: string; months?: number }) => { ok: boolean; error?: string };
   dismissReferralClaim: (id: string) => void;
