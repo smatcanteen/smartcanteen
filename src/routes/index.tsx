@@ -488,7 +488,7 @@ function Home() {
           <Icon name="bar_chart" className="text-[16px] text-primary" /> Reports
         </Link>
         <Link
-          to="/history"
+          to="/history" search={{ edit: undefined }}
           className="card flex min-h-11 items-center justify-center gap-1 p-2 text-xs font-bold text-on-surface"
         >
           <Icon name="edit_note" className="text-[16px] text-primary" /> Fix
@@ -500,7 +500,7 @@ function Home() {
           <h2 className="label-bold text-on-surface-variant" data-tour="recent">
             Recent
           </h2>
-          <Link to="/history" data-tour="see-all" className="text-sm font-bold text-primary hover:underline">
+          <Link to="/history" search={{ edit: undefined }} data-tour="see-all" className="text-sm font-bold text-primary hover:underline">
             Fix entries
           </Link>
         </div>
