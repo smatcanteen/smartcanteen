@@ -139,6 +139,17 @@ export type PaymentRecord = {
   claimId?: string;
 };
 
+/** Company money out (airtime, agent payouts, ads, rent, etc.). */
+export type BusinessExpense = {
+  id: string;
+  label: string;
+  category: string;
+  amount: number;
+  ref?: string;
+  who: string;
+  ts: number;
+};
+
 /** Operator self-reported payment waiting for admin match. */
 export type PaymentClaim = {
   id: string;
@@ -189,6 +200,7 @@ export type PlatformState = {
   payments: PaymentRecord[];
   paymentClaims: PaymentClaim[];
   referralClaims: ReferralClaim[];
+  expenses: BusinessExpense[];
   /** Audit log of support and billing actions. */
   auditLog: AuditEntry[];
 };
