@@ -599,6 +599,16 @@ export const getOperatorBookPreview = createServerFn({ method: "POST" })
         stockRows,
         payments: Array.isArray(d.payments) ? d.payments : [],
         updatedAt: book?.updated_at ? new Date(book.updated_at).getTime() : null,
+        saleTxs: txs
+          .filter((t) => t.type === "sale")
+          .slice(-3000)
+          .map((t) => ({
+            id: String(t.id ?? ""),
+            type: "sale",
+            label: String(t.label ?? ""),
+            amount: Number(t.amount) || 0,
+            ts: Number(t.ts) || 0,
+          })),
       },
     };
   });
