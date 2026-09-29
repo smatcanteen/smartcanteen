@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { AppLayout, Saved } from "@/components/AppLayout";
 import { Icon } from "@/components/Icon";
@@ -179,6 +179,9 @@ function Sale() {
           This sale will be saved on {whenLabel}, not today. {dayAlready > 0 ? `That day already has UGX ${ugx(dayAlready)}.` : ""}
         </p>
       ) : null}
+
+      <div className="flex gap-sm">
+        <div className="flex-grow">
           <Keypad onPress={press} />
         </div>
         <MicButton
@@ -311,9 +314,31 @@ function Sale() {
         </Card>
       )}
 
-      <PrimaryButton tone="cta" onClick={handleSave} disabled={total <= 0 || (credit && !debtor.name.trim())}>
+      <PrimaryButton tone="cta" onClick={() => handleSave()} disabled={total <= 0 || (credit && !debtor.name.trim())}>
         <Icon name="check" /> {credit ? "Save credit" : "Save sale"}
       </PrimaryButton>
+
+      {bigAsk ? (
+        <Card className="space-y-sm border-2 border-tertiary/50 bg-tertiary/5">
+          <p className="font-bold text-tertiary">UGX {ugx(total)} is much bigger than a usual day (about UGX {ugx(usual)}).</p>
+          <p className="text-sm text-on-surface">
+            Is this several days added together? Saving each day on its own date keeps your reports and daily totals right.
+          </p>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => {
+                setBigAsk(false);
+                setMore(true);
+              }}
+              className="min-h-12 rounded-md border-2 border-primary font-bold text-primary"
+            >
+              No, go back and split by day
+            </button>
+            <PrimaryButton onClick={() => handleSave(true)}>Yes it is one day, save</PrimaryButton>
+          </div>
+        </Card>
+      ) : null}
       <Saved
         show={saved}
         onUndo={() => {
@@ -324,6 +349,79 @@ function Sale() {
       {saved && lastLabel ? (
         <p className="text-center text-xs text-on-surface-variant">Saved: {lastLabel}. Undo for a few seconds if wrong.</p>
       ) : null}
+
+      <Card className="space-y-sm">
+        <SectionTitle>Recent sales · last 7 days</SectionTitle>
+        <p className="text-xs text-on-surface-variant">Wrong amount or wrong day? Fix it here. Cash at Hand moves by the difference.</p>
+        {recent.length === 0 ? <p className="text-sm text-outline">No sales in the last 7 days.</p> : null}
+        {recent.map((t) => (
+          <div key={t.id} className="rounded-md bg-surface-lowest p-sm">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold text-on-surface">UGX {ugx(t.amount)}</p>
+                <p className="truncate text-xs text-on-surface-variant">
+                  {new Date(t.ts).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} · {t.label}
+                  {t.edits?.length ? " · edited" : ""}
+                </p>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditId(editId === t.id ? null : t.id);
+                    setEditAmount(String(t.amount));
+                    setEditWhen(dateInput(t.ts));
+                  }}
+                  className="flex min-h-10 items-center gap-1 rounded-md bg-primary/10 px-3 text-xs font-bold text-primary"
+                >
+                  <Icon name="edit" className="text-[16px]" /> Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const day = new Date(t.ts).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+                    if (
+                      confirm(
+                        `Delete UGX ${ugx(t.amount)} sale of ${day}?\n\nCash at Hand goes down by UGX ${ugx(t.amount)}. This cannot be brought back.`,
+                      )
+                    ) {
+                      deleteTx(t.id);
+                      if (editId === t.id) setEditId(null);
+                    }
+                  }}
+                  className="flex min-h-10 items-center gap-1 rounded-md bg-error-container px-3 text-xs font-bold text-on-error-container"
+                >
+                  <Icon name="delete" className="text-[16px]" /> Delete
+                </button>
+              </div>
+            </div>
+            {editing && editing.id === t.id ? (
+              <div className="mt-2 grid gap-sm sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                <Field
+                  label="Amount (UGX)"
+                  inputMode="numeric"
+                  value={editAmount}
+                  onChange={(e) => setEditAmount(e.target.value.replace(/\D/g, ""))}
+                />
+                <Field label="Date" type="date" value={editWhen} max={todayKey} onChange={(e) => setEditWhen(e.target.value)} />
+                <PrimaryButton
+                  onClick={() => {
+                    const amt = Number(editAmount) || 0;
+                    if (amt <= 0) return;
+                    editTx(t.id, { amount: amt, ts: fromDateInput(editWhen || dateInput(t.ts)) });
+                    setEditId(null);
+                  }}
+                >
+                  Save fix
+                </PrimaryButton>
+              </div>
+            ) : null}
+          </div>
+        ))}
+        <Link to="/history" className="inline-flex min-h-11 items-center gap-1 text-sm font-bold text-primary underline">
+          Older entries: open Fix entries
+        </Link>
+      </Card>
 
       <RangeBar range={range} title={`Sales report — ${range.label}`} sheets={[salesSheet]} baseName="smartcanteen-sales" />
       <Card className="space-y-sm">
