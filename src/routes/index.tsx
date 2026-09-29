@@ -66,11 +66,15 @@ function Home() {
     state,
     cashAtHand,
     today,
-    termProfit,
+    termProfit: cashProfit,
+    shelfValueAtCost,
     logRecurringDue,
     setHoliday,
     markRenewalNudge,
   } = useStore();
+  // Real profit: cost of stock still on the shelf is not a loss.
+  const shelfNow = Math.round(shelfValueAtCost);
+  const termProfit = cashProfit + shelfNow;
   const [hide, setHide] = useState(false);
   const [hour, setHour] = useState(() => localHour());
   const { user } = useAuth();
@@ -185,7 +189,10 @@ function Home() {
               <div className="h-full rounded-full bg-secondary-container" style={{ width: `${goalPct}%` }} />
             </div>
             <p className="cash-hero-goal mt-1 text-on-surface-variant">
-              Savings goal {goalPct}% · net profit UGX {ugx(termProfit)} of UGX {ugx(state.savingsGoal)}
+              Savings goal {goalPct}% · profit so far {termProfit < 0 ? "-" : ""}UGX {ugx(Math.abs(termProfit))} of UGX {ugx(state.savingsGoal)}
+            </p>
+            <p className="text-xs text-on-surface-variant">
+              Stock on your shelf (UGX {ugx(shelfNow)}) is not counted as a loss.
             </p>
           </div>
         ) : null}
