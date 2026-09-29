@@ -9,6 +9,7 @@ import { parseAmount } from "@/lib/voice";
 import { parseVoiceDrafts, type VoiceDraft } from "@/lib/operator-helpers";
 import { useDraft } from "@/lib/draft";
 import { dateInput, fromDateInput, ugx, useStore } from "@/lib/store";
+import { checkSales } from "@/lib/sales-check";
 
 export const Route = createFileRoute("/sale")({
   head: () => ({
@@ -36,8 +37,13 @@ type SaleDraft = {
 };
 
 function Sale() {
-  const { state, addTx, addDebtor, undoLast, cashAtHand, addStockItems } = useStore();
+  const { state, addTx, addDebtor, undoLast, cashAtHand, addStockItems, editTx, deleteTx } = useStore();
   const [voiceDrafts, setVoiceDrafts] = useState<VoiceDraft[] | null>(null);
+  /** Sale waiting for 'is this several days?' answer. */
+  const [bigAsk, setBigAsk] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editAmount, setEditAmount] = useState("");
+  const [editWhen, setEditWhen] = useState("");
   // Work in progress stays on the device until the sale is saved.
   const draft = useDraft<SaleDraft>("sale-v2", {
     amount: "",
@@ -83,11 +89,35 @@ function Sale() {
 
   const total = Number(amount) || 0;
 
+  const todayKey = dateInput(Date.now());
+  const isToday = when === todayKey;
+  const whenLabel = isToday
+    ? "Today"
+    : new Date(fromDateInput(when)).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+
+  // Usual day = average of days that already have sales (this term).
+  const usual = checkSales(state.txs.filter((t) => t.type === "sale")).avgDay;
+  const dayAlready = state.txs
+    .filter((t) => t.type === "sale" && dateInput(t.ts) === when)
+    .reduce((a, t) => a + t.amount, 0);
+  const looksBig = !credit && usual > 0 && total > usual * 2.5;
+
+  const recent = state.txs
+    .filter((t) => t.type === "sale" && t.ts >= Date.now() - 7 * 86_400_000 - 12 * 3_600_000)
+    .sort((a, b) => b.ts - a.ts)
+    .slice(0, 12);
+  const editing = recent.find((t) => t.id === editId);
+
   const press = (k: string) =>
     setAmount((a) => (k === "back" ? a.slice(0, -1) : (a + k).replace(/^0+(?=\d)/, "")));
 
-  const handleSave = () => {
+  const handleSave = (skipAsk = false) => {
     if (total <= 0) return;
+    if (looksBig && !skipAsk) {
+      setBigAsk(true);
+      return;
+    }
+    setBigAsk(false);
     const ts = fromDateInput(when);
     const label = note.trim() || "Cash sale";
     if (credit) {
@@ -130,8 +160,25 @@ function Sale() {
         </p>
       </Card>
 
-      <div className="flex gap-sm">
-        <div className="flex-grow">
+      <label className="flex min-h-12 items-center justify-between gap-3 rounded-md bg-surface-lowest px-sm">
+        <span className="text-sm font-bold text-on-surface-variant">Sale date</span>
+        <span className="flex items-center gap-2">
+          <span className={`text-sm font-bold ${isToday ? "text-primary" : "text-tertiary"}`}>{whenLabel}</span>
+          <input
+            type="date"
+            aria-label="Pick another day for this sale"
+            value={when}
+            max={todayKey}
+            onChange={(e) => patch({ when: e.target.value || todayKey })}
+            className="min-h-9 rounded-md border border-outline-variant bg-surface px-2 text-sm"
+          />
+        </span>
+      </label>
+      {!isToday ? (
+        <p className="text-xs text-tertiary">
+          This sale will be saved on {whenLabel}, not today. {dayAlready > 0 ? `That day already has UGX ${ugx(dayAlready)}.` : ""}
+        </p>
+      ) : null}
           <Keypad onPress={press} />
         </div>
         <MicButton
