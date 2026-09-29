@@ -7,6 +7,7 @@ import { ugx, useStore } from "@/lib/store";
 import type { Sheet } from "@/lib/export";
 import { exportTermReportCard } from "@/lib/operator-helpers";
 import { useAuth } from "@/lib/auth";
+import { checkSales } from "@/lib/sales-check";
 
 export const Route = createFileRoute("/report")({
   head: () => ({
@@ -37,6 +38,7 @@ function Report() {
   const before = state.txs.filter((t) => t.ts < range.start);
   const opening = state.capital + before.reduce((a, t) => a + (t.type === "sale" ? t.amount : t.type === "capital" ? 0 : -t.amount), 0);
   const cashChange = sales - stock - expenses;
+  const check = checkSales(inRange);
   const closing = opening + cashChange;
 
   const outstanding = state.debtors.reduce((a, d) => a + Math.max(0, d.amount - (d.payments ?? []).reduce((p, x) => p + x.amount, 0)), 0);
@@ -128,6 +130,13 @@ function Report() {
         <SectionTitle>Your cash · {range.label}</SectionTitle>
         <Line label="Money you started with" value={opening} />
         <Line label="Money from sales" value={sales} sign="+" tone="primary" />
+        {check.creditCount > 0 ? (
+          <>
+            <p className="pl-3 text-xs text-on-surface-variant">
+              Cash sales UGX {ugx(check.cashTotal)} · Credit paid back UGX {ugx(check.creditTotal)} ({check.creditCount})
+            </p>
+          </>
+        ) : null}
         <Line label="Spent buying stock" value={stock} sign="-" tone="tertiary" />
         <Line label="Other spending" value={expenses} sign="-" tone="tertiary" />
         <div className="mt-2 flex justify-between border-t border-outline-variant pt-2">
@@ -168,6 +177,70 @@ function Report() {
           </p>
         </Card>
       )}
+
+      <Card className="space-y-2">
+        <SectionTitle>Sales by day · {range.label}</SectionTitle>
+        <div className="grid grid-cols-2 gap-sm">
+          <div className="rounded-md bg-surface-lowest p-sm">
+            <p className="text-xs uppercase tracking-wide text-outline">Cash sales</p>
+            <p className="font-bold text-on-surface">UGX {ugx(check.cashTotal)}</p>
+            <p className="text-xs text-on-surface-variant">{check.cashCount} entries</p>
+          </div>
+          <div className="rounded-md bg-surface-lowest p-sm">
+            <p className="text-xs uppercase tracking-wide text-outline">Credit paid back</p>
+            <p className="font-bold text-on-surface">UGX {ugx(check.creditTotal)}</p>
+            <p className="text-xs text-on-surface-variant">{check.creditCount} payments</p>
+          </div>
+        </div>
+        {check.days.length === 0 ? (
+          <p className="text-sm text-outline">No sales in this range.</p>
+        ) : (
+          <>
+            <p className="text-xs text-on-surface-variant">
+              Usual day: UGX {ugx(check.avgDay)}. Biggest days first — a day far above usual is worth a look.
+            </p>
+            {check.days.slice(0, 10).map((d) => (
+              <div key={d.day} className="flex items-center justify-between gap-2 text-sm">
+                <span className="text-on-surface">
+                  {new Date(d.ts).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
+                  <span className="ml-2 text-xs text-outline">{d.count} entr{d.count === 1 ? "y" : "ies"}</span>
+                </span>
+                <span className={`font-bold ${check.avgDay > 0 && d.total > check.avgDay * 2.5 ? "text-tertiary" : "text-primary"}`}>
+                  UGX {ugx(d.total)}
+                  {check.avgDay > 0 && d.total > check.avgDay * 2.5 ? " ⚠" : ""}
+                </span>
+              </div>
+            ))}
+          </>
+        )}
+      </Card>
+
+      {check.flags.length > 0 ? (
+        <Card className="space-y-2 border border-tertiary/40 bg-tertiary/5">
+          <SectionTitle>Possible double entries</SectionTitle>
+          <p className="text-sm text-on-surface">
+            {check.flags.length} sale entries look like repeats. If they are mistakes, your sales are up to{" "}
+            <span className="font-bold text-tertiary">UGX {ugx(check.flaggedTotal)}</span> too high.
+          </p>
+          {check.flags.slice(0, 12).map((f) => (
+            <div key={f.id} className="rounded-md bg-surface-lowest p-sm text-sm">
+              <div className="flex justify-between gap-2">
+                <span className="font-semibold text-on-surface">{f.label}</span>
+                <span className="font-bold text-tertiary">UGX {ugx(f.amount)}</span>
+              </div>
+              <p className="text-xs text-on-surface-variant">
+                {new Date(f.ts).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} · {f.reason}
+              </p>
+            </div>
+          ))}
+          <p className="text-xs text-on-surface-variant">
+            Real repeats are fine (two customers can pay the same). Only fix the ones you did not mean to save.
+          </p>
+          <Link to="/history" className="inline-flex min-h-11 items-center gap-1 font-bold text-primary underline">
+            Open History to fix entries
+          </Link>
+        </Card>
+      ) : null}
 
       <div className="grid gap-sm sm:grid-cols-2">
         <Card>
