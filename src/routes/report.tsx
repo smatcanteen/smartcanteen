@@ -39,6 +39,11 @@ function Report() {
   const opening = state.capital + before.reduce((a, t) => a + (t.type === "sale" ? t.amount : t.type === "capital" ? 0 : -t.amount), 0);
   const cashChange = sales - stock - expenses;
   const check = checkSales(inRange);
+  // Entries the Home screen counts but this period leaves out (dated before the term started).
+  const outside = isTerm
+    ? state.txs.filter((t) => t.type !== "capital" && t.ts < range.start).sort((a, b) => b.ts - a.ts)
+    : [];
+  const outsideNet = outside.reduce((a, t) => a + (t.type === "sale" ? t.amount : -t.amount), 0);
   const closing = opening + cashChange;
 
   const outstanding = state.debtors.reduce((a, d) => a + Math.max(0, d.amount - (d.payments ?? []).reduce((p, x) => p + x.amount, 0)), 0);
@@ -125,6 +130,28 @@ function Report() {
   return (
     <AppLayout title="Reports">
       <RangeBar range={range} title={`Balance sheet — ${range.label}`} sheets={sheets} baseName="smartcanteen-report" />
+
+      {outside.length > 0 ? (
+        <Card className="space-y-2 border border-tertiary/40 bg-tertiary/5">
+          <SectionTitle>Entries dated before this term</SectionTitle>
+          <p className="text-sm text-on-surface">
+            {outside.length} entr{outside.length === 1 ? "y is" : "ies are"} dated before the term start date, so the totals above leave {outside.length === 1 ? "it" : "them"} out. They move your profit by{" "}
+            <span className="font-bold text-tertiary">{outsideNet < 0 ? "-" : ""}UGX {ugx(Math.abs(outsideNet))}</span>.
+            If the date is a mistake, fix it in History.
+          </p>
+          {outside.slice(0, 8).map((t) => (
+            <div key={t.id} className="flex justify-between gap-2 rounded-md bg-surface-lowest p-sm text-sm">
+              <span className="min-w-0 truncate">
+                {new Date(t.ts).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · {t.type} · {t.label}
+              </span>
+              <span className="shrink-0 font-bold">UGX {ugx(t.amount)}</span>
+            </div>
+          ))}
+          <Link to="/history" className="inline-flex min-h-11 items-center font-bold text-primary underline">
+            Open History to fix dates
+          </Link>
+        </Card>
+      ) : null}
 
       <Card className="space-y-2">
         <SectionTitle>Your cash · {range.label}</SectionTitle>
