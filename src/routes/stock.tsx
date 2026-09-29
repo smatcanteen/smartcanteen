@@ -55,6 +55,10 @@ function Stock() {
   );
   const atRetail = state.items.reduce((a, i) => a + i.sell * shelfQty(i), 0);
   const low = lowStockItems(state.items);
+  const madeFromCounted = state.items.reduce((a, i) => a + (i.realizedProfit ?? 0), 0);
+  const countedItems = state.items.filter((i) => i.lastKnownQuantity != null).length;
+  const uncountedItems = state.items.length - countedItems;
+  const soldOutZero = state.items.filter((i) => i.lastKnownQuantity === 0);
   const stockDue = needsWeeklyStockCheck(state.stockChecks, state.items, 7);
   const stockDays = daysSinceStockCheck(state.stockChecks, state.items);
   const filteredItems = state.items.filter((i) =>
@@ -262,6 +266,24 @@ function Stock() {
           </p>
         </div>
       )}
+
+      <Card className="space-y-2 border border-primary/30 bg-primary/5 p-3 sm:p-4">
+        <p className="label-bold text-on-surface-variant">Profit made from stock sold</p>
+        <p className={`font-display text-2xl font-bold tabular-nums ${madeFromCounted >= 0 ? "text-primary" : "text-tertiary"}`}>
+          UGX {ugx(madeFromCounted)}
+        </p>
+        <p className="text-xs leading-4 text-on-surface-variant">
+          Added up from your shelf counts. {countedItems} of {state.items.length} items counted.
+          {uncountedItems > 0
+            ? ` ${uncountedItems} not counted yet — tap Update on them to see what they made.`
+            : " Every item is counted."}
+        </p>
+        {soldOutZero.length > 0 ? (
+          <p className="text-xs leading-4 text-on-surface">
+            Sold out: {soldOutZero.map((i) => `${i.name} (UGX ${ugx(i.realizedProfit ?? 0)})`).join(", ")}
+          </p>
+        ) : null}
+      </Card>
 
       <div className="grid gap-sm sm:grid-cols-2">
         <Card className="min-w-0 p-3 sm:p-4">
