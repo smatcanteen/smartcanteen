@@ -75,10 +75,11 @@ function TermTransition() {
       sales: totals.sales,
       stock: totals.stock,
       expenses: totals.expenses,
-      net: profit,
+      net: profit + shelfValue + outstanding,
       expectedProfit,
       outstanding,
       cashAtHand,
+      shelfValue: Math.round(shelfValue),
       goal: state.savingsGoal,
       startedAt: state.termStartedAt,
     });
