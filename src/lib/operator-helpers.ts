@@ -202,6 +202,8 @@ export function exportTermReportCard(opts: {
   expectedProfit: number;
   outstanding: number;
   cashAtHand: number;
+  /** Stock still on the shelf, valued at what was paid for it. */
+  shelfValue?: number;
   goal: number;
   startedAt: number;
 }) {
@@ -243,12 +245,14 @@ export function exportTermReportCard(opts: {
     <div class="sub">${esc(opts.school || "SmartCanteen")} · ${esc(opts.termName)} · from ${started}</div>
     <div class="grid">
       <div class="box accent"><span>Total sales</span><strong>UGX ${money(opts.sales)}</strong></div>
-      <div class="box"><span>Stock + expenses</span><strong>UGX ${money(opts.stock + opts.expenses)}</strong></div>
-      <div class="box accent"><span>Net profit</span><strong>UGX ${money(net)}</strong></div>
-      <div class="box"><span>Expected profit (stock)</span><strong>UGX ${money(opts.expectedProfit)}</strong></div>
-      <div class="box"><span>Outstanding credit</span><strong>UGX ${money(opts.outstanding)}</strong></div>
-      <div class="box accent"><span>Cash at Hand</span><strong>UGX ${money(opts.cashAtHand)}</strong></div>
+      <div class="box"><span>Spent (stock + other)</span><strong>UGX ${money(opts.stock + opts.expenses)}</strong></div>
+      <div class="box accent"><span>Profit so far</span><strong>${net < 0 ? "-" : ""}UGX ${money(Math.abs(net))}</strong></div>
+      <div class="box"><span>Profit if all stock sells</span><strong>UGX ${money(opts.expectedProfit)}</strong></div>
+      <div class="box"><span>Stock on the shelf</span><strong>UGX ${money(opts.shelfValue ?? 0)}</strong></div>
+      <div class="box"><span>Owed to you</span><strong>UGX ${money(opts.outstanding)}</strong></div>
+      <div class="box accent"><span>Cash in hand</span><strong>UGX ${money(opts.cashAtHand)}</strong></div>
     </div>
+    <p class="sub" style="margin-top:14px">Profit so far counts unsold stock on the shelf and money customers still owe.</p>
     ${
       opts.goal > 0
         ? `<div class="goal"><div class="sub">Savings goal ${goalPct}% of UGX ${money(opts.goal)}</div><div class="bar"><i></i></div></div>`
