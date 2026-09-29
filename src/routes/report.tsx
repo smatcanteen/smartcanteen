@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppLayout } from "@/components/AppLayout";
 import { Icon } from "@/components/Icon";
@@ -27,6 +28,7 @@ function Report() {
   const { state, totals, cashAtHand, shelfValueAtCost } = useStore();
   const { user } = useAuth();
   const range = useRange(state.termStartedAt);
+  const [dayOrder, setDayOrder] = useState<"date" | "big">("date");
   const inRange = state.txs.filter((t) => range.has(t.ts) && t.type !== "capital");
   const isTerm = range.key === "Term";
 
@@ -39,6 +41,10 @@ function Report() {
   const opening = state.capital + before.reduce((a, t) => a + (t.type === "sale" ? t.amount : t.type === "capital" ? 0 : -t.amount), 0);
   const cashChange = sales - stock - expenses;
   const check = checkSales(inRange);
+  const dayRows = [...check.days].sort((a, b) => (dayOrder === "date" ? a.ts - b.ts : b.total - a.total));
+  const maxDay = Math.max(1, ...check.days.map((d) => d.total));
+  const bigDay = (total: number) => check.avgDay > 0 && total > check.avgDay * 2.5;
+  const bestDay = check.days[0];
   // Entries the Home screen counts but this period leaves out (dated before the term started).
   const outside = isTerm
     ? state.txs.filter((t) => t.type !== "capital" && t.ts < range.start).sort((a, b) => b.ts - a.ts)
@@ -205,39 +211,79 @@ function Report() {
         </Card>
       )}
 
-      <Card className="space-y-2">
+      <Card className="space-y-sm">
         <SectionTitle>Sales by day · {range.label}</SectionTitle>
-        <div className="grid grid-cols-2 gap-sm">
+
+        <div className="grid grid-cols-3 gap-2">
           <div className="rounded-md bg-surface-lowest p-sm">
-            <p className="text-xs uppercase tracking-wide text-outline">Cash sales</p>
-            <p className="font-bold text-on-surface">UGX {ugx(check.cashTotal)}</p>
+            <p className="text-[11px] font-bold uppercase tracking-wide text-outline">Cash sales</p>
+            <p className="mt-1 text-base font-bold tabular-nums text-on-surface">UGX {ugx(check.cashTotal)}</p>
             <p className="text-xs text-on-surface-variant">{check.cashCount} entries</p>
           </div>
           <div className="rounded-md bg-surface-lowest p-sm">
-            <p className="text-xs uppercase tracking-wide text-outline">Credit paid back</p>
-            <p className="font-bold text-on-surface">UGX {ugx(check.creditTotal)}</p>
+            <p className="text-[11px] font-bold uppercase tracking-wide text-outline">Credit paid back</p>
+            <p className="mt-1 text-base font-bold tabular-nums text-on-surface">UGX {ugx(check.creditTotal)}</p>
             <p className="text-xs text-on-surface-variant">{check.creditCount} payments</p>
           </div>
+          <div className="rounded-md bg-primary/10 p-sm">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-primary">Usual day</p>
+            <p className="mt-1 text-base font-bold tabular-nums text-primary">UGX {ugx(check.avgDay)}</p>
+            <p className="text-xs text-on-surface-variant">{check.days.length} days with sales</p>
+          </div>
         </div>
+
         {check.days.length === 0 ? (
           <p className="text-sm text-outline">No sales in this range.</p>
         ) : (
           <>
-            <p className="text-xs text-on-surface-variant">
-              Usual day: UGX {ugx(check.avgDay)}. Biggest days first — a day far above usual is worth a look.
-            </p>
-            {check.days.slice(0, 10).map((d) => (
-              <div key={d.day} className="flex items-center justify-between gap-2 text-sm">
-                <span className="text-on-surface">
-                  {new Date(d.ts).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
-                  <span className="ml-2 text-xs text-outline">{d.count} entr{d.count === 1 ? "y" : "ies"}</span>
-                </span>
-                <span className={`font-bold ${check.avgDay > 0 && d.total > check.avgDay * 2.5 ? "text-tertiary" : "text-primary"}`}>
-                  UGX {ugx(d.total)}
-                  {check.avgDay > 0 && d.total > check.avgDay * 2.5 ? " ⚠" : ""}
-                </span>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-on-surface-variant">
+                {bestDay ? `Best day: ${new Date(bestDay.ts).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : ""}
+              </p>
+              <div className="flex rounded-full bg-surface-high p-0.5 text-xs font-bold">
+                {([["date", "By date"], ["big", "Biggest first"]] as const).map(([k, l]) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setDayOrder(k)}
+                    className={`min-h-8 rounded-full px-3 ${dayOrder === k ? "bg-primary text-on-primary" : "text-on-surface-variant"}`}
+                  >
+                    {l}
+                  </button>
+                ))}
               </div>
-            ))}
+            </div>
+
+            <div className="divide-y divide-outline-variant/40">
+              {dayRows.map((d) => {
+                const big = bigDay(d.total);
+                return (
+                  <div key={d.day} className="grid grid-cols-[84px_1fr_auto] items-center gap-3 py-2">
+                    <div>
+                      <p className="text-sm font-bold leading-4 text-on-surface">
+                        {new Date(d.ts).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                      </p>
+                      <p className="text-xs text-outline">
+                        {new Date(d.ts).toLocaleDateString("en-GB", { weekday: "short" })} · {d.count} {d.count === 1 ? "entry" : "entries"}
+                      </p>
+                    </div>
+                    <div className="h-2.5 overflow-hidden rounded-full bg-surface-highest">
+                      <div
+                        className={`h-full rounded-full ${big ? "bg-tertiary" : "bg-primary"}`}
+                        style={{ width: `${Math.max(3, (d.total / maxDay) * 100)}%` }}
+                      />
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-sm font-bold tabular-nums ${big ? "text-tertiary" : "text-on-surface"}`}>UGX {ugx(d.total)}</p>
+                      {big ? <p className="text-[11px] font-bold text-tertiary">Above usual</p> : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-xs text-on-surface-variant">
+              Orange = more than 2½ times a usual day. Check it is one day, not several added together.
+            </p>
           </>
         )}
       </Card>
