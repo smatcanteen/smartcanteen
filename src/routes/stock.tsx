@@ -323,19 +323,19 @@ function Stock() {
                   <div className="min-w-0">
                     <p className="truncate text-base font-bold leading-6 text-on-surface">{item.name}</p>
                     <p className="text-xs leading-4 tabular-nums text-on-surface-variant">
-                      {item.qty} bought · {shelfQty(item)} left{isChecked ? "" : " (est.)"}
+                      {item.qty} bought · {shelfQty(item)} left{isChecked ? "" : " (guess)"}
                     </p>
                   </div>
                   <div className="flex shrink-0 justify-end">
                     <span className="rounded-full bg-primary/10 px-2 py-1 text-[11px] font-bold leading-4 tabular-nums text-primary">
-                      {isChecked ? `${item.lastKnownQuantity} left` : "Not checked"}
+                      {isChecked ? `${item.lastKnownQuantity} left` : "Not counted yet"}
                     </span>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 rounded-md bg-surface-low p-2">
-                  <Stat label="Expected profit" value={`UGX ${ugx(expectedProfit)}`} />
-                  <Stat label="Realized profit" value={`UGX ${ugx(item.realizedProfit ?? 0)}`} accent />
+                  <Stat label="Profit if all sold" value={`UGX ${ugx(expectedProfit)}`} />
+                  <Stat label="Profit made so far" value={`UGX ${ugx(item.realizedProfit ?? 0)}`} accent />
                 </div>
 
                 <button
@@ -350,15 +350,15 @@ function Stock() {
                 {details === item.id && (
                   <div className="space-y-2 rounded-md border border-outline-variant/60 p-2">
                     <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-                      <Stat label="Total bought" value={`${item.qty} units`} />
-                      <Stat label="Latest count" value={isChecked ? `${item.lastKnownQuantity} units` : "Not checked"} accent={isChecked} />
-                      <Stat label="Unit cost" value={`UGX ${ugx(unitCost)}`} />
-                      <Stat label="Profit / unit" value={`UGX ${ugx(item.sell - unitCost)}`} />
+                      <Stat label="Bought in total" value={`${item.qty} units`} />
+                      <Stat label="Left on the shelf" value={isChecked ? `${item.lastKnownQuantity} units` : "Not counted yet"} accent={isChecked} />
+                      <Stat label="You paid, each" value={`UGX ${ugx(unitCost)}`} />
+                      <Stat label="You earn, each" value={`UGX ${ugx(item.sell - unitCost)}`} />
                     </div>
                     <p className="text-xs text-on-surface-variant">
                       {isChecked && item.lastCheckedAt
-                        ? `Last checked ${new Date(item.lastCheckedAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}`
-                        : "Tap Update Stock to confirm what is physically left."}
+                        ? `Last counted ${new Date(item.lastCheckedAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}`
+                        : "Tap Update and count what is left on the shelf."}
                     </p>
                   </div>
                 )}
