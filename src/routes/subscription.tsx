@@ -244,7 +244,14 @@ function SubscriptionPage() {
             <ul className="divide-y divide-outline-variant/60">
               {[...state.payments]
                 .sort((a, b) => b.ts - a.ts)
-                .map((p) => (
+                .map((p) => {
+                  // Admin decides: read the verdict from the shared claim record.
+                  const verdict = s.paymentClaims?.find((c) => c.id === p.id)?.status;
+                  const shown: "confirmed" | "dismissed" | "pending" =
+                    verdict === "matched" ? "confirmed" : verdict === "dismissed" ? "dismissed" : (p.status ?? "pending");
+                  return { p, shown };
+                })
+                .map(({ p, shown }) => (
                   <li key={p.id} className="space-y-1 py-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
@@ -267,16 +274,16 @@ function SubscriptionPage() {
                       </div>
                       <span
                         className={`shrink-0 rounded-full px-2 py-1 text-xs font-bold ${
-                          p.status === "confirmed"
+                          shown === "confirmed"
                             ? "bg-primary/15 text-primary"
-                            : p.status === "dismissed"
+                            : shown === "dismissed"
                               ? "bg-surface-high text-on-surface-variant"
                               : "bg-secondary/15 text-secondary"
                         }`}
                       >
-                        {p.status === "confirmed"
+                        {shown === "confirmed"
                           ? "Confirmed"
-                          : p.status === "dismissed"
+                          : shown === "dismissed"
                             ? "Dismissed"
                             : "Waiting for admin"}
                       </span>
