@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { exportCsv, exportPdf, type Sheet } from "@/lib/export";
 import { fmtDate, statusLabels, ugxDisplay, usePlatform } from "@/lib/platform";
 import { healthScore } from "@/lib/admin-metrics";
+import { checkSales } from "@/lib/sales-check";
 
 export const Route = createFileRoute("/admin/view/$accountId")({
   head: () => ({
@@ -33,6 +34,7 @@ type Preview = {
   recent: { id: string; type: string; label: string; amount: number; ts: number; category?: string }[];
   stockRows: { name: string; qty: number; buy: number; sell: number }[];
   payments: any[];
+  saleTxs?: { id: string; type: string; label: string; amount: number; ts: number }[];
   updatedAt: number | null;
 };
 
@@ -71,6 +73,7 @@ function ViewAsPage() {
   }, [accountId]);
 
   const health = tenant ? healthScore(tenant) : null;
+  const check = preview ? checkSales(preview.saleTxs ?? []) : null;
 
   const exportPack = () => {
     if (!preview) return;
@@ -190,6 +193,51 @@ function ViewAsPage() {
               <span className="text-on-surface-variant">Last login · </span>
               {preview.lastLoginAt ? fmtDate(preview.lastLoginAt) : "Never"}
             </p>
+          </Card>
+
+          <Card className="space-y-sm">
+            <SectionTitle>Sales check</SectionTitle>
+            {check ? (
+              <>
+                <div className="grid grid-cols-2 gap-sm md:grid-cols-4">
+                  <Kpi label="All sales" value={`UGX ${ugxDisplay(check.total)}`} icon="payments" />
+                  <Kpi label="Cash sales" value={`UGX ${ugxDisplay(check.cashTotal)}`} sub={`${check.cashCount} entries`} icon="point_of_sale" />
+                  <Kpi label="Credit paid back" value={`UGX ${ugxDisplay(check.creditTotal)}`} sub={`${check.creditCount} payments`} icon="group" />
+                  <Kpi label="Possible repeats" value={String(check.flags.length)} sub={check.flags.length ? `up to UGX ${ugxDisplay(check.flaggedTotal)}` : "none found"} icon="content_copy" />
+                </div>
+                <p className="text-xs text-on-surface-variant">
+                  Usual day UGX {ugxDisplay(check.avgDay)}. Whole term, biggest days first.
+                </p>
+                {check.days.slice(0, 8).map((d) => (
+                  <div key={d.day} className="flex justify-between text-sm">
+                    <span>
+                      {new Date(d.ts).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}
+                      <span className="ml-2 text-xs text-on-surface-variant">{d.count} entries</span>
+                    </span>
+                    <span className={`font-bold tabular-nums ${check.avgDay > 0 && d.total > check.avgDay * 2.5 ? "text-tertiary" : "text-primary"}`}>
+                      UGX {ugxDisplay(d.total)}
+                      {check.avgDay > 0 && d.total > check.avgDay * 2.5 ? " ⚠" : ""}
+                    </span>
+                  </div>
+                ))}
+                {check.flags.length > 0 ? (
+                  <div className="space-y-1 border-t border-outline-variant pt-2">
+                    <p className="text-sm font-bold text-tertiary">Possible double entries</p>
+                    {check.flags.slice(0, 15).map((f) => (
+                      <div key={f.id} className="flex justify-between gap-2 text-sm">
+                        <span className="min-w-0">
+                          <span className="font-semibold">{f.label}</span>
+                          <span className="block text-xs text-on-surface-variant">
+                            {new Date(f.ts).toLocaleString("en-GB")} · {f.reason}
+                          </span>
+                        </span>
+                        <span className="shrink-0 font-bold tabular-nums text-tertiary">UGX {ugxDisplay(f.amount)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </>
+            ) : null}
           </Card>
 
           <Card className="space-y-sm">
