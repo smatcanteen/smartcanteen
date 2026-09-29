@@ -315,7 +315,7 @@ export const loadLivePlatform = createServerFn({ method: "POST" })
             .sort((a, b) => b.ts - a.ts),
           expenses: isStaff ? (Array.isArray(hub.expenses) ? hub.expenses : []) : [],
           auditLog: isStaff ? (Array.isArray(hub.auditLog) ? hub.auditLog : []) : [],
-          renewalChases: Array.isArray(hub.renewalChases) ? hub.renewalChases : [],
+          renewalChases: isStaff ? (Array.isArray(hub.renewalChases) ? hub.renewalChases : []) : [],
         },
         me: {
           quizPassed: isAgent ? !!(bookById.get(userId)?.data?.agentAdmin?.quizPassed) : false,
