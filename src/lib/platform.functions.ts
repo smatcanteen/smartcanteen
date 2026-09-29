@@ -303,11 +303,18 @@ export const loadLivePlatform = createServerFn({ method: "POST" })
           tickets: scopedTickets,
           announcements: Array.isArray(hub.announcements) ? hub.announcements : [],
           settings: { ...defaultSettings, ...(hub.settings ?? {}) },
-          payments: Array.isArray(hub.payments) ? hub.payments : [],
-          paymentClaims: [...claimById.values()].sort((a, b) => b.ts - a.ts),
-          referralClaims: [...refById.values()].sort((a, b) => b.ts - a.ts),
-          expenses: Array.isArray(hub.expenses) ? hub.expenses : [],
-          auditLog: Array.isArray(hub.auditLog) ? hub.auditLog : [],
+          // Money records: staff see everything; operators only their own; agents none.
+          payments: (Array.isArray(hub.payments) ? hub.payments : []).filter(
+            (p: any) => isStaff || (isOperator && p.accountId === userId),
+          ),
+          paymentClaims: [...claimById.values()]
+            .filter((c: any) => isStaff || (isOperator && c.accountId === userId))
+            .sort((a, b) => b.ts - a.ts),
+          referralClaims: [...refById.values()]
+            .filter((c: any) => isStaff || (isOperator && c.accountId === userId))
+            .sort((a, b) => b.ts - a.ts),
+          expenses: isStaff ? (Array.isArray(hub.expenses) ? hub.expenses : []) : [],
+          auditLog: isStaff ? (Array.isArray(hub.auditLog) ? hub.auditLog : []) : [],
           renewalChases: Array.isArray(hub.renewalChases) ? hub.renewalChases : [],
         },
         me: {
