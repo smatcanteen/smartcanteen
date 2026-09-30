@@ -214,7 +214,12 @@ function Report() {
       <Card className="space-y-sm">
         <SectionTitle>Sales by day · {range.label}</SectionTitle>
 
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
+          <div className="col-span-2 rounded-md bg-primary/10 p-sm sm:col-span-1">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-primary">Usual day</p>
+            <p className="mt-1 text-base font-bold tabular-nums text-primary">UGX {ugx(check.avgDay)}</p>
+            <p className="text-xs text-on-surface-variant">{check.days.length} days with sales</p>
+          </div>
           <div className="rounded-md bg-surface-lowest p-sm">
             <p className="text-[11px] font-bold uppercase tracking-wide text-outline">Cash sales</p>
             <p className="mt-1 text-base font-bold tabular-nums text-on-surface">UGX {ugx(check.cashTotal)}</p>
@@ -224,11 +229,6 @@ function Report() {
             <p className="text-[11px] font-bold uppercase tracking-wide text-outline">Credit paid back</p>
             <p className="mt-1 text-base font-bold tabular-nums text-on-surface">UGX {ugx(check.creditTotal)}</p>
             <p className="text-xs text-on-surface-variant">{check.creditCount} payments</p>
-          </div>
-          <div className="rounded-md bg-primary/10 p-sm">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-primary">Usual day</p>
-            <p className="mt-1 text-base font-bold tabular-nums text-primary">UGX {ugx(check.avgDay)}</p>
-            <p className="text-xs text-on-surface-variant">{check.days.length} days with sales</p>
           </div>
         </div>
 
@@ -258,7 +258,7 @@ function Report() {
               {dayRows.map((d) => {
                 const big = bigDay(d.total);
                 return (
-                  <div key={d.day} className="grid grid-cols-[84px_1fr_auto] items-center gap-3 py-2">
+                  <div key={d.day} className="grid grid-cols-[72px_1fr_auto] items-center gap-2 py-2 sm:grid-cols-[84px_1fr_auto] sm:gap-3">
                     <div>
                       <p className="text-sm font-bold leading-4 text-on-surface">
                         {new Date(d.ts).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
