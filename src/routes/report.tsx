@@ -214,7 +214,7 @@ function Report() {
       <Card className="space-y-sm">
         <SectionTitle>Sales by day · {range.label}</SectionTitle>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           <div className="col-span-2 rounded-md bg-primary/10 p-sm sm:col-span-1">
             <p className="text-[11px] font-bold uppercase tracking-wide text-primary">Usual day</p>
             <p className="mt-1 text-base font-bold tabular-nums text-primary">UGX {ugx(check.avgDay)}</p>
