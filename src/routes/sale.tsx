@@ -214,12 +214,6 @@ function Sale() {
             value={note}
             onChange={(e) => patch({ note: e.target.value })}
           />
-          <Field
-            label="Date of sale"
-            type="date"
-            value={when}
-            onChange={(e) => patch({ when: e.target.value })}
-          />
           <label className="flex min-h-11 items-center justify-between gap-3">
             <span className="text-sm font-bold text-on-surface-variant">
               Student credit (pays later)
